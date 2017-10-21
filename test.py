@@ -1,5 +1,6 @@
 from readLogFile.readLogFile import ReadLogFile
 a = ReadLogFile("logs/90degree scan target moving in.V4LOG")
-print(a.header)
-print(a.version)
-#print(a.nScanLines)
+#a = ReadLogFile("logs/360 degree scan harbour piles.V4LOG")
+#print(a.scanLines[0]['data'])
+from sys import getsizeof
+getsizeof(a)
