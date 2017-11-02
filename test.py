@@ -1,6 +1,7 @@
-from readLogFile.readLogFile import ReadLogFile
-a = ReadLogFile("logs/90degree scan target moving in.V4LOG")
-#a = ReadLogFile("logs/360 degree scan harbour piles.V4LOG")
-#print(a.scanLines[0]['data'])
-from sys import getsizeof
-getsizeof(a)
+from readLogFile.readCsvFile import ReadCsvFile
+log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'
+file = ReadCsvFile(log)
+print(str(file.nRows))
+file.readRows(10, )
+
+file.close()
