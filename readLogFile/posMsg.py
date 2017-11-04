@@ -1,4 +1,4 @@
-class PosMsg(object):
-    type = 1
-    def __init__(self, time):
-        setattr(self, 'time', time)
+from readLogFile.sensor import Sensor
+class PosMsg(Sensor):
+    sensor = 1
+    sensorStr = 'Position'
