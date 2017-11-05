@@ -9,5 +9,16 @@ from readLogFile.readCsvFile import ReadCsvFile
 #     elif msg == -1:
 #         break
 # file.close()
+import math
 from readLogFile.oGrid import OGrid
-grid = OGrid(0.5, 10, 5, 0.5)
+import matplotlib.pyplot as plt
+grid = OGrid(0.1, 10, 5, 0.5)
+step = 32*grid.GRAD2RAD
+cells = grid.sonarConeLookup(step, math.pi/4)
+grid.updateCells(cells, 1)
+fig, ax = grid.showP()
+fig.show()
+# #plotting
+# fig, ax = plt.subplots()
+# ax.imshow(grid.oLog, extent=[0, 1, 0, 1])
+# plt.show()

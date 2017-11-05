@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 class OGrid(object):
     OZero = 0.5
@@ -68,9 +69,11 @@ class OGrid(object):
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta, thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-math.pi/2, math.pi/2, self.RAD2GRAD)
-            self.mappingMax = 2*self.X;
+            self.mappingMax = self.X*self.Y/10;
             self.makeMap(self.steps)
             self.loadMap(self.steps[0]*self.GRAD2RAD)
+            self.fig = 0
+            self.ax = 0
 
     def makeMap(self, step_angle_size):
 
@@ -84,26 +87,26 @@ class OGrid(object):
             #Create  Mapping
             step = np.array(steps_to_create)*self.GRAD2RAD
             for step_i in step:
-                mapping = np.zeros((len(self.bearing_ref), self.mappingMax), dtype=np.dtype('u4'))
+                mapping = np.zeros((len(self.bearing_ref), self.mappingMax), dtype=int)
                 for i in range(0, len(self.bearing_ref)):
                     cells = self.sonarCone(step_i, self.bearing_ref[i])
                     try:
                         mapping[i, 0:len(cells)] = cells
                     except ValueError as error:
-                        print('Mapping variable to small !!!! %s' % error)
+                        raise MyException('Mapping variable to small !!!!')
                 # Saving to file
                 np.savez('%s%i.npz'%(filename_base, steps_to), mapping=mapping)
 
     def loadMap(self, step):
         # LOADMAP Loads the map. Step is in rad
         step = round(step*self.RAD2GRAD)
-        if self.cur_step != step or not self.mapping:
+        if self.cur_step != step or not self.mapping.any():
             if not any(np.nonzero(self.steps == step)):
                 self.makeMap(np.array([step]))
             try:
                 self.mapping = np.load('OGrid_data/Step_X=%i_Y=%i_size=%i_step=%i.npz' % (self.X, self.Y, int(self.cellSize * 100), step))['mapping']
             except FileNotFoundError:
-                print('Could not find mapping file!')
+                raise MyException('Could not find mapping file!')
             self.cur_step = step
 
     def sonarCone(self, step, theta):
@@ -117,10 +120,45 @@ class OGrid(object):
         return np.intersect1d(a, b)
 
     def sub2ind(self, row, col):
-        return row + col*self.iMax
+        #return row + col*self.iMax
+        return col + row*self.jMax
 
     def sonarConeLookup(self, step, theta):
         self.loadMap(step)
-        [tmp, j] = min(abs(theta - self.bearing_ref))
-        cone = self.mapping[j, -1]
-        return cone(cone != 0)
+        j = np.argmin(np.absolute(theta - self.bearing_ref))
+        cone = self.mapping[j]
+        return cone[cone != 0]
+    def updateCells(self, cells, value):
+        for cell in cells:
+            self.oLog.flat[cell] = value
+
+    def show(self):
+        if not self.fig or not self.ax:
+            self.fig, self.ax = plt.subplots()
+            self.ax.set(xlabel='X [m]', ylabel='Y [m])')
+        self.ax.set(title='Log-odds probability')
+        self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
+        self.fig.colorbar(self.ax)
+        plt.show()
+        return self.fig, self.ax
+
+    def showP(self):
+        if not self.fig or not self.ax:
+            self.fig, self.ax = plt.subplots()
+            self.ax.set(xlabel='X [m]', ylabel='Y [m])')
+        self.ax.set(title='Probability')
+
+        P = np.exp(self.oLog)/(1 + np.exp(self.oLog))
+        (row, col) = np.nonzero(np.isnan(P))
+        ind = self.sub2ind(row, col)
+        P.flat[ind[self.oLog.flat[ind] > 0]] = 1
+        P.flat[ind[self.oLog.flat[ind] < 0]] = 0
+        
+        self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
+        self.fig.colorbar(self.ax)
+        plt.show()
+        return self.fig, self.ax
+
+#Exeption class for makin understanable exception
+class MyException(Exception):
+    pass
