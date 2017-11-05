@@ -137,8 +137,8 @@ class OGrid(object):
             self.fig, self.ax = plt.subplots()
             self.ax.set(xlabel='X [m]', ylabel='Y [m])')
         self.ax.set(title='Log-odds probability')
-        self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
-        self.fig.colorbar(self.ax)
+        img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
+        self.fig.colorbar(img, ax=self.ax)
         plt.show()
         return self.fig, self.ax
 
@@ -154,8 +154,8 @@ class OGrid(object):
         P.flat[ind[self.oLog.flat[ind] > 0]] = 1
         P.flat[ind[self.oLog.flat[ind] < 0]] = 0
         
-        self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
-        self.fig.colorbar(self.ax)
+        img = self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters], vmin=0, vmax=1)
+        self.fig.colorbar(img, ax=self.ax)
         plt.show()
         return self.fig, self.ax
 

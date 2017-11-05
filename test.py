@@ -15,7 +15,9 @@ import matplotlib.pyplot as plt
 grid = OGrid(0.1, 10, 5, 0.5)
 step = 32*grid.GRAD2RAD
 cells = grid.sonarConeLookup(step, math.pi/4)
-grid.updateCells(cells, 1)
+grid.updateCells(cells, 1000)
+cells = grid.sonarConeLookup(step, -math.pi/4)
+grid.updateCells(cells, -1000)
 fig, ax = grid.showP()
 fig.show()
 # #plotting
