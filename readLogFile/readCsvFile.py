@@ -4,13 +4,14 @@ from readLogFile.posMsg import PosMsg
 from readLogFile.sonarMsg import SonarMsg
 import binascii
 import struct
-
+from math import pi
 class ReadCsvFile(object):
     """
     Read CSV log files
     """
     SONAR_START = 64 # 0x40 = 64 = '@'
     LINE_FEED = 10 # 0x0A = 10 = 'LF'
+    GRAD2RAD = pi / (16 * 200)
     curSonarMsg = bytearray()
     curSonarMsgTime = ''
 
@@ -82,7 +83,7 @@ class ReadCsvFile(object):
     def parseSonarMsg(self):
         if self.curSonarMsg[0] != self.SONAR_START:
             print('Message not complete')
-            return -1
+            return 0
         else:
             hexLength = b''.join([binascii.unhexlify(self.curSonarMsg[3:5]), binascii.unhexlify(self.curSonarMsg[1:3])])
             hexLength = struct.unpack('H', hexLength)
@@ -118,6 +119,10 @@ class ReadCsvFile(object):
                  msg.leftLim, msg.rightLim,
                  msg.step, msg.bearing,
                  msg.dataBins) = struct.unpack('<BBBHHIBHBBHHHHBHH', self.curSonarMsg[15:44])
+                msg.rightLim = self.wrap2pi((msg.rightLim*self.GRAD2RAD-pi/2))
+                msg.leftLim = self.wrap2pi((msg.leftLim*self.GRAD2RAD-pi/2))
+                msg.bearing = self.wrap2pi((-msg.bearing*self.GRAD2RAD-pi))
+                msg.step = msg.step*self.GRAD2RAD
                 if msg.hdCtrl & 1:
                     #adc8On bit is set
                     msg.data = list(self.curSonarMsg[44:(hexLength[0]+5)])
@@ -129,3 +134,6 @@ class ReadCsvFile(object):
             else:
                 raise NotImplementedError('Other messagetypes not implemented. Msg type: %i' % msg.type)
             return msg
+    @staticmethod
+    def wrap2pi(angle):
+        return (angle + pi) % (2 * pi) - pi

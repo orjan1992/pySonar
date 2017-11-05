@@ -4,7 +4,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 class OGrid(object):
-    OZero = 0.5
+    deltaSurface = 0.1
+
     cur_step = 0
     GRAD2RAD = math.pi/(16 * 200)
     RAD2GRAD = (16*200)/math.pi
@@ -23,6 +24,7 @@ class OGrid(object):
                 self.Y = round(sizeY / cellSize)
                 self.origoJ = round(self.X / 2)
                 self.origoI = self.Y
+                self.OZero = math.log(p_m/(1-p_m))
                 self.oLog = np.ones((self.Y, self.X)) * self.OZero
                 self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
                 [self.iMax, self.jMax] = np.shape(self.oLog)
@@ -49,7 +51,6 @@ class OGrid(object):
                             x = (j - self.origoJ) * self.cellSize
                             y = (self.origoI - i) * self.cellSize
                             self.r[i, j] = math.sqrt(pow(x, 2) + pow(y, 2))
-                            print(math.sqrt(x**2 + y**2))
                             self.theta[i, j] = math.atan2(x, y)
                             #ranges
                             self.rHigh[i, j] = math.sqrt((x + np.sign(x) * self.cellSize / 2)**2 + (y + self.cellSize / 2)**2)
@@ -65,7 +66,6 @@ class OGrid(object):
                             else:
                                 self.thetaLow[i, j] = math.atan2(x - self.cellSize / 2, y - self.cellSize / 2)
                                 self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y - self.cellSize / 2)
-                    print(self.r)
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta, thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-math.pi/2, math.pi/2, self.RAD2GRAD)
@@ -158,6 +158,27 @@ class OGrid(object):
         self.fig.colorbar(img, ax=self.ax)
         plt.show()
         return self.fig, self.ax
+
+    def updateCellsZhou2(self, cone, rangeScale, theta):
+        #UPDATECELLSZHOU
+        subRange = cone[self.rLow.flat[cone] < rangeScale]
+        onRange = cone[self.rLow.flat[cone] < (rangeScale + self.deltaSurface)]
+        onRange = onRange[self.rHigh.flat[onRange] > (rangeScale - self.deltaSurface)]
+
+        self.oLog.flat[subRange] = self.oLog.flat[subRange] - 4.595119850134590
+
+        alpha = np.abs(theta - self.theta.flat[onRange])
+        kh2 = 0.5 # MÅ defineres
+        mu = 1 # MÅ Defineres
+        P_DI = np.sin(kh2*np.sin(alpha))/(kh2*np.sin(alpha))
+        P_TS = 0.7
+        minP = 0
+        maxP = 1
+        P = P_DI * P_TS
+        P_O = (P - minP) / (2 * (maxP - minP)) + 0.5
+        self.oLog.flat[onRange] = self.oLog.flat[onRange] + np.log(P_O / (1 - P_O)) + self.OZero
+        return cone[self.rHigh.flat[cone] >= (rangeScale - self.deltaSurface)]
+    
 
 #Exeption class for makin understanable exception
 class MyException(Exception):
