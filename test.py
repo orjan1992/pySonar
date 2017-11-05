@@ -10,6 +10,4 @@ from readLogFile.readCsvFile import ReadCsvFile
 #         break
 # file.close()
 from readLogFile.oGrid import OGrid
-grid = OGrid(0.1, 10, 5, 0.5)
-
-print(grid.rLow)
+grid = OGrid(0.5, 10, 5, 0.5)
