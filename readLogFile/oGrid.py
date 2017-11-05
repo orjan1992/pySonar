@@ -4,6 +4,7 @@ from pathlib import Path
 
 class OGrid(object):
     OZero = 0.5
+    cur_step = 0
     def __init__(self, cellSize, sizeX, sizeY, p_m):
         if cellSize > 0:
             if (sizeX > cellSize) or (sizeY > cellSize):
@@ -17,10 +18,10 @@ class OGrid(object):
                 self.cellSize = cellSize
                 self.X = round(sizeX / cellSize)
                 self.Y = round(sizeY / cellSize)
-                self.origoJ = round(X / 2)
-                self.origoI = Y
-                self.oLog = np.ones((Y, X)) * self.OZero
-                self.O_logic = np.zeros((Y, X), dtype=bool)
+                self.origoJ = round(self.X / 2)
+                self.origoI = self.Y
+                self.oLog = np.ones((self.Y, self.X)) * self.OZero
+                self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
                 [self.iMax, self.jMax] = np.shape(self.oLog)
                 self.steps = np.array([4, 8, 16, 32])
 
@@ -36,14 +37,14 @@ class OGrid(object):
                     self.thetaLow = tmp['thetaLow']
                 except FileNotFoundError:
                     # Calculate angles and radii
-                    self.r = np.zeros((Y, X))
+                    self.r = np.zeros((self.Y, self.X))
                     self.rHigh = self.r
                     self.rLow = self.r
                     self.theta = self.r
                     self.thetaHigh = self.r
                     self.thetaLow = self.r
-                    for i in range(0, Y):
-                        for j in range(0, self.jMax):
+                    for i in range(0, self.Y):
+                        for j in range(0, self.X):
                             x = (j - self.origoJ) * self.cellSize
                             y = (self.origoI - i) * self.cellSize
                             self.r[i, j] = math.sqrt(x**2 + y**2)
@@ -90,9 +91,20 @@ class OGrid(object):
         theta1 = max(theta - step, -math.pi/2)
         theta2 = min(theta + step, math.pi/2)
     
-        [row, col] = find(self.thetaLow <= theta2)
-        a = sub2ind(size(self.O), row, col)
+        [row, col] = np.nonzero(self.thetaLow <= theta2)
+        a = self.sub2ind(row, col)
     
-        [row, col] = find(self.thetaHigh >= theta1)
-        b = sub2ind(size(self.O), row, col)
-        cone = intersect(a, b)
+        [row, col] = np.nonzero(self.thetaHigh >= theta1)
+        b = self.sub2ind(row, col)
+        return np.intersect1d(a, b)
+
+    def sub2ind(self, row, col):
+        return row + (col - 1)*self.iMax
+
+    def sonarConeLookup(self, step, theta):
+    self.loadMap(step);
+    [~, j] = min(abs(theta - obj.bearing_ref));
+    cone = obj.mapping(j,:);
+    cone = cone(cone
+    ~ = 0);
+    end
