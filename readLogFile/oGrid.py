@@ -28,7 +28,6 @@ class OGrid(object):
                 fStr = 'OGrid_data/angleRad_X=%i_Y=%i_size=%i.npz' % (self.X, self.Y, int(cellSize*100))
                 try:
                     tmp = np.load(fStr)
-                    print(tmp.files)
                     self.r = tmp['r']
                     self.rHigh = tmp['rHigh']
                     self.rLow = tmp['rLow']
@@ -85,7 +84,19 @@ class OGrid(object):
                     cells = self.sonarCone(step[k], bearing[i])
                     mapping[i, 0:len(cells)] = cells
                 # Saving to file
-                np.savez('%s%i.npz'%(filename_base, steps_to_create[k]))
+                np.savez('%s%i.npz'%(filename_base, steps_to_create[k]), mapping=mapping)
+
+    def loadMap(self, step):
+        # LOADMAP Loads the map. Step is in rad
+        step = round(step*16*200/math.pi)
+        if self.cur_step != step or not self.mapping:
+            if not any(np.nonzero(self.steps == step)):
+                self.makeMap(step)
+            try:
+                self.mapping = np.load('OGrid_data/Step_X=%i_Y=%i_size=%i_step=%i' % (self.X, self.Y, int(self.cellSize * 100), step))['mapping']
+            except FileNotFoundError:
+                print('Could not find mapping file!')
+            self.cur_step = step
 
     def sonarCone(self, step, theta):
         theta1 = max(theta - step, -math.pi/2)
@@ -102,9 +113,7 @@ class OGrid(object):
         return row + (col - 1)*self.iMax
 
     def sonarConeLookup(self, step, theta):
-    self.loadMap(step);
-    [~, j] = min(abs(theta - obj.bearing_ref));
-    cone = obj.mapping(j,:);
-    cone = cone(cone
-    ~ = 0);
-    end
+        self.loadMap(step)
+        [tmp, j] = min(abs(theta - self.bearing_ref))
+        cone = self.mapping[j,-1]
+        return cone(cone != 0)
