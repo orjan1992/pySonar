@@ -50,7 +50,7 @@ class ReadLogFile(object):
         msg.rightLim = Wrap2pi((msg.rightLim * self.GRAD2RAD - pi / 2))
         msg.leftLim = Wrap2pi((msg.leftLim * self.GRAD2RAD - pi / 2))
         msg.bearing = Wrap2pi((-msg.bearing * self.GRAD2RAD - pi))
-        msg.step = msg.step * self.GRAD2RAD
+        msg.step = msg.motorStep * self.GRAD2RAD
 
         if (msg.type == 2) and (msg.bearing <= pi/2) and (msg.bearing >= -pi/2):
             data = self.binary_file.read(msg.dataBins)
@@ -68,11 +68,8 @@ class ReadLogFile(object):
             self.messagesReturned += 1
             return msg
         else:
-           # if msg.type == 2:
-           #  print('Bearing=%f' % (msg.bearing*180/pi))
             self.binary_file.seek(msg.length-46, 1)
-            return msg
-           # return 0
+            return 0
 
     def close(self):
         self.binary_file.close()
