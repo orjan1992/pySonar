@@ -5,6 +5,9 @@ from readLogFile.sonarMsg import SonarMsg
 import binascii
 import struct
 from math import pi
+from readLogFile.wrap2pi import Wrap2pi
+import numpy as np
+
 class ReadCsvFile(object):
     """
     Read CSV log files
@@ -14,6 +17,7 @@ class ReadCsvFile(object):
     GRAD2RAD = pi / (16 * 200)
     curSonarMsg = bytearray()
     curSonarMsgTime = ''
+    messagesReturned = 0
 
     def __init__(self, filename, sonarPort, posPort):
         self.file = open(filename, newline='')
@@ -110,7 +114,7 @@ class ReadCsvFile(object):
                 # msg.sweepCode = self.curSonarMsg[17]
                 # msg.hdCtrl = self.curSonarMsg[18:20]
                 # msg.rangeScale = struct.unpack('H', self.curSonarMsg[20:22])
-                (msg.deviceType, msg.headStaus,
+                (msg.deviceType, msg.headStatus,
                  msg.sweepCode, msg.hdCtrl,
                  msg.rangeScale, dummy,
                  msg.gain, msg.slope,
@@ -119,21 +123,23 @@ class ReadCsvFile(object):
                  msg.leftLim, msg.rightLim,
                  msg.step, msg.bearing,
                  msg.dataBins) = struct.unpack('<BBBHHIBHBBHHHHBHH', self.curSonarMsg[15:44])
-                msg.rightLim = self.wrap2pi((msg.rightLim*self.GRAD2RAD-pi/2))
-                msg.leftLim = self.wrap2pi((msg.leftLim*self.GRAD2RAD-pi/2))
-                msg.bearing = self.wrap2pi((-msg.bearing*self.GRAD2RAD-pi))
+                msg.rightLim = Wrap2pi((msg.rightLim*self.GRAD2RAD-pi/2))
+                msg.leftLim = Wrap2pi((msg.leftLim*self.GRAD2RAD-pi/2))
+                msg.bearing = Wrap2pi((-msg.bearing*self.GRAD2RAD-pi))
                 msg.step = msg.step*self.GRAD2RAD
                 if msg.hdCtrl & 1:
                     #adc8On bit is set
-                    msg.data = list(self.curSonarMsg[44:(hexLength[0]+5)])
+                    msg.data = np.array(list(self.curSonarMsg[44:(hexLength[0]+5)]), dtype=np.uint8)
                 else:
-                    raise NotImplementedError("adc8off not yet implemented")
+                    tmp = struct.unpack(('<%iB' % msg.dataBins), self.curSonarMsg[44:(hexLength[0]+5)])
+                    msg.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)
+                    for i in range(0, len(tmp)):
+                        msg.data[2 * i] = (msg.data[i] & 240) >> 4  # 4 first bytes
+                        msg.data[2 * i + 1] = msg.data[i] & 15  # 4 last bytes
                 if self.curSonarMsg[hexLength[0]+5] != 10:
                     print('No end of message')
                     return -1
             else:
                 raise NotImplementedError('Other messagetypes not implemented. Msg type: %i' % msg.type)
+            self.messagesReturned += 1
             return msg
-    @staticmethod
-    def wrap2pi(angle):
-        return (angle + pi) % (2 * pi) - pi

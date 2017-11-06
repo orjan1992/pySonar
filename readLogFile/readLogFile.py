@@ -1,6 +1,8 @@
 import numpy as np
 from struct import unpack
-
+from readLogFile.sonarMsg import SonarMsg
+from math import pi
+from readLogFile.wrap2pi import Wrap2pi
 
 class ReadLogFile(object):
     """ Reading sonar logfiles
@@ -16,95 +18,61 @@ class ReadLogFile(object):
     extraOffset = 0
     indexOffset = 0
     checkOffset = 0
-    # tOpen
-    # tClose
-    scanLines = 0
+    GRAD2RAD = pi / (16 * 200)
+    messagesReturned = 0
 
     def __init__(self, filename):
-        binary_file = open(filename, "rb")
-        data = binary_file.read(80)
+        self.binary_file = open(filename, "rb")
+        data = self.binary_file.read(80)
         # Log header information
         (self.header, self.version, self.regOffset, self.dataOffset, self.nScanLines, self.configOffset,
          self.extraOffset, self.indexOffset, self.checkOffset, self.tOpen, self.tClose) = unpack('<32sIIIIIIIIdd', data)
 
         # scanLines
-        binary_file.seek(self.dataOffset)
-        # self.nScanLines = 1 #################################HUSK Å FJERNE"""""#################
-        self.scanLines = np.zeros(self.nScanLines, dtype=[('length', np.uint16),
-                                                          ('time', float),
-                                                          ('tNode', np.uint8),
-                                                          ('rNode', np.uint8),
-                                                          ('msgType', np.uint8),
-                                                          ('packetSeq', np.uint8),
-                                                          ('nodeN', np.uint8),
-                                                          ('length2', np.uint16),
-                                                          ('headType', np.uint8),
-                                                          ('status', np.uint8),
-                                                          ('sweepCode', np.uint8),
-                                                          ('headControls', np.uint16),
-                                                          ('rangeScale', np.uint16),
-                                                          ('transParam', np.uint64),
-                                                          ('gain', np.uint8),
-                                                          ('slope', np.uint16),
-                                                          ('adSpan', np.uint8),
-                                                          ('adLow', np.uint8),
-                                                          ('headingOffset', np.uint16),
-                                                          ('adInterval', np.uint16),
-                                                          ('leftLim', np.uint16),
-                                                          ('rightLim', np.uint16),
-                                                          ('motorStep', np.uint8),
-                                                          ('bearing', np.uint16),
-                                                          ('scanLineBytes', np.uint16),
-                                                          ('data', tuple)])
-        n = 0
-        for i in range(0, self.nScanLines):
-            data = binary_file.read(46)
-            (self.scanLines[n]['length'], self.scanLines[n]['time'], self.scanLines[n]['tNode'],
-             self.scanLines[n]['rNode'],
-             self.scanLines[n]['msgType'], self.scanLines[n]['packetSeq'], self.scanLines[n]['nodeN'],
-             self.scanLines[n]['length2'],
-             self.scanLines[n]['headType'], self.scanLines[n]['status'], self.scanLines[n]['sweepCode'],
-             self.scanLines[n]['headControls'],
-             self.scanLines[n]['rangeScale'], self.scanLines[n]['transParam'], self.scanLines[n]['gain'],
-             self.scanLines[n]['slope'],
-             self.scanLines[n]['adSpan'], self.scanLines[n]['adLow'], self.scanLines[n]['headingOffset'],
-             self.scanLines[n]['adInterval'],
-             self.scanLines[n]['leftLim'], self.scanLines[n]['rightLim'], self.scanLines[n]['motorStep'],
-             self.scanLines[n]['bearing'],
-             self.scanLines[n]['scanLineBytes']) = unpack('<HdBBBBBHBBBHHLBHBBHHHHBHH', data)
+        self.binary_file.seek(self.dataOffset)
 
-            if self.scanLines[n]['msgType'] == 2:
-                data = binary_file.read(self.scanLines[n]['scanLineBytes'])
-                adc8On = (self.scanLines[n]['headControls'] & 1 != 0)
-                if adc8On:
-                    self.scanLines[n]['data'] = unpack(('<' + str(self.scanLines[n]['scanLineBytes']) + 'B'), data)
-                else:
-                    raise NotImplementedError("adc8off not yet implemented")
-                n = n + 1
+    def readNextMsg(self):
+        if self.binary_file.tell() >= self.configOffset:
+            print('End of scan lines reached!')
+            return -1
+        msg = SonarMsg('')
+        data = self.binary_file.read(46)
+        if len(data) < 46:
+            return -1
+        (msg.length, msg.time, msg.txNode, msg.rxNode,
+         msg.type, dummy1, dummy2, dummy3,
+         dummy4, msg.headStatus, msg.sweepCode, msg.hdCtrl,
+         msg.rangeScale, dummy5, msg.gain, msg.slope,
+         msg.adSpan, msg.adLow, msg.headingOffset, msg.adInterval,
+         msg.leftLim, msg.rightLim, msg.motorStep, msg.bearing,
+         msg.dataBins) = unpack('<HdBBBBBHBBBHHLBHBBHHHHBHH', data)
+
+        msg.rightLim = Wrap2pi((msg.rightLim * self.GRAD2RAD - pi / 2))
+        msg.leftLim = Wrap2pi((msg.leftLim * self.GRAD2RAD - pi / 2))
+        msg.bearing = Wrap2pi((-msg.bearing * self.GRAD2RAD - pi))
+        msg.step = msg.step * self.GRAD2RAD
+
+        if (msg.type == 2) and (msg.bearing <= pi/2) and (msg.bearing >= -pi/2):
+            data = self.binary_file.read(msg.dataBins)
+            if msg.hdCtrl & 1:
+                # adc8On bit is set
+                msg.data = np.array(unpack(('<%iB' % msg.dataBins), data), dtype=np.uint8)
             else:
-                binary_file.seek(self.scanLines[n]['scanLineBytes'], 1)
-        binary_file.close()
-        print(n)
+                tmp = unpack(('<%iB' % msg.dataBins), data)
+                msg.data = np.zeros((len(tmp)*2, 1), dtype=np.uint8)
+                for i in range(0, len(tmp)):
+                    msg.data[2 * i] = (msg.data[i] & 240) >> 4 # 4 first bytes
+                    msg.data[2 * i + 1] = msg.data[i] & 15 # 4 last bytes
+            if (msg.headStatus >> 7) & 1: # bit 7 i set = extra appends message
+                self.binary_file.seek(msg.length - 46 - msg.dataBins, 1)
+            self.messagesReturned += 1
+            return msg
+        else:
+           # if msg.type == 2:
+           #  print('Bearing=%f' % (msg.bearing*180/pi))
+            self.binary_file.seek(msg.length-46, 1)
+            return msg
+           # return 0
 
-
-"""
-		%Scanlines
-		fseek(fId, Log.Header.DataOffset, 'bof');
-		j = 1;
-		for i = 1:Log.Header.nScanLines
-			Log.ScanLines.Position(j) = uint64(ftell(fId));
-			Log.ScanLines.Length(j) = fread(fId, 1, '*uint16'); %1,2
-			Log.ScanLines.Time(j) = fread(fId, 1, 'double'); %3-10
-			fseek(fId, 2, 'cof');
-			Log.ScanLines.Msg_type(j) = fread(fId, 1, '*uint8'); %13
-			if Log.ScanLines.Msg_type(j) ~=2
-				Log.ScanLines.IsScanLine(j) = false;
-				fseek(fId, Log.ScanLines.Length(j)-13, 'cof');
-			else
-				Log.ScanLines.IsScanLine(j) = true;
-				fseek(fId, Log.ScanLines.Length(j)-13, 'cof');
-				j = j+1;
-			end
-		end
-		fclose(fId);
-		"""
+    def close(self):
+        self.binary_file.close()

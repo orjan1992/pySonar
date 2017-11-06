@@ -69,7 +69,7 @@ class OGrid(object):
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta, thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-math.pi/2, math.pi/2, self.RAD2GRAD)
-            self.mappingMax = self.X*self.Y/10;
+            self.mappingMax = int(self.X*self.Y/10)
             self.makeMap(self.steps)
             self.loadMap(self.steps[0]*self.GRAD2RAD)
             self.fig = 0
@@ -87,7 +87,7 @@ class OGrid(object):
             #Create  Mapping
             step = np.array(steps_to_create)*self.GRAD2RAD
             for step_i in step:
-                mapping = np.zeros((len(self.bearing_ref), self.mappingMax), dtype=int)
+                mapping = np.zeros((len(self.bearing_ref), self.mappingMax), dtype=np.uint16)
                 for i in range(0, len(self.bearing_ref)):
                     cells = self.sonarCone(step_i, self.bearing_ref[i])
                     try:

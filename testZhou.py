@@ -2,16 +2,20 @@ import math
 from readLogFile.oGrid import OGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.sonarMsg import SonarMsg
-from readLogFile.posMsg import PosMsg
-from readLogFile.sensor import Sensor
-O = OGrid(0.1, 10, 10, 0.5)
-log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'
-file = ReadCsvFile(log, 4002, 13102)
-Threshold =60
-for i in range(0, 2000):
+from readLogFile.readLogFile import ReadLogFile
+csv = 0
+if csv:
+    log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'
+    file = ReadCsvFile(log, 4002, 13102)
+else:
+    log = 'logs/360 degree scan harbour piles.V4LOG'
+    file = ReadLogFile(log)
+
+O = OGrid(0.1, 20, 15, 0.5)
+Threshold = 60
+for i in range(0, 5000):
     msg = file.readNextMsg()
-    if msg != -1 and msg != 0 and msg.sensor == 2:
-        # msg = SonarMsg(msg)
+    if type(msg) is SonarMsg:
         dl = msg.rangeScale/len(msg.data)
         step = msg.step
         theta = msg.bearing
@@ -29,5 +33,6 @@ for i in range(0, 2000):
         break
 file.close()
 
+print('Messages returned: %i\n' % file.messagesReturned)
 fig, ax = O.showP()
 fig.show()
