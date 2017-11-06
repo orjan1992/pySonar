@@ -67,7 +67,7 @@ class OGrid(object):
                                 self.thetaLow[i, j] = math.atan2(x - self.cellSize / 2, y - self.cellSize / 2)
                                 self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y - self.cellSize / 2)
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta, thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
-            self.steps = np.array([4, 8, 16, 32])
+            self.steps = np.array([8, 16, 32, 64]) #Super seaking DST mechanical angles = 0.45, 0.9, 1.8, 3.6 degrees
             self.bearing_ref = np.linspace(-math.pi/2, math.pi/2, self.RAD2GRAD)
             self.mappingMax = self.X*self.Y/10;
             self.makeMap(self.steps)
