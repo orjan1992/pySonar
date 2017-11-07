@@ -123,9 +123,10 @@ class ReadCsvFile(object):
                  msg.leftLim, msg.rightLim,
                  msg.step, msg.bearing,
                  msg.dataBins) = struct.unpack('<BBBHHIBHBBHHHHBHH', self.curSonarMsg[15:44])
-                msg.rightLim = Wrap2pi((msg.rightLim*self.GRAD2RAD-pi/2))
-                msg.leftLim = Wrap2pi((msg.leftLim*self.GRAD2RAD-pi/2))
-                msg.bearing = Wrap2pi((-msg.bearing*self.GRAD2RAD-pi))
+                # redefining vessel x as 0 deg and vessel starboard as +90
+                msg.rightLim = Wrap2pi((msg.rightLim*self.GRAD2RAD+pi))
+                msg.leftLim = Wrap2pi((msg.leftLim*self.GRAD2RAD+pi))
+                msg.bearing = Wrap2pi((msg.bearing*self.GRAD2RAD+pi))
                 msg.step = msg.step*self.GRAD2RAD
                 if msg.hdCtrl & 1:
                     #adc8On bit is set

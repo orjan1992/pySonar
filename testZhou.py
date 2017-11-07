@@ -17,9 +17,9 @@ else:
 O = OGrid(0.1, 20, 15, 0.5)
 Threshold = 60
 theta = np.zeros(1)
-while file.messagesReturned < 1052:
+while file.messagesReturned < 2000:
     msg = file.readNextMsg()
-    if type(msg) is SonarMsg and msg.type==2:
+    if type(msg) is SonarMsg and msg.type == 2:
         O.autoUpdateZhou(msg, Threshold)
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
@@ -30,6 +30,6 @@ print('Messages returned: %i\n' % file.messagesReturned)
 fig, ax = O.showP()
 plt.show()
 
-(fig, ax) = plt.subplots()
-ax.plot(range(0, np.shape(theta)[0]), theta)
-plt.show()
+# (fig, ax) = plt.subplots()
+# ax.plot(range(0, np.shape(theta)[0]), theta)
+# plt.show()

@@ -150,12 +150,12 @@ class OGrid(object):
         return self.fig, self.ax
 
     def showP(self):
-        P = np.exp(self.oLog)/(1 + np.exp(self.oLog))
-        # P = 1 - 1 / (1 + np.exp(self.oLog))
-        (row, col) = np.nonzero(np.isnan(P))
-        ind = self.sub2ind(row, col)
-        P.flat[ind[self.oLog.flat[ind] > 0]] = 1
-        P.flat[ind[self.oLog.flat[ind] < 0]] = 0
+        # P = np.exp(self.oLog)/(1 + np.exp(self.oLog))
+        P = 1 - 1 / (1 + np.exp(self.oLog))
+        # (row, col) = np.nonzero(np.isnan(P))
+        # ind = self.sub2ind(row, col)
+        # P.flat[ind[self.oLog.flat[ind] > 0]] = 1
+        # P.flat[ind[self.oLog.flat[ind] < 0]] = 0
 
         if not self.fig or not self.ax:
             self.fig, self.ax = plt.subplots()
@@ -169,7 +169,7 @@ class OGrid(object):
 
     def updateCellsZhou2(self, cone, rangeScale, theta):
         # UPDATECELLSZHOU
-        subRange = cone[self.rHigh.flat[cone] < rangeScale] # -self.deltaSurface?
+        subRange = cone[self.rHigh.flat[cone] < rangeScale - self.deltaSurface]
         onRange = cone[self.rLow.flat[cone] < (rangeScale + self.deltaSurface)]
         onRange = onRange[self.rHigh.flat[onRange] > (rangeScale - self.deltaSurface)]
 
@@ -188,7 +188,7 @@ class OGrid(object):
         # a = self.rLow.flat[cone] >= (rangeScale - self.deltaSurface)
         # test = cone[a]
         # print('%i\t%i'% (sum(a), len(cone)))
-        return cone[self.rLow.flat[cone] >= (rangeScale - self.deltaSurface)]
+        return cone[self.rLow.flat[cone] >= (rangeScale + self.deltaSurface)]
 
     def autoUpdateZhou(self, msg, threshold):
         dl = msg.rangeScale/np.shape(msg.data)[0]
