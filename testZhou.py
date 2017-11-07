@@ -15,12 +15,13 @@ else:
     log = 'logs/360 degree scan harbour piles.V4LOG'
     file = ReadLogFile(log)
 
-O = OGrid(0.1, 20, 15, 0.5)
+O = OGrid(0.1, 20, 15, 0.5, True)
 Threshold = 60
 theta = np.zeros(1)
 while file.messagesReturned < 2000:
     msg = file.readNextMsg()
     if type(msg) is SonarMsg and msg.type == 2:
+        print(file.messagesReturned)
         O.autoUpdateZhou(msg, Threshold)
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
@@ -30,9 +31,3 @@ while file.messagesReturned < 2000:
 file.close()
 #
 print('Messages returned: %i\n' % file.messagesReturned)
-fig, ax = O.showP()
-plt.show()
-
-# (fig, ax) = plt.subplots()
-# ax.plot(range(0, np.shape(theta)[0]), theta)
-# plt.show()

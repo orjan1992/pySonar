@@ -1,8 +1,8 @@
 import numpy as np
 import math
 from pathlib import Path
-import matplotlib.pyplot as plt
-import time
+from PyQt4 import QtGui  # (the example applies equally well to PySide)
+import pyqtgraph as pg
 
 class OGrid(object):
     deltaSurface = 0.1
@@ -72,8 +72,18 @@ class OGrid(object):
             self.mappingMax = int(self.X*self.Y/10)
             self.makeMap(self.steps)
             self.loadMap(self.steps[0]*self.GRAD2RAD)
-            self.fig = 0
-            self.ax = 0
+            # self.fig = 0
+            # self.ax = 0
+            # self.plotOn = plotOn
+            # if plotOn:
+            #     self.app = QtGui.QApplication([])
+            #     self.w = QtGui.QWidget()
+            #     self.img = pg.PlotWidget()
+            #     self.layout = QtGui.QGridLayout()
+            #     self.w.setLayout(self.layout)
+            #     self.layout.addWidget(self.img, 0, 1, 3, 1)  # plot goes on right side, spanning 3 rows
+            #     self.w.show()
+            #     self.app.exec_()
 
     def makeMap(self, step_angle_size):
 
@@ -138,34 +148,34 @@ class OGrid(object):
         for cell in cells:
             self.oLog.flat[cell] = value
 
-    def show(self):
-        if not self.fig or not self.ax:
-            self.fig, self.ax = plt.subplots()
-            self.ax.set(xlabel='X [m]', ylabel='Y [m])')
-            img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
-            self.fig.colorbar(img, ax=self.ax)
-        self.ax.set(title='Log-odds probability')
-        img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
-        plt.show(block=False)
-        return self.fig, self.ax
+    # def show(self):
+    #     if not self.fig or not self.ax:
+    #         self.fig, self.ax = plt.subplots()
+    #         self.ax.set(xlabel='X [m]', ylabel='Y [m])')
+    #         img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
+    #         self.fig.colorbar(img, ax=self.ax)
+    #     self.ax.set(title='Log-odds probability')
+    #     img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
+    #     plt.show(block=False)
+    #     return self.fig, self.ax
 
     def showP(self):
-        # P = np.exp(self.oLog)/(1 + np.exp(self.oLog))
-        P = 1 - 1 / (1 + np.exp(self.oLog))
-        # (row, col) = np.nonzero(np.isnan(P))
-        # ind = self.sub2ind(row, col)
-        # P.flat[ind[self.oLog.flat[ind] > 0]] = 1
-        # P.flat[ind[self.oLog.flat[ind] < 0]] = 0
+        if self.plotOn:
+            # P = np.exp(self.oLog)/(1 + np.exp(self.oLog))
+            P = 1 - 1 / (1 + np.exp(self.oLog))
+            # (row, col) = np.nonzero(np.isnan(P))
+            # ind = self.sub2ind(row, col)
+            # P.flat[ind[self.oLog.flat[ind] > 0]] = 1
+            # P.flat[ind[self.oLog.flat[ind] < 0]] = 0
+            # self.img.image(P)
+            # self.img.show()
+            return 1
+        else:
+            print('Tried to plot, with plotting turned off')
+            return -1
 
-        if not self.fig or not self.ax:
-            self.fig, self.ax = plt.subplots()
-            self.ax.set(xlabel='X [m]', ylabel='Y [m])')
-            img = self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters], vmin=0, vmax=1)
-            self.fig.colorbar(img, ax=self.ax)
-        self.ax.set(title='Probability')
-        img = self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters], vmin=0, vmax=1)
-        plt.show(block=False)
-        return self.fig, self.ax
+    def getP(self):
+        return 1 - 1 / (1 + np.exp(self.oLog))
 
     def updateCellsZhou2(self, cone, rangeScale, theta):
         # UPDATECELLSZHOU
