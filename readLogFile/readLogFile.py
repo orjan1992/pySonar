@@ -44,13 +44,13 @@ class ReadLogFile(object):
          dummy4, msg.headStatus, msg.sweepCode, msg.hdCtrl,
          msg.rangeScale, dummy5, msg.gain, msg.slope,
          msg.adSpan, msg.adLow, msg.headingOffset, msg.adInterval,
-         msg.leftLim, msg.rightLim, msg.motorStep, msg.bearing,
+         msg.leftLim, msg.rightLim, msg.step, msg.bearing,
          msg.dataBins) = unpack('<HdBBBBBHBBBHHLBHBBHHHHBHH', data)
         # redefining vessel x as 0 deg and vessel starboard as +90
         msg.rightLim = Wrap2pi((msg.rightLim * self.GRAD2RAD + pi))
         msg.leftLim = Wrap2pi((msg.leftLim * self.GRAD2RAD + pi))
         msg.bearing = Wrap2pi((msg.bearing * self.GRAD2RAD + pi))
-        msg.step = msg.motorStep * self.GRAD2RAD
+        msg.step = msg.step * self.GRAD2RAD
         msg.rangeScale = msg.rangeScale*0.1
 
         if (msg.type == 2) and (msg.bearing <= pi/2) and (msg.bearing >= -pi/2):

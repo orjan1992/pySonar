@@ -127,7 +127,8 @@ class ReadCsvFile(object):
                 msg.rightLim = Wrap2pi((msg.rightLim*self.GRAD2RAD+pi))
                 msg.leftLim = Wrap2pi((msg.leftLim*self.GRAD2RAD+pi))
                 msg.bearing = Wrap2pi((msg.bearing*self.GRAD2RAD+pi))
-                msg.step = msg.step*self.GRAD2RAD
+                msg.step = msg.step * self.GRAD2RAD
+                msg.rangeScale = msg.rangeScale*0.1
                 if msg.hdCtrl & 1:
                     #adc8On bit is set
                     msg.data = np.array(list(self.curSonarMsg[44:(hexLength[0]+5)]), dtype=np.uint8)

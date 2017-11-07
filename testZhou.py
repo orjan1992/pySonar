@@ -9,6 +9,7 @@ import numpy as np
 csv = 0
 if csv:
     log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'
+    log = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
     file = ReadCsvFile(log, 4002, 13102)
 else:
     log = 'logs/360 degree scan harbour piles.V4LOG'
@@ -24,6 +25,8 @@ while file.messagesReturned < 2000:
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
         break
+    if file.messagesReturned % 5 == 0:
+        O.showP()
 file.close()
 #
 print('Messages returned: %i\n' % file.messagesReturned)

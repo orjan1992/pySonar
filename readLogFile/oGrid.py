@@ -146,7 +146,7 @@ class OGrid(object):
             self.fig.colorbar(img, ax=self.ax)
         self.ax.set(title='Log-odds probability')
         img = self.ax.imshow(self.oLog, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters])
-        plt.show()
+        plt.show(block=False)
         return self.fig, self.ax
 
     def showP(self):
@@ -164,7 +164,7 @@ class OGrid(object):
             self.fig.colorbar(img, ax=self.ax)
         self.ax.set(title='Probability')
         img = self.ax.imshow(P, extent=[-self.XLimMeters, self.XLimMeters, 0, self.YLimMeters], vmin=0, vmax=1)
-        plt.draw()
+        plt.show(block=False)
         return self.fig, self.ax
 
     def updateCellsZhou2(self, cone, rangeScale, theta):
