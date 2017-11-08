@@ -217,6 +217,10 @@ class OGrid(object):
         if not distanceUpdated:
             self.updateCellsZhou2(nonUpdatedCells, math.inf, theta)
 
+    def clearGrid(self):
+        self.oLog = np.ones((self.Y, self.X)) * self.OZero
+        self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
+
 
 
 #Exeption class for makin understanable exception
