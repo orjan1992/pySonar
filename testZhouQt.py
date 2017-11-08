@@ -1,8 +1,8 @@
 from PyQt4 import QtCore, QtGui
 import pyqtgraph as pg
 from readLogFile.oGrid import OGrid
-from readLogFile.sonarMsg import SonarMsg
 from readLogFile.readLogFile import ReadLogFile
+from readLogFile.readCsvFile import ReadCsvFile
 import numpy as np
 
 
@@ -30,7 +30,7 @@ class MainWidget(QtGui.QWidget):
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         # Button
-        self.button = QtGui.QPushButton('Start Plotting')
+        self.start_plotting_button = QtGui.QPushButton('Start Plotting')
 
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
@@ -42,9 +42,11 @@ class MainWidget(QtGui.QWidget):
         self.select_file_button = QtGui.QPushButton('Select File')
 
 
+
         # Adding items
         left_layout.addWidget(self.threshold_box)
-        left_layout.addWidget(self.button)
+        left_layout.addWidget(self.start_plotting_button)
+        left_layout.addWidget(self.select_file_button)
 
         main_layout.addLayout(left_layout)
         main_layout.addWidget(graphics_view)
@@ -52,11 +54,21 @@ class MainWidget(QtGui.QWidget):
         view_box.addItem(self.img_item)
         graphics_view.addItem(view_box)
         self.setLayout(main_layout)
-        self.button.clicked.connect(self.plotter)
+
+        #register button presses
+        self.start_plotting_button.clicked.connect(self.plotter)
+        self.select_file_button.clicked.connect(self.getFile)
+
+        #######
+        self.plotting_started = False
+        self.fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
 
     def plotter(self):
-        log = 'logs/360 degree scan harbour piles.V4LOG'
-        self.file = ReadLogFile(log)
+        if not self.plotting_started:
+            if self.fname.split('.')[-1] == 'csv':
+                self.file = ReadCsvFile(self.fname)
+            else:
+                self.file = ReadLogFile(self.fname)
         self.O = OGrid(0.1, 20, 15, 0.5)
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.updater)
@@ -66,12 +78,17 @@ class MainWidget(QtGui.QWidget):
         msg = self.file.readNextMsg()
         if msg == -1:
             self.timer.stop()
-        if msg != 0:
-            while msg.type != 2:
-                msg = self.file.readNextMsg()
-            self.O.autoUpdateZhou(msg, self.threshold_box.value())
-            self.img_item.setImage(self.O.getP().T)
+        elif msg != 0:
+            if msg.sensor == 2:
+                while msg.type != 2:
+                    msg = self.file.readNextMsg()
+                self.O.autoUpdateZhou(msg, self.threshold_box.value())
+                self.img_item.setImage(self.O.getP().T)
+            elif msg.sensor == 1:
+                print('Pos msg, not implemented')
 
+    def getFile(self):
+        self.fname = QtGui.QFileDialog.getOpenFileName(self.parent(), 'Open log file', 'logs/', "Log files (*.csv *.V4LOG)")
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])
