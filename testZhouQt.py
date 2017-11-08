@@ -20,6 +20,8 @@ class MainWidget(QtGui.QWidget):
         super(MainWidget, self).__init__(parent)
         main_layout = QtGui.QHBoxLayout() # Main layout
         left_layout = QtGui.QVBoxLayout()
+        right_layout = QtGui.QVBoxLayout()
+        bottom_right_layout = QtGui.QHBoxLayout()
 
         graphics_view = pg.GraphicsLayoutWidget() # layout for holding graphics object
         view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
@@ -41,6 +43,12 @@ class MainWidget(QtGui.QWidget):
         # Select file
         self.select_file_button = QtGui.QPushButton('Select File')
 
+        # Time box
+        self.msg_date = QtGui.QLineEdit()
+        self.msg_date.setReadOnly(True)
+        self.msg_time = QtGui.QLineEdit()
+        self.msg_time.setReadOnly(True)
+
 
 
         # Adding items
@@ -48,15 +56,21 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.start_plotting_button)
         left_layout.addWidget(self.select_file_button)
 
-        main_layout.addLayout(left_layout)
-        main_layout.addWidget(graphics_view)
-
         view_box.addItem(self.img_item)
         graphics_view.addItem(view_box)
+
+        bottom_right_layout.addWidget(self.msg_date)
+        bottom_right_layout.addWidget(self.msg_time)
+
+        right_layout.addWidget(graphics_view)
+        right_layout.addLayout(bottom_right_layout)
+
+        main_layout.addLayout(left_layout)
+        main_layout.addLayout(right_layout)
         self.setLayout(main_layout)
 
         #register button presses
-        self.start_plotting_button.clicked.connect(self.plotter)
+        self.start_plotting_button.clicked.connect(self.plotter_init)
         self.select_file_button.clicked.connect(self.getFile)
 
         #######
@@ -66,7 +80,7 @@ class MainWidget(QtGui.QWidget):
         self.timer = QtCore.QTimer()
         self.ogrid_conditions = [0.1, 20, 15, 0.5]
 
-    def plotter(self):
+    def plotter_init(self):
         if self.first_run:
             if self.fname.split('.')[-1] == 'csv':
                 self.file = ReadCsvFile(self.fname)
@@ -81,14 +95,12 @@ class MainWidget(QtGui.QWidget):
             self.pause = False
             self.start_plotting_button.setText('Stop plotting ')
         else:
-            self.timer.stop()
-            self.pause = True
-            self.start_plotting_button.setText('Start plotting')
+            self.stop_plot()
 
     def updater(self):
         msg = self.file.readNextMsg()
         if msg == -1:
-            self.timer.stop()
+            self.stop_plot()
         elif msg != 0:
             if msg.sensor == 2:
                 while msg.type != 2:
@@ -97,10 +109,24 @@ class MainWidget(QtGui.QWidget):
                 self.img_item.setImage(self.grid.getP().T)
             elif msg.sensor == 1:
                 print('Pos msg, not implemented')
+            self.msg_date.setText(msg.date)
+            self.msg_time.setText(msg.time)
+
+    def clear_img(self):
+        self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))
 
     def getFile(self):
+        self.stop_plot()
         self.fname = QtGui.QFileDialog.getOpenFileName(self.parent(), 'Open log file', 'logs/', "Log files (*.csv *.V4LOG)")
         self.first_run = True
+        if self.grid:
+            self.grid.clearGrid()
+            self.clear_img()
+
+    def stop_plot(self):
+        self.timer.stop()
+        self.pause = True
+        self.start_plotting_button.setText('Start plotting')
 
 
 if __name__ == '__main__':
