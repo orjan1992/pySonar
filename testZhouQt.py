@@ -77,8 +77,11 @@ class MainWidget(QtGui.QWidget):
         self.first_run = True
         self.pause = True
         self.fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
+        # self.fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
         self.timer = QtCore.QTimer()
         self.ogrid_conditions = [0.1, 20, 15, 0.5]
+        self.posx_old = 0
+        self.iterator = 0
 
     def plotter_init(self):
         if self.first_run:
@@ -106,9 +109,22 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.readNextMsg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+                if self.iterator % 10 == 0:
+                    self.grid.translational_motion(0.001, 0.001)
                 self.img_item.setImage(self.grid.getP().T)
+                self.iterator += 1
+                # self.img_item.setImage(self.grid.oLog.T)
             elif msg.sensor == 1:
-                print('Pos msg, not implemented')
+                if not self.posx_old:
+                    self.posx_old = msg.lat
+                    self.posy_old = msg.long
+                delta_x = msg.lat - self.posx_old
+                delta_y = msg.long - self.posy_old
+                # print('deltax: %f\tdeltay: %f' % (delta_x, delta_y))
+                self.grid.translational_motion(delta_x, delta_y)
+                self.posx_old = msg.lat
+                self.posy_old = msg.long
+
             self.msg_date.setText(msg.date)
             self.msg_time.setText(msg.time)
 
