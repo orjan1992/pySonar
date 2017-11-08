@@ -1,5 +1,6 @@
 from readLogFile.sensor import Sensor
 import numpy as np
+
 class SonarMsg(Sensor):
     sensorStr = 'SONAR'
     sensor = 2
@@ -23,4 +24,3 @@ class SonarMsg(Sensor):
     step = np.uint16(0)
     bearing = np.uint16(0)
     dataBins = np.uint16(0)
-    time = np.double(0)

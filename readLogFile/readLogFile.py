@@ -2,7 +2,7 @@ import numpy as np
 from struct import unpack
 from readLogFile.sonarMsg import SonarMsg
 from math import pi
-from readLogFile.wrap2pi import Wrap2pi
+from readLogFile.helperFunctions import Wrap2pi, getTimeLog
 
 class ReadLogFile(object):
     """ Reading sonar logfiles
@@ -39,7 +39,7 @@ class ReadLogFile(object):
         data = self.binary_file.read(46)
         if len(data) < 46:
             return -1
-        (msg.length, msg.time, msg.txNode, msg.rxNode,
+        (msg.length, time, msg.txNode, msg.rxNode,
          msg.type, dummy1, dummy2, dummy3,
          dummy4, msg.headStatus, msg.sweepCode, msg.hdCtrl,
          msg.rangeScale, dummy5, msg.gain, msg.slope,
@@ -52,6 +52,9 @@ class ReadLogFile(object):
         msg.bearing = Wrap2pi((msg.bearing * self.GRAD2RAD + pi))
         msg.step = msg.step * self.GRAD2RAD
         msg.rangeScale = msg.rangeScale*0.1
+
+        msg.date, msg.time, msg.date_time = getTimeLog(time)
+
 
         if (msg.type == 2) and (msg.bearing <= pi/2) and (msg.bearing >= -pi/2):
             data = self.binary_file.read(msg.dataBins)

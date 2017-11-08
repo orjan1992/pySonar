@@ -5,7 +5,7 @@ from readLogFile.sonarMsg import SonarMsg
 import binascii
 import struct
 from math import pi
-from readLogFile.wrap2pi import Wrap2pi
+from readLogFile.helperFunctions import Wrap2pi, getTimeCsv
 import numpy as np
 
 class ReadCsvFile(object):
@@ -55,7 +55,7 @@ class ReadCsvFile(object):
             return -1
 
     def parsePosMsg(self, raw_msg):
-        msg = PosMsg(raw_msg[0]['time'])
+        msg = PosMsg(getTimeCsv(raw_msg[0]['time']))
         data = str(binascii.unhexlify(''.join(raw_msg[0]['data'].split()))).split(',')
         # print(data)
         msg.id = data[0]
@@ -96,19 +96,19 @@ class ReadCsvFile(object):
                 print('hex %i \t word %i'%hexLength, wordLength)
                 # should return some error
                 return -1
-            msg = SonarMsg(self.curSonarMsgTime)
+            msg = SonarMsg(getTimeCsv(self.curSonarMsgTime))
             msg.txNode = self.curSonarMsg[7]
             msg.rxNode = self.curSonarMsg[8]
-            #self.curSonarMsg[9] Byte Count of attached message that follows this byte.
-            #Set to 0 (zero) in ‘mtHeadData’ reply to indicate Multi-packet mode NOT used by device.
+            # self.curSonarMsg[9] Byte Count of attached message that follows this byte.
+            # Set to 0 (zero) in ‘mtHeadData’ reply to indicate Multi-packet mode NOT used by device.
             msg.type = self.curSonarMsg[10]
-            #self.curSonarMsg[11]   Message Sequence Bitset (see below).
+            # self.curSonarMsg[11]   Message Sequence Bitset (see below).
             if msg.type == 2:
-                #mtHeadData
+                # mtHeadData
                 if self.curSonarMsg[12] != msg.txNode:
                     print('Tx1 != Tx2')
                     return -1
-                #13-14 Total Byte Count of Device Parameters + Reply Data (all packets).
+                # 13-14 Total Byte Count of Device Parameters + Reply Data (all packets).
                 # msg.deviceType = self.curSonarMsg[15]
                 # msg.headStaus = self.curSonarMsg[16]
                 # msg.sweepCode = self.curSonarMsg[17]
@@ -145,3 +145,5 @@ class ReadCsvFile(object):
                 raise NotImplementedError('Other messagetypes not implemented. Msg type: %i' % msg.type)
             self.messagesReturned += 1
             return msg
+
+
