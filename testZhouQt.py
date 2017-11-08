@@ -60,19 +60,30 @@ class MainWidget(QtGui.QWidget):
         self.select_file_button.clicked.connect(self.getFile)
 
         #######
-        self.plotting_started = False
+        self.first_run = True
+        self.pause = True
         self.fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
+        self.timer = QtCore.QTimer()
+        self.ogrid_conditions = [0.1, 20, 15, 0.5]
 
     def plotter(self):
-        if not self.plotting_started:
+        if self.first_run:
             if self.fname.split('.')[-1] == 'csv':
                 self.file = ReadCsvFile(self.fname)
             else:
                 self.file = ReadLogFile(self.fname)
-        self.O = OGrid(0.1, 20, 15, 0.5)
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.updater)
-        self.timer.start(0)
+            self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
+            self.timer.timeout.connect(self.updater)
+            self.first_run = False
+
+        if self.pause:
+            self.timer.start(0)
+            self.pause = False
+            self.start_plotting_button.setText('Stop plotting ')
+        else:
+            self.timer.stop()
+            self.pause = True
+            self.start_plotting_button.setText('Start plotting')
 
     def updater(self):
         msg = self.file.readNextMsg()
@@ -82,13 +93,15 @@ class MainWidget(QtGui.QWidget):
             if msg.sensor == 2:
                 while msg.type != 2:
                     msg = self.file.readNextMsg()
-                self.O.autoUpdateZhou(msg, self.threshold_box.value())
-                self.img_item.setImage(self.O.getP().T)
+                self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+                self.img_item.setImage(self.grid.getP().T)
             elif msg.sensor == 1:
                 print('Pos msg, not implemented')
 
     def getFile(self):
         self.fname = QtGui.QFileDialog.getOpenFileName(self.parent(), 'Open log file', 'logs/', "Log files (*.csv *.V4LOG)")
+        self.first_run = True
+
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])
