@@ -10,6 +10,7 @@ class OGrid(object):
     cur_step = 0
     GRAD2RAD = math.pi/(16 * 200)
     RAD2GRAD = (16*200)/math.pi
+    PI2 = math.pi/2
 
     def __init__(self, cellSize, sizeX, sizeY, p_m):
         if cellSize > 0:
@@ -69,7 +70,7 @@ class OGrid(object):
                                 self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y - self.cellSize / 2)
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta, thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
             self.steps = np.array([4, 8, 16, 32])
-            self.bearing_ref = np.linspace(-math.pi/2, math.pi/2, self.RAD2GRAD*math.pi)
+            self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD*math.pi)
             self.mappingMax = int(self.X*self.Y/10)
             self.makeMap(self.steps)
             self.loadMap(self.steps[0]*self.GRAD2RAD)
@@ -112,8 +113,8 @@ class OGrid(object):
             self.cur_step = step
 
     def sonarCone(self, step, theta):
-        theta1 = max(theta - step/2, -math.pi/2)
-        theta2 = min(theta + step/2, math.pi/2)
+        theta1 = max(theta - step/2, -self.PI2)
+        theta2 = min(theta + step/2, self.PI2)
         (row, col) = np.nonzero(self.thetaLow <= theta2)
         a = self.sub2ind(row, col)
 
@@ -191,8 +192,8 @@ class OGrid(object):
         :param delta_y: Change in positive grid direction [m] (surge)
         :return: Nothing
         """
-        ### need to fixe end points
-
+        if delta_y == delta_x == 0:
+            return
         new_iteration_needed = False
         if abs(delta_y) > self.cellSize:
             new_delta_y = (abs(delta_y) - self.cellSize)*np.sign(delta_y)
@@ -214,9 +215,9 @@ class OGrid(object):
                 w3 = delta_x*delta_y/self.cellArea
                 w5 = (self.cellSize-delta_x)*(self.cellSize-delta_y)/self.cellArea
                 w6 = delta_x*(self.cellSize-delta_y)/self.cellArea
-                for i in range(1, self.iMax):
-                    for j in range(0, self.jMax-1):
-                        new_grid[i, j] = (w2*self.oLog[i-1, j] + w3*self.oLog[i-1, j+1] + w5*self.oLog[i, j] + w6*self.oLog[i, j+1])+self.OZero
+                new_grid[1:, :-1] = w2 * self.oLog[:-1, :-1] + w3 * self.oLog[:-1, 1:] +\
+                                    w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:] + self.OZero
+
             else:
                 new_grid[-1, :] = self.OZero
                 new_grid[:, -1] = self.OZero
@@ -224,9 +225,8 @@ class OGrid(object):
                 w6 = delta_x*(self.cellSize+delta_y)/self.cellArea
                 w8 = (self.cellSize-delta_x)*(-delta_y)/self.cellArea
                 w9 = delta_x*(-delta_y)/self.cellArea
-                for i in range(0, self.iMax - 1):
-                    for j in range(0, self.jMax-1):
-                        new_grid[i, j] = w5*self.oLog[i, j] + w6*self.oLog[i, j+1] + w8*self.oLog[i+1, j] + w9*self.oLog[i+1, j+1]+self.OZero
+                new_grid[:-1, :-1] = w5*self.oLog[:-1, :-1] + w6*self.oLog[:-1, 1:] +\
+                                     w8*self.oLog[1:, :-1] + w9*self.oLog[1:, 1:] + self.OZero
         else:
             if delta_y >= 0:
                 new_grid[0, :] = self.OZero
@@ -235,9 +235,8 @@ class OGrid(object):
                 w2 = (self.cellSize + delta_x)*delta_y/self.cellArea
                 w4 = -delta_x*(self.cellSize-delta_y)/self.cellArea
                 w5 = (self.cellSize+delta_x)*(self.cellSize - delta_y)/self.cellArea
-                for i in range(1, self.iMax):
-                    for j in range(1, self.jMax):
-                        new_grid[i, j] = w1*self.oLog[i-1, j-1] + w2*self.oLog[i-1, j] + w4*self.oLog[i, j-1] + w5*self.oLog[i, j]+self.OZero
+                new_grid[1:, 1:] = w1*self.oLog[:-1, :-1] + w2*self.oLog[:-1, 1:] +\
+                                   w4*self.oLog[1:, :-1] + w5*self.oLog[1:, 1:] + self.OZero
             else:
                 new_grid[-1, :] = self.OZero
                 new_grid[:, 0] = self.OZero
@@ -245,10 +244,30 @@ class OGrid(object):
                 w5 = (self.cellSize+delta_x)*(self.cellSize+delta_y)/self.cellArea
                 w7 = (-delta_x)*(-delta_y)/self.cellArea
                 w8 = (self.cellSize+delta_x)*(-delta_y)/self.cellArea
-                for i in range(1, self.iMax):
-                    for j in range(0, self.jMax - 1):
-                        new_grid[i, j] = w4*self.oLog[i, j-1] + w5*self.oLog[i, j] + w7*self.oLog[i+1, j-1] + w8*self.oLog[i+1, j]+self.OZero
+                new_grid[:-1, 1:] = w4 * self.oLog[:-1, :-1] + w5 * self.oLog[:-1, 1:] +\
+                                    w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:] + self.OZero
         self.oLog = new_grid
+
+    def rot_motion(self, delta_psi):
+        """
+        Rotates the grid
+        :param delta_psi: change in heading
+        :return: Nothin
+        """
+        if delta_psi == 0:
+            return
+        new_iteration_needed = False
+        if abs(delta_psi) > self.PI2:
+            new_delta_psi = (abs(delta_psi) - self.PI2) * np.sign(delta_psi)
+            delta_psi = self.PI2 * np.sign(delta_psi)
+            new_iteration_needed = True
+        if new_iteration_needed:
+            self.rot_motion(new_delta_psi)
+
+        new_grid = np.zeros(np.shape(self.oLog))
+        if delta_psi > 0:
+
+            self.oLog = new_grid
 
 
 # Exeption class for makin understanable exception
