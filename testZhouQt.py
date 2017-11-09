@@ -4,6 +4,7 @@ from readLogFile.oGrid import OGrid
 from readLogFile.readLogFile import ReadLogFile
 from readLogFile.readCsvFile import ReadCsvFile
 import numpy as np
+from math import pi
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -49,8 +50,6 @@ class MainWidget(QtGui.QWidget):
         self.msg_time = QtGui.QLineEdit()
         self.msg_time.setReadOnly(True)
 
-
-
         # Adding items
         left_layout.addWidget(self.threshold_box)
         left_layout.addWidget(self.start_plotting_button)
@@ -80,8 +79,8 @@ class MainWidget(QtGui.QWidget):
         # self.fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
         self.timer = QtCore.QTimer()
         self.ogrid_conditions = [0.1, 20, 15, 0.5]
-        self.posx_old = 0
-        self.iterator = 0
+        self.old_pos_msg = 0
+        self.grid = 0
 
     def plotter_init(self):
         if self.first_run:
@@ -109,21 +108,13 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.readNextMsg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
-                # if self.iterator % 10 == 0:
-                self.grid.translational_motion(-0.01, -0.01)
                 self.img_item.setImage(self.grid.getP().T)
-                self.iterator += 1
-                # self.img_item.setImage(self.grid.oLog.T)
             elif msg.sensor == 1:
-                if not self.posx_old:
-                    self.posx_old = msg.lat
-                    self.posy_old = msg.long
-                delta_x = msg.lat - self.posx_old
-                delta_y = msg.long - self.posy_old
-                # print('deltax: %f\tdeltay: %f' % (delta_x, delta_y))
-                self.grid.translational_motion(delta_x, delta_y)
-                self.posx_old = msg.lat
-                self.posy_old = msg.long
+                if not self.old_pos_msg:
+                    self.old_pos_msg = msg
+                self.grid.rot_motion(msg.head - self.old_pos_msg.head)
+                self.grid.translational_motion(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y)
+                print('Delta x: {}\nDeltaY: {}\nDelta psi: {}'.format(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y, (msg.head - self.old_pos_msg.head)*180/pi))
 
             self.msg_date.setText(msg.date)
             self.msg_time.setText(msg.time)
