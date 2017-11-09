@@ -208,37 +208,45 @@ class OGrid(object):
         new_grid = np.zeros(np.shape(self.oLog))
         if delta_x >= 0:
             if delta_y >= 0:
+                new_grid[0, :] = self.OZero
+                new_grid[:, -1] = self.OZero
                 w2 = (self.cellSize-delta_x)*delta_y/self.cellArea
                 w3 = delta_x*delta_y/self.cellArea
                 w5 = (self.cellSize-delta_x)*(self.cellSize-delta_y)/self.cellArea
                 w6 = delta_x*(self.cellSize-delta_y)/self.cellArea
-                for i in range(1, self.iMax - 1):
-                    for j in range(1, self.jMax-1):
+                for i in range(1, self.iMax):
+                    for j in range(0, self.jMax-1):
                         new_grid[i, j] = (w2*self.oLog[i-1, j] + w3*self.oLog[i-1, j+1] + w5*self.oLog[i, j] + w6*self.oLog[i, j+1])+self.OZero
             else:
+                new_grid[-1, :] = self.OZero
+                new_grid[:, -1] = self.OZero
                 w5 = (self.cellSize-delta_x)*(self.cellSize+delta_y)/self.cellArea
                 w6 = delta_x*(self.cellSize+delta_y)/self.cellArea
                 w8 = (self.cellSize-delta_x)*(-delta_y)/self.cellArea
                 w9 = delta_x*(-delta_y)/self.cellArea
-                for i in range(1, self.iMax - 1):
-                    for j in range(1, self.jMax-1):
+                for i in range(0, self.iMax - 1):
+                    for j in range(0, self.jMax-1):
                         new_grid[i, j] = w5*self.oLog[i, j] + w6*self.oLog[i, j+1] + w8*self.oLog[i+1, j] + w9*self.oLog[i+1, j+1]+self.OZero
         else:
             if delta_y >= 0:
+                new_grid[0, :] = self.OZero
+                new_grid[:, 0] = self.OZero
                 w1 = -delta_x*delta_y/self.cellArea
                 w2 = (self.cellSize + delta_x)*delta_y/self.cellArea
                 w4 = -delta_x*(self.cellSize-delta_y)/self.cellArea
                 w5 = (self.cellSize+delta_x)*(self.cellSize - delta_y)/self.cellArea
-                for i in range(1, self.iMax - 1):
-                    for j in range(1, self.jMax - 1):
+                for i in range(1, self.iMax):
+                    for j in range(1, self.jMax):
                         new_grid[i, j] = w1*self.oLog[i-1, j-1] + w2*self.oLog[i-1, j] + w4*self.oLog[i, j-1] + w5*self.oLog[i, j]+self.OZero
             else:
+                new_grid[-1, :] = self.OZero
+                new_grid[:, 0] = self.OZero
                 w4 = (-delta_x)*(self.cellSize+delta_y)/self.cellArea
                 w5 = (self.cellSize+delta_x)*(self.cellSize+delta_y)/self.cellArea
                 w7 = (-delta_x)*(-delta_y)/self.cellArea
                 w8 = (self.cellSize+delta_x)*(-delta_y)/self.cellArea
-                for i in range(1, self.iMax - 1):
-                    for j in range(1, self.jMax - 1):
+                for i in range(1, self.iMax):
+                    for j in range(0, self.jMax - 1):
                         new_grid[i, j] = w4*self.oLog[i, j-1] + w5*self.oLog[i, j] + w7*self.oLog[i+1, j-1] + w8*self.oLog[i+1, j]+self.OZero
         self.oLog = new_grid
 
