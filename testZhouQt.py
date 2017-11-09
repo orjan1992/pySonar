@@ -28,7 +28,7 @@ class MainWidget(QtGui.QWidget):
 
         # IMAGE Window
         self.img_item = pg.ImageItem() # image item. the actual plot
-        colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array([[0.0, 0.0, 0.0, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
+        colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array([[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         # Button
@@ -109,8 +109,8 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.readNextMsg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
-                if self.iterator % 10 == 0:
-                    self.grid.translational_motion(0.001, 0.001)
+                # if self.iterator % 10 == 0:
+                self.grid.translational_motion(-0.01, -0.01)
                 self.img_item.setImage(self.grid.getP().T)
                 self.iterator += 1
                 # self.img_item.setImage(self.grid.oLog.T)

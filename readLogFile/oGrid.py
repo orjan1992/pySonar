@@ -20,6 +20,7 @@ class OGrid(object):
                 self.XLimMeters = sizeX / 2
                 self.YLimMeters = sizeY
                 self.cellSize = cellSize
+                self.cellArea = cellSize**2
                 self.X = round(sizeX / cellSize)
                 self.Y = round(sizeY / cellSize)
                 self.origoJ = round(self.X / 2)
@@ -207,51 +208,39 @@ class OGrid(object):
         new_grid = np.zeros(np.shape(self.oLog))
         if delta_x >= 0:
             if delta_y >= 0:
-                w2 = (self.cellSize-delta_x)*delta_y
-                w3 = delta_x*delta_y
-                w5 = (self.cellSize-delta_x)*(self.cellSize-delta_y)
-                w6 = delta_x*(self.cellSize-delta_y)
-                if w2 < 0 or w3 < 0 or w5 < 0 or w6 < 0 or (w2+w3+w5+w6)-1 > 0.0001:
-                    print(w2+w3+w5+w6)
-                    raise MyException('sum != 1 or w <0')
+                w2 = (self.cellSize-delta_x)*delta_y/self.cellArea
+                w3 = delta_x*delta_y/self.cellArea
+                w5 = (self.cellSize-delta_x)*(self.cellSize-delta_y)/self.cellArea
+                w6 = delta_x*(self.cellSize-delta_y)/self.cellArea
                 for i in range(1, self.iMax - 1):
                     for j in range(1, self.jMax-1):
-                        new_grid[i, j] = (w2*self.oLog[i-1, j] + w3*self.oLog[i-1, j+1] + w5*self.oLog[i, j] + w6*self.oLog[i, j+1])/self.cellSize+self.OZero
+                        new_grid[i, j] = (w2*self.oLog[i-1, j] + w3*self.oLog[i-1, j+1] + w5*self.oLog[i, j] + w6*self.oLog[i, j+1])+self.OZero
             else:
-                w5 = (self.cellSize-delta_x)*(self.cellSize+delta_y)
-                w6 = delta_x*(self.cellSize+delta_y)
-                w8 = (self.cellSize-delta_x)*(-delta_y)
-                w9 = delta_x*(-delta_y)
-                if w5 < 0 or w6 < 0 or w8 < 0 or w9 < 0 or (w5+w6+w8+w9)-1 > 0.0001:
-                    raise MyException('sum != 1 or w <0')
+                w5 = (self.cellSize-delta_x)*(self.cellSize+delta_y)/self.cellArea
+                w6 = delta_x*(self.cellSize+delta_y)/self.cellArea
+                w8 = (self.cellSize-delta_x)*(-delta_y)/self.cellArea
+                w9 = delta_x*(-delta_y)/self.cellArea
                 for i in range(1, self.iMax - 1):
                     for j in range(1, self.jMax-1):
                         new_grid[i, j] = w5*self.oLog[i, j] + w6*self.oLog[i, j+1] + w8*self.oLog[i+1, j] + w9*self.oLog[i+1, j+1]+self.OZero
         else:
             if delta_y >= 0:
-                w1 = -delta_x*delta_y
-                w2 = (self.cellSize + delta_x)*delta_y
-                w4 = -delta_x*(self.cellSize-delta_y)
-                w5 = (self.cellSize+delta_x)*(self.cellSize - delta_y)
-                if w1 < 0 or w2 < 0 or w4 < 0 or w5 < 0 or (w1+w2+w4+w5)-1 > 0.0001:
-                    raise MyException('sum != 1 or w <0')
+                w1 = -delta_x*delta_y/self.cellArea
+                w2 = (self.cellSize + delta_x)*delta_y/self.cellArea
+                w4 = -delta_x*(self.cellSize-delta_y)/self.cellArea
+                w5 = (self.cellSize+delta_x)*(self.cellSize - delta_y)/self.cellArea
                 for i in range(1, self.iMax - 1):
                     for j in range(1, self.jMax - 1):
                         new_grid[i, j] = w1*self.oLog[i-1, j-1] + w2*self.oLog[i-1, j] + w4*self.oLog[i, j-1] + w5*self.oLog[i, j]+self.OZero
             else:
-                w4 = (-delta_x)*(self.cellSize+delta_y)
-                w5 = (self.cellSize+delta_x)*(self.cellSize+delta_y)
-                w7 = (-delta_x)*(-delta_y)
-                w8 = (self.cellSize+delta_x)*(-delta_y)
-                if w4 < 0 or w5 < 0 or w7 < 0 or w8 < 0 or (w4+w5+w7+w8)-1 > 0.0001:
-                    raise MyException('sum != 1 or w <0')
+                w4 = (-delta_x)*(self.cellSize+delta_y)/self.cellArea
+                w5 = (self.cellSize+delta_x)*(self.cellSize+delta_y)/self.cellArea
+                w7 = (-delta_x)*(-delta_y)/self.cellArea
+                w8 = (self.cellSize+delta_x)*(-delta_y)/self.cellArea
                 for i in range(1, self.iMax - 1):
                     for j in range(1, self.jMax - 1):
                         new_grid[i, j] = w4*self.oLog[i, j-1] + w5*self.oLog[i, j] + w7*self.oLog[i+1, j-1] + w8*self.oLog[i+1, j]+self.OZero
-        if (self.oLog == new_grid).all:
-            print('dfgdfgdfgdfgdf')
-        self.oLog = np.copy(new_grid)
-        test = self.oLog - new_grid
+        self.oLog = new_grid
 
 
 # Exeption class for makin understanable exception

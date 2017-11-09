@@ -32,7 +32,7 @@ ax.set(xlabel='X [m]', ylabel='Y [m])')
 img = ax.imshow(O.getP(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
 plt.colorbar(img, ax=ax)
 
-O.translational_motion(0.1, 0)
+O.translational_motion(-5, -5)
 
 
 ax2 = plt.subplot(212)
