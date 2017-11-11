@@ -1,10 +1,11 @@
-import math
-from readLogFile.oGrid import OGrid
-from readLogFile.readCsvFile import ReadCsvFile
-from readLogFile.sonarMsg import SonarMsg
-from readLogFile.readLogFile import ReadLogFile
 import matplotlib.pyplot as plt
 import numpy as np
+
+from messages.sonarMsg import SonarMsg
+from ogrid.oGrid import OGrid
+from readLogFile.readCsvFile import ReadCsvFile
+from readLogFile.readLogFile import ReadLogFile
+
 csv = 0
 if csv:
     log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'

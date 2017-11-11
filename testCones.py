@@ -1,7 +1,9 @@
-from readLogFile.oGrid import OGrid
-import numpy as np
 from math import pi
-import time
+
+import numpy as np
+
+from ogrid.oGrid import OGrid
+
 O = OGrid(0.1, 20, 15, 0.5)
 print(len(O.bearing_ref))
 step = np.array([4, 8, 16, 32])*O.GRAD2RAD

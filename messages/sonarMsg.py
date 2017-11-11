@@ -1,5 +1,7 @@
-from readLogFile.sensor import Sensor
 import numpy as np
+
+from messages.sensor import Sensor
+
 
 class SonarMsg(Sensor):
     sensorStr = 'SONAR'

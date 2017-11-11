@@ -1,8 +1,11 @@
-import numpy as np
-from struct import unpack
-from readLogFile.sonarMsg import SonarMsg
 from math import pi
+from struct import unpack
+
+import numpy as np
+
+from messages.sonarMsg import SonarMsg
 from readLogFile.helperFunctions import Wrap2pi, getTimeLog
+
 
 class ReadLogFile(object):
     """ Reading sonar logfiles

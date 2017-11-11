@@ -1,10 +1,17 @@
-from PyQt4 import QtCore, QtGui
-import pyqtgraph as pg
-from readLogFile.oGrid import OGrid
-from readLogFile.readLogFile import ReadLogFile
-from readLogFile.readCsvFile import ReadCsvFile
-import numpy as np
+import logging
 from math import pi
+
+import numpy as np
+import pyqtgraph as pg
+from PyQt4 import QtCore, QtGui
+
+from ogrid.oGrid import OGrid
+from readLogFile.readCsvFile import ReadCsvFile
+from readLogFile.readLogFile import ReadLogFile
+
+LOG_FILENAME = 'logging_example.out'
+logging.basicConfig(filename=LOG_FILENAME,
+                    level=logging.DEBUG,)
 
 
 class MainWindow(QtGui.QMainWindow):

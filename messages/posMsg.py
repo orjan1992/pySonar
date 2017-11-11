@@ -1,5 +1,7 @@
-from readLogFile.sensor import Sensor
 from math import cos, sin
+
+from messages.sensor import Sensor
+
 
 class PosMsg(Sensor):
 

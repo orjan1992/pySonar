@@ -1,12 +1,13 @@
-import csv
-from itertools import islice
-from readLogFile.posMsg import PosMsg
-from readLogFile.sonarMsg import SonarMsg
 import binascii
+import csv
 import struct
+from itertools import islice
 from math import pi
-from readLogFile.helperFunctions import Wrap2pi, getTimeCsv
 import numpy as np
+
+from messages.sonarMsg import SonarMsg
+from readLogFile.helperFunctions import Wrap2pi, getTimeCsv
+
 
 class ReadCsvFile(object):
     """

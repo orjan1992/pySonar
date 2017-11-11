@@ -1,6 +1,5 @@
 from datetime import datetime
 
-
 class Sensor(object):
     sensorStr = 'None'
     sensor = 0

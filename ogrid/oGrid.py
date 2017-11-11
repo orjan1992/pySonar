@@ -1,9 +1,9 @@
 import numpy as np
 import math
 from pathlib import Path
-from PyQt4 import QtGui  # (the example applies equally well to PySide)
-import pyqtgraph as pg
+import logging
 
+logger = logging.getLogger('OGrid')
 
 class OGrid(object):
     deltaSurface = 0.1
@@ -19,7 +19,7 @@ class OGrid(object):
             if (sizeX > cellSize) or (sizeY > cellSize):
                 if round(sizeX / cellSize) % 2 == 0:
                     sizeX = sizeX + cellSize
-                    print('Extended grid by one cell in X direction to make it even')
+                    logger.info('Extended grid by one cell in X direction to make it even')
                 self.XLimMeters = sizeX / 2
                 self.YLimMeters = sizeY
                 self.cellSize = cellSize
@@ -88,7 +88,7 @@ class OGrid(object):
             if not Path('%s%i.npz' % (filename_base, step_angle_size[i])).is_file():
                 steps_to_create.append(step_angle_size[i])
         if steps_to_create:
-            print('Need to create %i steps' % len(steps_to_create))
+            logger.info('Need to create %i steps' % len(steps_to_create))
             k = 1
             # Create  Mapping
             step = np.array(steps_to_create) * self.GRAD2RAD
@@ -102,7 +102,7 @@ class OGrid(object):
                         raise MyException('Mapping variable to small !!!!')
                 # Saving to file
                 np.savez('%s%i.npz' % (filename_base, steps_to_create[j]), mapping=mapping)
-                print('Step %i done!' % k)
+                logger.info('Step %i done!' % k)
                 k += 1
 
     def loadMap(self, step):
@@ -116,6 +116,8 @@ class OGrid(object):
                     'OGrid_data/Step_X=%i_Y=%i_size=%i_step=%i.npz' % (self.X, self.Y, int(self.cellSize * 100), step))[
                     'mapping']
             except FileNotFoundError:
+                logger.error('Could not find mapping file!: {s}'.format('OGrid_data/Step_X=%i_Y=%i_size=%i_step=%i.npz'
+                                                                        % (self.X, self.Y, int(self.cellSize * 100), step)))
                 raise MyException('Could not find mapping file!')
             self.cur_step = step
 
@@ -136,6 +138,8 @@ class OGrid(object):
         # step is in rad
         self.loadMap(step)
         if np.min(np.absolute(theta - self.bearing_ref)) > step * 0.5:
+            logger.error('Difference between theta and theta ref in sonarConeLookup is {f}'.format(
+                np.min(np.absolute(theta - self.bearing_ref))))
             raise MyException('Difference between theta and theta ref is to large!')
         j = np.argmin(np.absolute(theta - self.bearing_ref))
         cone = self.mapping[j]
@@ -166,31 +170,26 @@ class OGrid(object):
         P = P_DI * P_TS
         P_O = (P - minP) / (2 * (maxP - minP)) + 0.5
         self.oLog.flat[onRange] += np.log(P_O / (1 - P_O)) + self.OZero
-        # a = self.rLow.flat[cone] >= (rangeScale - self.deltaSurface)
-        # test = cone[a]
-        # print('%i\t%i'% (sum(a), len(cone)))
         return cone[self.rLow.flat[cone] >= (rangeScale + self.deltaSurface)]
 
     def autoUpdateZhou(self, msg, threshold):
         dl = msg.rangeScale / np.shape(msg.data)[0]
         theta = msg.bearing
-        nonUpdatedCells = self.sonarConeLookup(msg.step, theta)
-        distanceUpdated = False
+        not_updated_cells = self.sonarConeLookup(msg.step, theta)
+        distance_updated = False
         for j in range(1, len(msg.data)):
             if abs((j * dl) * math.sin(theta)) > self.XLimMeters or abs((j * dl) * math.cos(theta)) > self.YLimMeters:
                 break  # SJEKK DETTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             if msg.data[j] > threshold:
-                old = np.copy(nonUpdatedCells)
-                nonUpdatedCells = self.updateCellsZhou2(nonUpdatedCells, j * dl, theta)
-                # if(len(nonUpdatedCells)>=len(old)):
-                #     raise MyException('len(nonUpdatedCells)>=len(old)')
-                distanceUpdated = True
-        if not distanceUpdated:
-            self.updateCellsZhou2(nonUpdatedCells, math.inf, theta)
+                not_updated_cells = self.updateCellsZhou2(not_updated_cells, j * dl, theta)
+                distance_updated = True
+        if not distance_updated:
+            self.updateCellsZhou2(not_updated_cells, math.inf, theta)
 
     def clearGrid(self):
         self.oLog = np.ones((self.Y, self.X)) * self.OZero
         self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
+        logger.info('Grid cleared')
 
     def translational_motion(self, delta_x, delta_y):
         """
