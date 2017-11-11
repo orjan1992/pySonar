@@ -9,9 +9,10 @@ from ogrid.oGrid import OGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
 
-LOG_FILENAME = 'logging_example.out'
+LOG_FILENAME = 'ZhouLog.out'
 logging.basicConfig(filename=LOG_FILENAME,
-                    level=logging.DEBUG,)
+                    level=logging.DEBUG,
+                    filemode='w',)
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -107,13 +108,13 @@ class MainWidget(QtGui.QWidget):
             self.stop_plot()
 
     def updater(self):
-        msg = self.file.readNextMsg()
+        msg = self.file.read_next_msg()
         if msg == -1:
             self.stop_plot()
         elif msg != 0:
             if msg.sensor == 2:
                 while msg.type != 2:
-                    msg = self.file.readNextMsg()
+                    msg = self.file.read_next_msg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
                 self.img_item.setImage(self.grid.getP().T)
             elif msg.sensor == 1:

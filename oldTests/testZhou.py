@@ -18,7 +18,7 @@ O = OGrid(0.1, 20, 15, 0.5, True)
 Threshold = 60
 theta = np.zeros(1)
 while file.messagesReturned < 2000:
-    msg = file.readNextMsg()
+    msg = file.read_next_msg()
     if type(msg) is SonarMsg and msg.type == 2:
         print(file.messagesReturned)
         O.autoUpdateZhou(msg, Threshold)

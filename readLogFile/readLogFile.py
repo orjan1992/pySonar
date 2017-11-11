@@ -8,10 +8,10 @@ from readLogFile.helperFunctions import Wrap2pi, getTimeLog
 
 
 class ReadLogFile(object):
-    """ Reading sonar logfiles
-	"""
-    # F
-    ## Fileinfo
+    """
+    Reading sonar logfiles
+    """
+
     header = ""
     version = 0
     regOffset = 0
@@ -34,7 +34,7 @@ class ReadLogFile(object):
         # scanLines
         self.binary_file.seek(self.dataOffset)
 
-    def readNextMsg(self):
+    def read_next_msg(self):
         if self.binary_file.tell() >= self.configOffset:
             print('End of scan lines reached!')
             return -1
@@ -57,7 +57,6 @@ class ReadLogFile(object):
         msg.rangeScale = msg.rangeScale*0.1
 
         msg.date, msg.time, msg.date_time = getTimeLog(time)
-
 
         if (msg.type == 2) and (msg.bearing <= pi/2) and (msg.bearing >= -pi/2):
             data = self.binary_file.read(msg.dataBins)

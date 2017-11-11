@@ -6,11 +6,14 @@ class Sensor(object):
     time = ''
     date = ''
 
-    def __init__(self, dateTimeTuple):
-        if dateTimeTuple:
-            self._set_dateTime(dateTimeTuple[2])
-            self.date = dateTimeTuple[0]
-            self.time = dateTimeTuple[1]
+    def __init__(self, *kwargs):
+        for args in kwargs:
+            if type(args) == tuple:
+                self._set_dateTime(args[2])
+                self.date = args[0]
+                self.time = args[1]
+            else:
+                self.time = args
 
     def _get_dateTime(self):
         return self.__dateTime
