@@ -23,6 +23,7 @@ class MoosMsgs(object):
         self.logger_pose = logging.getLogger('messages.MoosMsgs.pose')
         self.logger_pose.disabled = True
         self.logger_pose.disabled = True
+        self.logger.disabled = True
         self.logger.debug('MOOS msgs initiated')
 
         # Init
@@ -37,6 +38,9 @@ class MoosMsgs(object):
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
+
+    def close(self):
+        self.comms.close(True)
 
     def set_on_pos_msg_callback(self, cb):
         self.new_pos_msg_func = cb
@@ -58,7 +62,7 @@ class MoosMsgs(object):
             self.logger_bins.debug('Unpacking complte')
             sonar_msg.bearing = tmp[0]
             sonar_msg.length = tmp[1]
-            sonar_msg.bins = tmp[2:] # = np.array(tmp[2:])
+            sonar_msg.data = tmp[2:] # = np.array(tmp[2:])
             self.new_sonar_msg_func(sonar_msg)
             self.logger_bins.debug('Callback OK')
         return True

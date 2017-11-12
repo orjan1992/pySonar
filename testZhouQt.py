@@ -8,11 +8,13 @@ from PyQt4 import QtCore, QtGui
 from ogrid.oGrid import OGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
+from messages.moosMsgs import MoosMsgs
 
 LOG_FILENAME = 'ZhouLog.out'
 logging.basicConfig(filename=LOG_FILENAME,
-                    level=logging.DEBUG,
+                    level=logging.INFO,
                     filemode='w',)
+logger = logging.getLogger('ZhouQt')
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -51,6 +53,8 @@ class MainWidget(QtGui.QWidget):
 
         # Select file
         self.select_file_button = QtGui.QPushButton('Select File')
+        # Select file
+        self.from_morse_button = QtGui.QPushButton('From Morse')
 
         # Time box
         self.msg_date = QtGui.QLineEdit()
@@ -62,6 +66,7 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.threshold_box)
         left_layout.addWidget(self.start_plotting_button)
         left_layout.addWidget(self.select_file_button)
+        left_layout.addWidget(self.from_morse_button)
 
         view_box.addItem(self.img_item)
         graphics_view.addItem(view_box)
@@ -79,6 +84,7 @@ class MainWidget(QtGui.QWidget):
         #register button presses
         self.start_plotting_button.clicked.connect(self.plotter_init)
         self.select_file_button.clicked.connect(self.getFile)
+        self.from_morse_button.clicked.connect(self.run_morse)
 
         #######
         self.first_run = True
@@ -89,6 +95,45 @@ class MainWidget(QtGui.QWidget):
         self.ogrid_conditions = [0.1, 20, 15, 0.5]
         self.old_pos_msg = 0
         self.grid = 0
+        self.morse_running = False
+        self.latest_sonar_msg_moose = None
+
+    def run_morse(self):
+        if self.first_run:
+            self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
+                              self.ogrid_conditions[3])
+            self.first_run = False
+        else:
+            self.grid.clearGrid()
+        if self.morse_running:
+            self.moos_client.close()
+            self.morse_running = False
+            self.stop_plot()
+        else:
+            self.moos_client = MoosMsgs()
+            self.moos_client.set_on_sonar_msg_callback(self.moos_sonar_message_recieved)
+            # moos.set_on_pos_msg_callback(print_pos_msg)
+            self.moos_client.run()
+            self.morse_running = True
+            self.timer.timeout.connect(self.moos_updater)
+            self.timer.start(0)
+            self.pause = False
+            self.start_plotting_button.setText('Stop plotting ')
+
+    def moos_sonar_message_recieved(self, msg):
+        msg.rangeScale = 30
+        msg.step = 1.8*pi/180
+        logger.info('max = {}'.format(max(msg.data)))
+        msg.bearing = msg.bearing-pi/2
+        self.latest_sonar_msg_moose = msg
+        return True
+
+    def moos_updater(self):
+        if self.latest_sonar_msg_moose:
+            self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
+            self.img_item.setImage(self.grid.getP().T)
+            self.latest_sonar_msg_moose = None
+
 
     def plotter_init(self):
         if self.first_run:
@@ -122,7 +167,7 @@ class MainWidget(QtGui.QWidget):
                     self.old_pos_msg = msg
                 self.grid.rot_motion(msg.head - self.old_pos_msg.head)
                 self.grid.translational_motion(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y)
-                print('Delta x: {}\nDeltaY: {}\nDelta psi: {}'.format(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y, (msg.head - self.old_pos_msg.head)*180/pi))
+                # print('Delta x: {}\nDeltaY: {}\nDelta psi: {}'.format(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y, (msg.head - self.old_pos_msg.head)*180/pi))
 
             self.msg_date.setText(msg.date)
             self.msg_time.setText(msg.time)

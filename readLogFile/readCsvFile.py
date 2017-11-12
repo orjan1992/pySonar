@@ -6,6 +6,7 @@ from math import pi
 import numpy as np
 
 from messages.sonarMsg import SonarMsg
+from messages.posMsg import PosMsg
 from readLogFile.helperFunctions import Wrap2pi, getTimeCsv
 
 
@@ -38,7 +39,7 @@ class ReadCsvFile(object):
         """
         return list(islice(self.reader, 0, 1))
 
-    def readNextMsg(self):
+    def read_next_msg(self):
         """
         Read next msg
         :return: msg

@@ -138,7 +138,7 @@ class OGrid(object):
         # step is in rad
         self.loadMap(step)
         if np.min(np.absolute(theta - self.bearing_ref)) > step * 0.5:
-            logger.error('Difference between theta and theta ref in sonarConeLookup is {f}'.format(
+            logger.error('Difference between theta and theta ref in sonarConeLookup is {}'.format(
                 np.min(np.absolute(theta - self.bearing_ref))))
             raise MyException('Difference between theta and theta ref is to large!')
         j = np.argmin(np.absolute(theta - self.bearing_ref))
