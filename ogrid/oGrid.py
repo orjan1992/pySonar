@@ -29,9 +29,10 @@ class OGrid(object):
                 self.origoJ = round(self.X / 2)
                 self.origoI = self.Y
                 self.OZero = math.log(p_m / (1 - p_m))
-                self.oLog = np.ones((self.Y, self.X)) * self.OZero
+                self.oLog = np.ones((self.Y, self.X), dtype=np.float16) * self.OZero
                 self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
                 [self.iMax, self.jMax] = np.shape(self.oLog)
+
 
                 fStr = 'OGrid_data/angleRad_X=%i_Y=%i_size=%i.npz' % (self.X, self.Y, int(cellSize * 100))
                 try:
@@ -266,6 +267,7 @@ class OGrid(object):
         :param delta_psi: change in heading
         :return: Nothing
         """
+        # TODO Rotate function is shit. Should be rotated around grid origo, not cell origo...
         if delta_psi == 0:
             return
         new_iteration_needed = False

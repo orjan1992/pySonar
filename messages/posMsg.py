@@ -1,5 +1,5 @@
 from math import cos, sin
-
+import numpy as np
 from messages.sensor import Sensor
 
 
@@ -16,14 +16,24 @@ class PosMsg(Sensor):
     lat = 0.0
     long = 0.0
 
-    def _get_x(self):
-        x = cos(self.head) - sin(self.head)
-        return x
+    # def _get_x(self):
+    #     x = self.lat*cos(self.head) - self.long*sin(self.head)
+    #     return self.lat
+    #
+    # x = property(_get_x)
+    #
+    # def _get_y(self):
+    #     y = self.lat*sin(self.head) + self.long*cos(self.head)
+    #     return self.long
+    #
+    # y = property(_get_y)
 
-    x = property(_get_x)
-
-    def _get_y(self):
-        y = sin(self.head) + cos(self.head)
-        return y
-
-    y = property(_get_y)
+    def __sub__(self, other):
+        msg = PosMsg()
+        R = np.array([[cos(self.head), -sin(self.head)], [sin(self.head), cos(self.head)]])
+        lat_long = np.array([[(self.lat - other.lat)], [(self.long - other.long)]])
+        xy = np.dot(R.T, lat_long)
+        msg.x = xy[0]
+        msg.y = xy[1]
+        msg.head = self.head - other.head
+        return msg

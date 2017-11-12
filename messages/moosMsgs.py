@@ -4,7 +4,7 @@ import logging
 from struct import unpack, error as struct_error, calcsize
 
 from messages.moosSonarMsg import MoosSonarMsg
-from messages.moosPosMsg import MoosPosMsg
+from messages.posMsg import PosMsg
 
 
 class MoosMsgs(object):
@@ -31,7 +31,7 @@ class MoosMsgs(object):
         self.comms.set_on_connect_callback(self.on_connect)
         self.add_queues()
 
-        self.cur_pos_msg = MoosPosMsg()
+        self.cur_pos_msg = PosMsg()
 
         self.new_pos_msg_func = self.dummy_func
         self.new_sonar_msg_func = self.dummy_func
@@ -73,12 +73,12 @@ class MoosMsgs(object):
         self.logger_pose.debug('Message recieved. Type{}'.format(type(msg)))
         if msg.key() == 'currentNEDPos_x':
             self.logger_pose.debug('NEDPos x received')
-            self.cur_pos_msg.x = msg.double()
+            self.cur_pos_msg.lat = msg.double()
             self.cur_pos_msg.moos_flag_lat = True
             self.pos_msg_flags[0] = True
         if msg.key() == 'currentNEDPos_y':
             self.logger_pose.debug('NEDPos y received')
-            self.cur_pos_msg.y = msg.double()
+            self.cur_pos_msg.long = msg.double()
             self.cur_pos_msg.moos_flag_long = True
             self.pos_msg_flags[1] = True
         if msg.key() == 'currentNEDPos_rz':
@@ -90,7 +90,7 @@ class MoosMsgs(object):
             if self.new_pos_msg_func(self.cur_pos_msg):
                 self.logger_pose.debug('Callback complete')
 
-            self.cur_pos_msg = MoosPosMsg()
+            self.cur_pos_msg = PosMsg()
             self.pos_msg_flags = [False, False, False]
         return True
 

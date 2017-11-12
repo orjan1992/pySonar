@@ -97,6 +97,8 @@ class MainWidget(QtGui.QWidget):
         self.grid = 0
         self.morse_running = False
         self.latest_sonar_msg_moose = None
+        self.latest_pos_msg_moose = None
+        self.old_pos_msg_moose = None
 
     def run_morse(self):
         if self.first_run:
@@ -112,7 +114,7 @@ class MainWidget(QtGui.QWidget):
         else:
             self.moos_client = MoosMsgs()
             self.moos_client.set_on_sonar_msg_callback(self.moos_sonar_message_recieved)
-            # moos.set_on_pos_msg_callback(print_pos_msg)
+            self.moos_client.set_on_pos_msg_callback(self.moos_pos_message_recieved)
             self.moos_client.run()
             self.morse_running = True
             self.timer.timeout.connect(self.moos_updater)
@@ -128,12 +130,31 @@ class MainWidget(QtGui.QWidget):
         self.latest_sonar_msg_moose = msg
         return True
 
+    def moos_pos_message_recieved(self, msg):
+        self.latest_pos_msg_moose = msg
+        return True
+
     def moos_updater(self):
+        updated = False
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
-            self.img_item.setImage(self.grid.getP().T)
+            updated = True
             self.latest_sonar_msg_moose = None
+        if self.latest_pos_msg_moose:
+            if not self.old_pos_msg_moose:
+                self.old_pos_msg_moose = self.latest_pos_msg_moose
+            delta_msg = self.latest_pos_msg_moose - self.old_pos_msg_moose
+            if delta_msg.x != 0 or delta_msg.y != 0 or delta_msg.head != 0:
+                self.grid.translational_motion(delta_msg.y, delta_msg.x) # ogrid reference frame
+                # self.grid.rot_motion(delta_psi)
+                print('Transformed grid: delta_x: {}\tdelta_y: {}\tdelta_psi: {} deg'.format(delta_msg.x, delta_msg.y,
+                                                                                             delta_msg.head * 180 / pi))
+                updated = True
+            self.old_pos_msg_moose = self.latest_pos_msg_moose
+            self.latest_pos_msg_moose = None
 
+        if updated:
+            self.img_item.setImage(self.grid.getP().T)
 
     def plotter_init(self):
         if self.first_run:
@@ -165,7 +186,7 @@ class MainWidget(QtGui.QWidget):
             elif msg.sensor == 1:
                 if not self.old_pos_msg:
                     self.old_pos_msg = msg
-                self.grid.rot_motion(msg.head - self.old_pos_msg.head)
+                # self.grid.rot_motion(msg.head - self.old_pos_msg.head)
                 self.grid.translational_motion(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y)
                 # print('Delta x: {}\nDeltaY: {}\nDelta psi: {}'.format(msg.x - self.old_pos_msg.x, msg.y - self.old_pos_msg.y, (msg.head - self.old_pos_msg.head)*180/pi))
 
