@@ -58,7 +58,7 @@ class MoosMsgs(object):
             self.logger_bins.debug(msg.is_binary())
             self.logger_bins.debug(type(msg.binary_data()))
             data = msg.binary_data().encode('latin-1')
-            tmp = unpack('>dH{:d}f'.format((len(data) - 10) // 4), data)
+            tmp = unpack('>dH{:d}B'.format((len(data) - 10)), data)
             self.logger_bins.debug('Unpacking complte')
             sonar_msg.bearing = tmp[0]
             sonar_msg.length = tmp[1]

@@ -167,7 +167,7 @@ class OGrid(object):
         alpha = np.abs(theta - self.theta.flat[onRange])
         kh2 = 0.5  # MÅ defineres
         mu = 1  # MÅ Defineres
-        P_DI = np.sin(kh2 * np.sin(alpha)) / (kh2 * np.sin(alpha))
+        P_DI = np.sin(kh2 * np.sin(alpha)) / (kh2 * np.sin(alpha)+0.00000000001)
         P_TS = 0.7
         minP = 0
         maxP = 1
