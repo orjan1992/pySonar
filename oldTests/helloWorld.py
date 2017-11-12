@@ -1,14 +1,14 @@
 import pymoos
 import time
+from struct import unpack, calcsize
+import codecs
 
 comms = pymoos.comms()
 
 
 def on_connect():
-    comms.register('test', 0.1)
-    comms.register('simple_var', 0.1)
-    comms.register('DB_TIME', 0.1)
-    return
+    comms.register('bins', 0.1)
+    return True
 
 
 def main():
@@ -16,15 +16,17 @@ def main():
     print('test')
     comms.set_on_connect_callback(on_connect)
     comms.run('localhost', 9000, 'pymoos')
-    i = 0
-    while True:
-        time.sleep(1)
-        comms.notify('simple_var', 'hello world%i' % i, pymoos.time())
-        comms.notify('test', 'test2', pymoos.time())
-        # map(lambda msg: msg.Trace(), comms.fetch())
-        a = comms.fetch()
-        if a.__len__() > 0:
-            a.__getitem__(0).trace()
+    time.sleep(1)
+    a = comms.fetch()
+    for msg in a:
+        # test = msg.binary_data().decode('utf_8', 'replace')
+        # print(msg.binary_data())
+        data = msg.binary_data().encode('latin-1')
+        tmp = unpack('>dH{:d}f'.format((len(data) - 10) // 4), data)
+        head = tmp[0]
+        length = tmp[1]
+        bins = tmp[2:]
+        print(bins)
 
 
 if __name__ == "__main__":

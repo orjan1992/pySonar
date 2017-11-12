@@ -150,7 +150,11 @@ class OGrid(object):
             self.oLog.flat[cell] = value
 
     def getP(self):
-        return 1 - 1 / (1 + np.exp(self.oLog))
+        try:
+            P = 1 - 1 / (1 + np.exp(self.oLog))
+        except RuntimeWarning:
+            logger.debug('Overflow when calculating probability')
+        return P
 
     def updateCellsZhou2(self, cone, rangeScale, theta):
         # UPDATECELLSZHOU
