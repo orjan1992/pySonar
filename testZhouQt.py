@@ -17,6 +17,9 @@ logging.basicConfig(filename=LOG_FILENAME,
 logger = logging.getLogger('ZhouQt')
 logger.disabled = True
 # logging.getLogger('readLogFile.ReadCsvFile').disabled = True
+logging.getLogger('messages.MoosMsgs').disabled = True
+logging.getLogger('messages.MoosMsgs.bins').disabled = True
+logging.getLogger('messages.MoosMsgs.pose').disabled = True
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -182,7 +185,7 @@ class MainWidget(QtGui.QWidget):
             delta_msg = self.latest_pos_msg_moose - self.old_pos_msg_moose
             if delta_msg.x != 0 or delta_msg.y != 0 or delta_msg.head != 0:
                 self.grid.translational_motion(delta_msg.y, delta_msg.x) # ogrid reference frame
-                # self.grid.rotate_grid(delta_msg.head)
+                self.grid.rotate_grid(delta_msg.head)
                 # print('Transformed grid: delta_x: {}\tdelta_y: {}\tdelta_psi: {} deg'.format(delta_msg.x, delta_msg.y,
                 #                                                                              delta_msg.head * 180 / pi))
                 updated = True

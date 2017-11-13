@@ -21,9 +21,6 @@ class MoosMsgs(object):
         self.logger = logging.getLogger('messages.MoosMsgs')
         self.logger_bins = logging.getLogger('messages.MoosMsgs.bins')
         self.logger_pose = logging.getLogger('messages.MoosMsgs.pose')
-        self.logger_pose.disabled = True
-        self.logger_pose.disabled = True
-        self.logger.disabled = True
         self.logger.debug('MOOS msgs initiated')
 
         # Init
