@@ -4,10 +4,14 @@ import struct
 from itertools import islice
 from math import pi
 import numpy as np
+from datetime import datetime, timedelta
+from os import walk
+
 
 from messages.sonarMsg import SonarMsg
 from messages.posMsg import PosMsg
-from readLogFile.helperFunctions import Wrap2pi, getTimeCsv
+from readLogFile.helperFunctions import Wrap2pi, getTimeCsv, get_time_csv_file_name
+import logging; logger = logging.getLogger('readLogFile.ReadCsvFile')
 
 
 class ReadCsvFile(object):
@@ -21,10 +25,20 @@ class ReadCsvFile(object):
     curSonarMsgTime = ''
     messagesReturned = 0
 
-    def __init__(self, filename, sonarPort =4002, posPort=13102):
+    def __init__(self, filename, cont_reading=False, sonarPort =4002, posPort=13102):
         self.file = open(filename, newline='')
         self.reader = csv.DictReader(self.file, delimiter=';', fieldnames=['time', 'ip', 'port', 'data'])
-
+        self.cont_reading = cont_reading
+        if cont_reading:
+            tmp = filename.split('/')
+            self.file_path = '/'.join(tmp[:-1])
+            cur_file = tmp[-1]
+            self.file_list = []
+            for (dirpath, dirnames, filenames) in walk(self.file_path):
+                self.file_list.extend(filenames)
+                break
+            self.file_list.sort()
+            self.file_number = self.file_list.index(cur_file)
         self.sonarPort = sonarPort
         self.posPort = posPort
 
@@ -51,10 +65,26 @@ class ReadCsvFile(object):
             elif int(msg[0]['port']) == self.posPort:
                 return self.parsePosMsg(msg)
             else:
-                return -1
+                logger.info('Message from other source read')
+                return 0
         except IndexError:
-            print('End of file reached')
+            logger.info('End of file reached')
+            if self.cont_reading:
+                return self.start_again()
+            else:
+                return -1
+
+    def start_again(self):
+        try:
+            self.file_number += 1
+            self.file = open('/'.join([self.file_path, self.file_list[self.file_number]]), newline='')
+            self.reader = csv.DictReader(self.file, delimiter=';', fieldnames=['time', 'ip', 'port', 'data'])
+            logger.info('Started on file: {}'.format(self.file_list[self.file_number]))
+            return self.read_next_msg()
+        except FileNotFoundError:
+            logger.info('No more files to open')
             return -1
+
 
     def parsePosMsg(self, raw_msg):
         msg = PosMsg(getTimeCsv(raw_msg[0]['time']))
@@ -76,40 +106,55 @@ class ReadCsvFile(object):
         # print(bArray)
         # print(bArray[0])
         length = len(bArray)
-        for i in range(0, length):
-            if bArray[i] == self.LINE_FEED and i < length and bArray[i+1] == self.SONAR_START:
-                self.curSonarMsg = b''.join([self.curSonarMsg, bArray[0:(i+1)]])
-                returnMsg = self.parseSonarMsg()
-                self.curSonarMsg = bArray[(i+1):length]
-                self.curSonarMsgTime = msg[0]['time']
-                return returnMsg
+        if bArray[0] != self.SONAR_START:
+            for i in range(0, length):
+                if bArray[i] == self.LINE_FEED and i < length and bArray[i+1] == self.SONAR_START:
+                    self.curSonarMsg = b''.join([self.curSonarMsg, bArray[:(i+1)]])
+                    returnMsg = self.parseSonarMsg()
+                    self.curSonarMsg = bArray[(i+1):length]
+                    self.curSonarMsgTime = msg[0]['time']
+                    return returnMsg
+                if bArray[i] == self.LINE_FEED and i == length:
+                    self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
+                    returnMsg = self.parseSonarMsg()
+                    # TODO not correct time
+                    self.curSonarMsgTime = msg[0]['time']
+                    self.curSonarMsg = b''
+                    return returnMsg
         self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
         return 0
 
     def parseSonarMsg(self):
         if self.curSonarMsg[0] != self.SONAR_START:
-            print('Message not complete')
+            logger.error('First byte of sonar msg is not correct. Logfile probably started in the middle of a message')
             return 0
         else:
             hexLength = b''.join([binascii.unhexlify(self.curSonarMsg[3:5]), binascii.unhexlify(self.curSonarMsg[1:3])])
             hexLength = struct.unpack('H', hexLength)
             wordLength = struct.unpack('H', self.curSonarMsg[5:7])
             if hexLength != wordLength:
-                print('hex %i \t word %i'%hexLength, wordLength)
+                logger.error('Sonar msg error: hex {} \t word {}\t len(bytestring) {}'.format(hexLength, wordLength, len(self.curSonarMsg)))
                 # should return some error
-                return -1
+                return 0
+            if (hexLength[0] + 6) < len(self.curSonarMsg):
+                logger.info('Sonar msg error, probably started new file with'
+                            ' incomplete message: hex {} \t word {}\t len(bytestring) {}'.format(hexLength, wordLength,
+                                                                                              len(self.curSonarMsg)))
+                return 0
             msg = SonarMsg(getTimeCsv(self.curSonarMsgTime))
             msg.txNode = self.curSonarMsg[7]
             msg.rxNode = self.curSonarMsg[8]
             # self.curSonarMsg[9] Byte Count of attached message that follows this byte.
             # Set to 0 (zero) in ‘mtHeadData’ reply to indicate Multi-packet mode NOT used by device.
             msg.type = self.curSonarMsg[10]
-            # self.curSonarMsg[11]   Message Sequence Bitset (see below).
+            if self.curSonarMsg[11] != 128:  #Message Sequence Bitset (see below).
+                logger.error('Multipacket message. Not implemented {:b}'.format(self.curSonarMsg[11]))
+                NotImplementedError('Multipacket message. Not implemented {:b}'.format(self.curSonarMsg[11]))
             if msg.type == 2:
                 # mtHeadData
                 if self.curSonarMsg[12] != msg.txNode:
-                    print('Tx1 != Tx2')
-                    return -1
+                    logger.info('Sonar msg error: Tx1 != Tx2')
+                    return 0
                 # 13-14 Total Byte Count of Device Parameters + Reply Data (all packets).
                 # msg.deviceType = self.curSonarMsg[15]
                 # msg.headStaus = self.curSonarMsg[16]
@@ -125,6 +170,9 @@ class ReadCsvFile(object):
                  msg.leftLim, msg.rightLim,
                  msg.step, msg.bearing,
                  msg.dataBins) = struct.unpack('<BBBHHIBHBBHHHHBHH', self.curSonarMsg[15:44])
+                if not(msg.deviceType in [2, 3, 5, 11, 17]):
+                    logger.info('Msg contained wrong device type. Type is: {}'.format(msg.deviceType))
+                    return 0
                 # redefining vessel x as 0 deg and vessel starboard as +90
                 msg.rightLim = Wrap2pi((msg.rightLim*self.GRAD2RAD+pi))
                 msg.leftLim = Wrap2pi((msg.leftLim*self.GRAD2RAD+pi))
@@ -141,10 +189,11 @@ class ReadCsvFile(object):
                         msg.data[2 * i] = (msg.data[i] & 240) >> 4  # 4 first bytes
                         msg.data[2 * i + 1] = msg.data[i] & 15  # 4 last bytes
                 if self.curSonarMsg[hexLength[0]+5] != 10:
-                    print('No end of message')
-                    return -1
+                    logger.error('No end of message')
+                    return 0
             else:
-                raise NotImplementedError('Other messagetypes not implemented. Msg type: %i' % msg.type)
+                logger.error('Other Sonar messagetypes not implemented. Msg type: %i' % msg.type)
+                raise NotImplementedError('Other Sonar messagetypes not implemented. Msg type: %i' % msg.type)
             self.messagesReturned += 1
             return msg
 
