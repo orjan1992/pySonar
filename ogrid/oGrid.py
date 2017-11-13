@@ -13,6 +13,9 @@ class OGrid(object):
     RAD2GRAD = (16 * 200) / math.pi
     PI2 = math.pi / 2
     PI4 = math.pi / 4
+    oLog_type = np.float16
+    old_delta_x = 0
+    old_delta_y = 0
 
     def __init__(self, cellSize, sizeX, sizeY, p_m):
         if cellSize > 0:
@@ -23,13 +26,14 @@ class OGrid(object):
                 self.XLimMeters = sizeX / 2
                 self.YLimMeters = sizeY
                 self.cellSize = cellSize
+                self.fourth_cell_size = cellSize/4
                 self.cellArea = cellSize ** 2
                 self.X = round(sizeX / cellSize)
                 self.Y = round(sizeY / cellSize)
                 self.origoJ = round(self.X / 2)
                 self.origoI = self.Y
                 self.OZero = math.log(p_m / (1 - p_m))
-                self.oLog = np.ones((self.Y, self.X), dtype=np.float16) * self.OZero
+                self.oLog = np.ones((self.Y, self.X), dtype=self.oLog_type) * self.OZero
                 self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
                 [self.iMax, self.jMax] = np.shape(self.oLog)
 
@@ -203,8 +207,19 @@ class OGrid(object):
         :param delta_y: Change in positive grid direction [m] (surge)
         :return: Nothing
         """
+        # Check if movement is less than 1/4 of cell size => save for later
+        delta_x += self.old_delta_x
+        delta_y += self.old_delta_y
+        if delta_x < self.fourth_cell_size:
+            self.old_delta_x = delta_x
+            delta_x = 0
+        if delta_y < self.fourth_cell_size:
+            self.old_delta_y = delta_y
+            delta_y = 0
         if delta_y == delta_x == 0:
             return
+
+        # Check if movement is > cell size => new itteration
         new_iteration_needed = False
         new_delta_y = 0
         new_delta_x = 0
@@ -219,6 +234,7 @@ class OGrid(object):
         if new_iteration_needed:
             self.translational_motion(new_delta_x, new_delta_y)
 
+        # do transformation
         new_grid = np.zeros(np.shape(self.oLog))
         if delta_x >= 0:
             if delta_y >= 0:
@@ -261,7 +277,7 @@ class OGrid(object):
                                     w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:] + self.OZero
         self.oLog = new_grid
 
-    def rot_motion(self, delta_psi):
+    def cell_rotation(self, delta_psi):
         """
         Rotates the grid
         :param delta_psi: change in heading
@@ -316,6 +332,35 @@ class OGrid(object):
         new_grid[-1, -1] = A * self.oLog[-1, -1] + \
                                w * (self.oLog[-2, -1] + 2 * self.OZero + self.oLog[-1, -2])
         self.oLog = new_grid
+
+    def rotate_grid(self, delta_psi):
+        if delta_psi == 0:
+            return
+        delta_x = self.r*np.sin(delta_psi)
+        delta_y = -self.r*np.cos(delta_psi)
+        new_left_grid = np.ones(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
+        new_right_grid = np.ones(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
+        if delta_psi >= 0:
+            # Left grid both positive. Right grid x_postive, y negative
+            new_left_grid[0, :] = self.OZero
+            new_left_grid[:, -1] = self.OZero
+            w2 = (self.cellSize - delta_x) * delta_y / self.cellArea
+            w3 = delta_x * delta_y / self.cellArea
+            w5 = (self.cellSize - delta_x) * (self.cellSize - delta_y) / self.cellArea
+            w6 = delta_x * (self.cellSize - delta_y) / self.cellArea
+            new_left_grid[1:, :-1] = w2 * self.oLog[:-1, :self.origoJ-1] + w3 * self.oLog[:-1, 1::self.origoJ] + \
+                                w5 * self.oLog[1:, :self.origoJ-1] + w6 * self.oLog[1:, 1:self.origoJ] + self.OZero
+
+            new_right_grid[-1, :] = self.OZero
+            new_right_grid[:, -1] = self.OZero
+            w5 = (self.cellSize - delta_x) * (self.cellSize + delta_y) / self.cellArea
+            w6 = delta_x * (self.cellSize + delta_y) / self.cellArea
+            w8 = (self.cellSize - delta_x) * (-delta_y) / self.cellArea
+            w9 = delta_x * (-delta_y) / self.cellArea
+            new_right_grid[:-1, :-1] = w5 * self.oLog[:-1, self.origoJ:-1] + w6 * self.oLog[self.origoJ:-1, 1:] + \
+                                 w8 * self.oLog[self.origoJ+1:, :-1] + w9 * self.oLog[self.origoJ+1:, 1:] + self.OZero
+
+
 
 # Exeption class for makin understanable exception
 class MyException(Exception):
