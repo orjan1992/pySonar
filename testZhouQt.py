@@ -62,6 +62,9 @@ class MainWidget(QtGui.QWidget):
         self.cont_reading_checkbox.setText('Read multiple files')
         self.cont_reading_checkbox.setChecked(True)
 
+        # Select file
+        self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
+
 
         # Time box
         self.msg_date = QtGui.QLineEdit()
@@ -91,6 +94,7 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.select_file_button)
         left_layout.addWidget(self.cont_reading_checkbox)
         left_layout.addWidget(self.from_morse_button)
+        left_layout.addWidget(self.clear_grid_button)
 
         view_box.addItem(self.img_item)
         graphics_view.addItem(view_box)
@@ -110,9 +114,10 @@ class MainWidget(QtGui.QWidget):
         self.setLayout(main_layout)
 
         #register button presses
-        self.start_plotting_button.clicked.connect(self.plotter_init)
+        self.start_plotting_button.clicked.connect(self.log_plotter_init)
         self.select_file_button.clicked.connect(self.getFile)
         self.from_morse_button.clicked.connect(self.run_morse)
+        self.clear_grid_button.clicked.connect(self.clear_img)
 
         #######
         self.first_run = True
@@ -129,6 +134,7 @@ class MainWidget(QtGui.QWidget):
         self.latest_pos_msg_moose = None
         self.old_pos_msg_moose = None
 
+
     def run_morse(self):
         if self.first_run:
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
@@ -140,6 +146,7 @@ class MainWidget(QtGui.QWidget):
             self.moos_client.close()
             self.morse_running = False
             self.stop_plot()
+            self.from_morse_button.setText('From Morse')
         else:
             self.moos_client = MoosMsgs()
             self.moos_client.set_on_sonar_msg_callback(self.moos_sonar_message_recieved)
@@ -149,7 +156,7 @@ class MainWidget(QtGui.QWidget):
             self.timer.timeout.connect(self.moos_updater)
             self.timer.start(0)
             self.pause = False
-            self.start_plotting_button.setText('Stop plotting ')
+            self.from_morse_button.setText('Stop from morse ')
 
     def moos_sonar_message_recieved(self, msg):
         msg.rangeScale = 30
@@ -185,14 +192,14 @@ class MainWidget(QtGui.QWidget):
         if updated:
             self.img_item.setImage(self.grid.getP().T)
 
-    def plotter_init(self):
+    def log_plotter_init(self):
         if self.first_run:
             if self.fname.split('.')[-1] == 'csv':
-                self.file = ReadCsvFile(self.fname, cont_reading=self.cont_reading_checkbox.checkState())
+                self.file = ReadCsvFile(self.fname, sonarPort =4002, posPort=13102, cont_reading=self.cont_reading_checkbox.checkState())
             else:
                 self.file = ReadLogFile(self.fname)
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
-            self.timer.timeout.connect(self.updater)
+            self.timer.timeout.connect(self.log_updater)
             self.first_run = False
 
         if self.pause:
@@ -202,7 +209,7 @@ class MainWidget(QtGui.QWidget):
         else:
             self.stop_plot()
 
-    def updater(self):
+    def log_updater(self):
         msg = self.file.read_next_msg()
         if msg == -1:
             self.stop_plot()
@@ -230,6 +237,8 @@ class MainWidget(QtGui.QWidget):
 
     def clear_img(self):
         self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))
+        if self.grid:
+            self.grid.clearGrid()
 
     def getFile(self):
         self.stop_plot()

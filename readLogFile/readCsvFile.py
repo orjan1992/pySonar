@@ -25,7 +25,7 @@ class ReadCsvFile(object):
     curSonarMsgTime = ''
     messagesReturned = 0
 
-    def __init__(self, filename, cont_reading=False, sonarPort =4002, posPort=13102):
+    def __init__(self, filename, sonarPort =4002, posPort=13102, cont_reading=False):
         self.file = open(filename, newline='')
         self.reader = csv.DictReader(self.file, delimiter=';', fieldnames=['time', 'ip', 'port', 'data'])
         self.cont_reading = cont_reading

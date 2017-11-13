@@ -2,6 +2,7 @@ import numpy as np
 import math
 from pathlib import Path
 import logging
+import os
 
 logger = logging.getLogger('OGrid')
 
@@ -16,6 +17,8 @@ class OGrid(object):
     oLog_type = np.float16
     old_delta_x = 0
     old_delta_y = 0
+    old_delta_psi = 0
+    MIN_ROT = 1*math.pi/180
 
     def __init__(self, cellSize, sizeX, sizeY, p_m):
         if cellSize > 0:
@@ -27,6 +30,7 @@ class OGrid(object):
                 self.YLimMeters = sizeY
                 self.cellSize = cellSize
                 self.fourth_cell_size = cellSize/4
+                self.half_cell_size = cellSize/2
                 self.cellArea = cellSize ** 2
                 self.X = round(sizeX / cellSize)
                 self.Y = round(sizeY / cellSize)
@@ -47,6 +51,8 @@ class OGrid(object):
                     self.theta = tmp['theta']
                     self.thetaHigh = tmp['thetaHigh']
                     self.thetaLow = tmp['thetaLow']
+                    self.cell_x_value = tmp['cell_x_value']
+                    self.cell_y_value = tmp['cell_y_value']
                 except FileNotFoundError:
                     # Calculate angles and radii
                     self.r = np.zeros((self.Y, self.X))
@@ -55,30 +61,41 @@ class OGrid(object):
                     self.theta = np.zeros((self.Y, self.X))
                     self.thetaHigh = np.zeros((self.Y, self.X))
                     self.thetaLow = np.zeros((self.Y, self.X))
+                    self.cell_x_value = np.zeros((self.Y, self.X))
+                    self.cell_y_value = np.zeros((self.Y, self.X))
                     for i in range(0, self.Y):
                         for j in range(0, self.X):
-                            x = (j - self.origoJ) * self.cellSize
-                            y = (self.origoI - i) * self.cellSize
-                            self.r[i, j] = math.sqrt(x ** 2 + y ** 2)
-                            self.theta[i, j] = math.atan2(x, y)
-                            # ranges
-                            self.rHigh[i, j] = math.sqrt(
-                                (x + np.sign(x) * self.cellSize / 2) ** 2 + (y + self.cellSize / 2) ** 2)
-                            self.rLow[i, j] = math.sqrt(
-                                (x - np.sign(x) * self.cellSize / 2) ** 2 + (max(y - self.cellSize / 2, 0)) ** 2)
+                            self.cell_x_value[i, j] = (j - self.origoJ) * self.cellSize
+                            self.cell_y_value[i, j] = (self.origoI - i) * self.cellSize
+            
+                    self.r = np.sqrt(self.cell_x_value ** 2 + self.cell_y_value ** 2)
+                    self.theta = np.arctan2(self.cell_x_value, self.cell_y_value)
+                    # ranges
+                    self.rHigh = np.sqrt((self.cell_x_value +
+                                          np.sign(self.cell_x_value) * self.half_cell_size) ** 2 
+                                         + (self.cell_y_value + self.half_cell_size) ** 2)
+                    self.rLow = np.sqrt((self.cell_x_value - np.sign(self.cell_x_value) * self.half_cell_size) ** 2 + (np.fmax(self.cell_y_value - self.half_cell_size, 0)) ** 2)
 
-                            # angles
-                            if x < 0:
-                                self.thetaLow[i, j] = math.atan2(x - self.cellSize / 2, y - self.cellSize / 2)
-                                self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y + self.cellSize / 2)
-                            elif x > 0:
-                                self.thetaLow[i, j] = math.atan2(x - self.cellSize / 2, y + self.cellSize / 2)
-                                self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y - self.cellSize / 2)
-                            else:
-                                self.thetaLow[i, j] = math.atan2(x - self.cellSize / 2, y - self.cellSize / 2)
-                                self.thetaHigh[i, j] = math.atan2(x + self.cellSize / 2, y - self.cellSize / 2)
+                    # angles x<0
+                    self.thetaLow[:, :self.origoJ] = np.arctan2(self.cell_x_value[:, :self.origoJ] - self.half_cell_size, 
+                                                              self.cell_y_value[:, :self.origoJ] - self.half_cell_size)
+                    self.thetaHigh[:, :self.origoJ] = np.arctan2(self.cell_x_value[:, :self.origoJ] + self.half_cell_size,
+                                                               self.cell_y_value[:, :self.origoJ] + self.half_cell_size)
+                    self.thetaLow[:, self.origoJ+1:] = np.arctan2(self.cell_x_value[:, self.origoJ+1:] - self.half_cell_size,
+                                                                self.cell_y_value[:, self.origoJ+1:] + self.half_cell_size)
+                    self.thetaHigh[:, self.origoJ+1:] = np.arctan2(self.cell_x_value[:, self.origoJ+1:] + self.half_cell_size,
+                                                                 self.cell_y_value[:, self.origoJ+1:] - self.half_cell_size)
+
+                    self.thetaLow[:, self.origoJ] = np.arctan2(self.cell_x_value[:, self.origoJ] - self.half_cell_size,
+                                                                self.cell_y_value[:, self.origoJ] - self.half_cell_size)
+                    self.thetaHigh[:, self.origoJ] = np.arctan2(self.cell_x_value[:, self.origoJ] + self.half_cell_size,
+                                                                 self.cell_y_value[:, self.origoJ] - self.half_cell_size)
+                    if not os.path.isdir('OGrid_data'):
+                        logger.info('Made a new directory for data files.')
+                        os.makedirs('OGrid_data')
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta,
-                             thetaHigh=self.thetaHigh, thetaLow=self.thetaLow)
+                             thetaHigh=self.thetaHigh, thetaLow=self.thetaLow, cell_x_value=self.cell_x_value,
+                             cell_y_value=self.cell_y_value)
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD * math.pi)
             self.mappingMax = int(self.X * self.Y / 10)
@@ -86,7 +103,6 @@ class OGrid(object):
             self.loadMap(self.steps[0] * self.GRAD2RAD)
 
     def makeMap(self, step_angle_size):
-
         filename_base = 'OGrid_data/Step_X=%i_Y=%i_size=%i_step=' % (self.X, self.Y, int(self.cellSize * 100))
         steps_to_create = []
         for i in range(0, step_angle_size.shape[0]):
@@ -127,6 +143,7 @@ class OGrid(object):
             self.cur_step = step
 
     def sonarCone(self, step, theta):
+        # TODO should be optimized
         theta1 = max(theta - step / 2, -self.PI2)
         theta2 = min(theta + step / 2, self.PI2)
         (row, col) = np.nonzero(self.thetaLow <= theta2)
@@ -210,10 +227,10 @@ class OGrid(object):
         # Check if movement is less than 1/4 of cell size => save for later
         delta_x += self.old_delta_x
         delta_y += self.old_delta_y
-        if delta_x < self.fourth_cell_size:
+        if abs(delta_x) < self.fourth_cell_size:
             self.old_delta_x = delta_x
             delta_x = 0
-        if delta_y < self.fourth_cell_size:
+        if abs(delta_y) < self.fourth_cell_size:
             self.old_delta_y = delta_y
             delta_y = 0
         if delta_y == delta_x == 0:
@@ -334,8 +351,12 @@ class OGrid(object):
         self.oLog = new_grid
 
     def rotate_grid(self, delta_psi):
-        if delta_psi == 0:
-            return
+        # Check if movement is less than MIN_ROT => save for later
+        delta_psi += self.old_delta_psi
+        if abs(delta_psi) < self.MIN_ROT:
+            self.old_delta_psi = delta_psi
+            return 0
+
         delta_x = self.r*np.sin(delta_psi)
         delta_y = -self.r*np.cos(delta_psi)
         new_left_grid = np.ones(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
@@ -344,23 +365,29 @@ class OGrid(object):
             # Left grid both positive. Right grid x_postive, y negative
             new_left_grid[0, :] = self.OZero
             new_left_grid[:, -1] = self.OZero
-            w2 = (self.cellSize - delta_x) * delta_y / self.cellArea
-            w3 = delta_x * delta_y / self.cellArea
-            w5 = (self.cellSize - delta_x) * (self.cellSize - delta_y) / self.cellArea
-            w6 = delta_x * (self.cellSize - delta_y) / self.cellArea
-            new_left_grid[1:, :-1] = w2 * self.oLog[:-1, :self.origoJ-1] + w3 * self.oLog[:-1, 1::self.origoJ] + \
-                                w5 * self.oLog[1:, :self.origoJ-1] + w6 * self.oLog[1:, 1:self.origoJ] + self.OZero
+            w2 = (self.cellSize - delta_x[:, :self.origoJ]) * delta_y[:, :self.origoJ] / self.cellArea
+            w3 = delta_x[:, :self.origoJ] * delta_y[:, :self.origoJ] / self.cellArea
+            w5 = (self.cellSize - delta_x[:, :self.origoJ]) * (self.cellSize - delta_y[:, :self.origoJ]) / self.cellArea
+            w6 = delta_x[:, :self.origoJ] * (self.cellSize - delta_y[:, :self.origoJ]) / self.cellArea
+            new_left_grid[1:, :-1] = w2[1:, :-1] * self.oLog[:-1, :self.origoJ-1] + \
+                                     w3[1:, :-1] * self.oLog[:-1, 1:self.origoJ] + \
+                                     w5[1:, :-1] * self.oLog[1:, :self.origoJ-1] + \
+                                     w6[1:, :-1] * self.oLog[1:, 1:self.origoJ] + self.OZero
 
             new_right_grid[-1, :] = self.OZero
             new_right_grid[:, -1] = self.OZero
-            w5 = (self.cellSize - delta_x) * (self.cellSize + delta_y) / self.cellArea
-            w6 = delta_x * (self.cellSize + delta_y) / self.cellArea
-            w8 = (self.cellSize - delta_x) * (-delta_y) / self.cellArea
-            w9 = delta_x * (-delta_y) / self.cellArea
-            new_right_grid[:-1, :-1] = w5 * self.oLog[:-1, self.origoJ:-1] + w6 * self.oLog[self.origoJ:-1, 1:] + \
-                                 w8 * self.oLog[self.origoJ+1:, :-1] + w9 * self.oLog[self.origoJ+1:, 1:] + self.OZero
+            w5 = (self.cellSize - delta_x[:, self.origoJ:]) * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
+            w6 = delta_x[:, self.origoJ:] * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
+            w8 = (self.cellSize - delta_x[:, self.origoJ:]) * (-delta_y[:, self.origoJ:]) / self.cellArea
+            w9 = delta_x[:, self.origoJ:] * (-delta_y[:, self.origoJ:]) / self.cellArea
+            new_right_grid[:-1, :-1] = w5[:-1, :-1] * self.oLog[:-1, self.origoJ:-1] +\
+                                       w6[:-1, :-1] * self.oLog[:-1, self.origoJ+1:] +\
+                                       w8[:-1, :-1] * self.oLog[1:, self.origoJ:-1] +\
+                                       w9[:-1, :-1] * self.oLog[1:, self.origoJ+1:] + self.OZero
 
-
+        self.oLog[:, :self.origoJ] = new_left_grid
+        self.oLog[:, self.origoJ:] = new_right_grid
+        self.cell_rotation(delta_psi)
 
 # Exeption class for makin understanable exception
 class MyException(Exception):
