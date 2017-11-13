@@ -49,6 +49,7 @@ class MoosMsgs(object):
         self.new_sonar_msg_func = cb
 
     def bins_queue(self, msg):
+        # TODO implement rangescale step osv
         self.logger_bins.debug('Message received of type: {}'.format(type(msg)))
         if msg.is_binary():
             sonar_msg = MoosSonarMsg()
