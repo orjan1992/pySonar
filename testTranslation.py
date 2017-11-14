@@ -33,7 +33,7 @@ ax.set(xlabel='X [m]', ylabel='Y [m])')
 img = ax.imshow(O.getP(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
 plt.colorbar(img, ax=ax)
 
-O.rotate_grid(-10*pi/180)
+O.rotate_grid(-2*pi/180)
 
 
 ax2 = plt.subplot(212)
