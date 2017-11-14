@@ -47,7 +47,6 @@ class MainWidget(QtGui.QWidget):
         # IMAGE Window
         self.img_item = pg.ImageItem(autoLevels=False, levels=(0.0, 1.0))  # image item. the actual plot
         colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array([[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
-        # if not self.binary_plot:
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         # Button
@@ -68,7 +67,10 @@ class MainWidget(QtGui.QWidget):
         self.cont_reading_checkbox.setText('Read multiple files')
         self.cont_reading_checkbox.setChecked(True)
 
-        # Select file
+        # binary plot
+        self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
+
+        # Clear grid
         self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
 
 
@@ -100,6 +102,7 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.select_file_button)
         left_layout.addWidget(self.cont_reading_checkbox)
         left_layout.addWidget(self.from_morse_button)
+        left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
         view_box.addItem(self.img_item)
@@ -124,6 +127,7 @@ class MainWidget(QtGui.QWidget):
         self.select_file_button.clicked.connect(self.getFile)
         self.from_morse_button.clicked.connect(self.run_morse)
         self.clear_grid_button.clicked.connect(self.clear_img)
+        self.binary_plot_button.clicked.connect(self.binary_plot_clicked)
 
         #######
         self.first_run = True
@@ -190,6 +194,9 @@ class MainWidget(QtGui.QWidget):
             if delta_msg.x != 0 or delta_msg.y != 0 or delta_msg.head != 0:
                 self.grid.translational_motion(delta_msg.y, delta_msg.x) # ogrid reference frame
                 self.grid.rotate_grid(delta_msg.head)
+                self.lat_box.setText('Lat: {:G}'.format(self.latest_pos_msg_moose.lat))
+                self.long_box.setText('Long: {:G}'.format(self.latest_pos_msg_moose.long))
+                self.rot_box.setText('Heading: {:G} deg'.format(self.latest_pos_msg_moose.head * 180 / pi))
                 # print('Transformed grid: delta_x: {}\tdelta_y: {}\tdelta_psi: {} deg'.format(delta_msg.x, delta_msg.y,
                 #                                                                              delta_msg.head * 180 / pi))
                 updated = True
@@ -200,7 +207,7 @@ class MainWidget(QtGui.QWidget):
             if not self.binary_plot:
                 self.counter += 1
                 if self.counter == 5:
-                    self.img_item.setImage(self.grid.get().T)
+                    self.img_item.setImage(self.grid.getP().T)
                     self.counter = 0
             else:
                 self.img_item.setImage(self.grid.get_binary_map().T)
@@ -266,6 +273,12 @@ class MainWidget(QtGui.QWidget):
         self.pause = True
         self.start_plotting_button.setText('Start plotting')
 
+    def binary_plot_clicked(self):
+        self.binary_plot = not self.binary_plot
+        if self.binary_plot:
+            self.binary_plot_button.setText('Set Prob mode')
+        else:
+            self.binary_plot_button.setText('Set Binary mode')
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])

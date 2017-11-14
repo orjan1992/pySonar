@@ -3,6 +3,8 @@ import math
 from pathlib import Path
 import logging
 import os
+import inspect
+
 
 logger = logging.getLogger('OGrid')
 
@@ -362,14 +364,15 @@ class OGrid(object):
 
         # Check if rotation is to great
         if abs(delta_psi) > self.MAX_ROT:
-            n = math.floor(abs(delta_psi)/self.MAX_ROT)
+            n = int(math.floor(abs(delta_psi)/self.MAX_ROT))
             if n > 8:
                 logger.error('Stacked rotation is big. n = {}\tDelta_psi_orig={} deg'.format(n, delta_psi*180/math.pi))
-            delta_psi += -np.sign(delta_psi) * n * self.MAX_ROT
             max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
+            delta_psi += -max_rot_signed * n
             for i in range(n):
                 self.rotate_grid(max_rot_signed)
-
+        if abs(delta_psi) > self.MAX_ROT:
+            logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
         delta_x = self.r*np.sin(delta_psi+self.theta) - self.cell_x_value
         delta_y = self.r*np.cos(delta_psi+self.theta) - self.cell_y_value
         if np.any(np.abs(delta_x) >= self.cellSize) or np.any(np.abs(delta_y) >= self.cellSize):
