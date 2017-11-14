@@ -300,6 +300,77 @@ class OGrid(object):
                                     w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:] + self.OZero
         self.oLog = new_grid
 
+    def translate_matrix(self, delta_x, delta_y):
+        """
+        transform grid for deterministic translational motion
+        :param delta_x: Change in positive grid direction [m] (sway)
+        :param delta_y: Change in positive grid direction [m] (surge)
+        :return: Nothing
+        """
+
+        # Check if movement is > cell size => new itteration
+        new_iteration_needed = False
+        if np.any(np.abs(delta_y)) > self.cellSize:
+            new_delta_y = np.zeros((self.iMax, self.jMax))
+            tmp = np.nonzero(np.abs(delta_y) > self.cellSize)
+            new_delta_y[tmp] = (np.abs(delta_y[tmp])-self.cellSize)*np.sign(delta_y[tmp])
+            delta_y[tmp] = self.cellSize * np.sign(delta_y[tmp])
+            new_iteration_needed = True
+        if np.any(np.abs(delta_x)) > self.cellSize:
+            new_delta_x = np.zeros((self.iMax, self.jMax))
+            tmp = np.nonzero(np.abs(delta_x) > self.cellSize)
+            new_delta_x[tmp] = (np.abs(delta_x[tmp])-self.cellSize)*np.sign(delta_x[tmp])
+            delta_x[tmp] = self.cellSize * np.sign(delta_x[tmp])
+            new_iteration_needed = True
+        if new_iteration_needed:
+            self.translate_matrix(new_delta_x, new_delta_y)
+
+        # do transformation
+        new_grid = np.zeros(np.shape(self.oLog))
+
+        xy_pos = np.nonzero(np.logical_and(delta_x >= 0, delta_y >= 0))
+        x_pos_y_neg = np.nonzero(np.logical_and(delta_x >= 0, delta_y < 0))
+        x_neg_y_pos = np.nonzero(np.logical_and(delta_x < 0, delta_y >= 0))
+        xy_neg = np.nonzero(np.logical_and(delta_x < 0, delta_y < 0))
+
+        # new_grid[0, :] = self.OZero
+        # new_grid[:, -1] = self.OZero
+        w2 = (self.cellSize - delta_x[xy_pos]) * delta_y[xy_pos] / self.cellArea
+        w3 = delta_x[xy_pos] * delta_y[xy_pos] / self.cellArea
+        w5 = (self.cellSize - delta_x[xy_pos]) * (self.cellSize - delta_y[xy_pos]) / self.cellArea
+        w6 = delta_x[xy_pos] * (self.cellSize - delta_y[xy_pos]) / self.cellArea
+        new_grid[xy_pos] = w2 * self.oLog.flat[xy_pos[:][:-1]] + w3 * self.oLog.flat[(np.ndarray(xy_pos[0][:-1]), np.ndarray(xy_pos[1][1:]))]
+        #[:-1, 1:] + \
+                            #w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:] + self.OZero
+
+        # new_grid[-1, :] = self.OZero
+        # new_grid[:, -1] = self.OZero
+        w5 = (self.cellSize - delta_x) * (self.cellSize + delta_y) / self.cellArea
+        w6 = delta_x * (self.cellSize + delta_y) / self.cellArea
+        w8 = (self.cellSize - delta_x) * (-delta_y) / self.cellArea
+        w9 = delta_x * (-delta_y) / self.cellArea
+        new_grid[:-1, :-1] = w5 * self.oLog[:-1, :-1] + w6 * self.oLog[:-1, 1:] + \
+                             w8 * self.oLog[1:, :-1] + w9 * self.oLog[1:, 1:] + self.OZero
+
+        new_grid[0, :] = self.OZero
+        new_grid[:, 0] = self.OZero
+        w1 = -delta_x * delta_y / self.cellArea
+        w2 = (self.cellSize + delta_x) * delta_y / self.cellArea
+        w4 = -delta_x * (self.cellSize - delta_y) / self.cellArea
+        w5 = (self.cellSize + delta_x) * (self.cellSize - delta_y) / self.cellArea
+        new_grid[1:, 1:] = w1 * self.oLog[:-1, :-1] + w2 * self.oLog[:-1, 1:] + \
+                           w4 * self.oLog[1:, :-1] + w5 * self.oLog[1:, 1:] + self.OZero
+
+        new_grid[-1, :] = self.OZero
+        new_grid[:, 0] = self.OZero
+        w4 = (-delta_x) * (self.cellSize + delta_y) / self.cellArea
+        w5 = (self.cellSize + delta_x) * (self.cellSize + delta_y) / self.cellArea
+        w7 = (-delta_x) * (-delta_y) / self.cellArea
+        w8 = (self.cellSize + delta_x) * (-delta_y) / self.cellArea
+        new_grid[:-1, 1:] = w4 * self.oLog[:-1, :-1] + w5 * self.oLog[:-1, 1:] + \
+                            w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:] + self.OZero
+        self.oLog = new_grid
+
     def cell_rotation(self, delta_psi):
         """
         Rotates the grid
@@ -357,6 +428,7 @@ class OGrid(object):
     def rotate_grid_large(self, delta_psi):
         dx = self.r * np.sin(delta_psi + self.theta) - self.cell_x_value
         dy = self.r * np.cos(delta_psi + self.theta) - self.cell_y_value
+        self.translate_matrix(dx, dy)
 
         dx_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
         dy_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
