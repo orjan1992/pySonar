@@ -96,8 +96,8 @@ class OGrid(object):
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta,
                              thetaHigh=self.thetaHigh, thetaLow=self.thetaLow, cell_x_value=self.cell_x_value,
                              cell_y_value=self.cell_y_value)
-            # self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
-            #                       np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
+            self.MAX_ROT_OLD = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
+                                  np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
             self.MAX_MOVE = 2.9*self.cellSize
             self.MAX_ROT = np.min(np.abs(np.arcsin((self.MAX_MOVE+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
                                   np.abs(np.arccos((self.MAX_MOVE+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
@@ -354,6 +354,61 @@ class OGrid(object):
                                w * (self.oLog[-2, -1] + 2 * self.OZero + self.oLog[-1, -2])
         self.oLog = new_grid
 
+    def rotate_grid_large(self, delta_psi):
+        dx = self.r * np.sin(delta_psi + self.theta) - self.cell_x_value
+        dy = self.r * np.cos(delta_psi + self.theta) - self.cell_y_value
+
+        dx_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
+        dy_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
+
+        dx_large_position = np.nonzero(np.abs(dx) >= self.cellSize)
+        dy_large_position = np.nonzero(np.abs(dy) >= self.cellSize)
+
+        # dy_large and dx_large is number of cells to move
+        dx_large[dx_large_position] = np.floor(dx[dx_large_position] / self.cellSize)
+        dy_large[dy_large_position] = -np.floor(dy[dy_large_position] / self.cellSize)
+        dx -= dx_large * self.cellSize
+        dy += dy_large * self.cellSize
+
+        new_grid = np.copy(self.oLog)
+
+        #cells that move both directions
+        pos_both = np.nonzero((dx_large != 0) == (dy_large != 0))
+        tmp = (dy_large[pos_both].flatten()+self.y_mesh[pos_both].flatten(),
+               dx_large[pos_both].flatten()+self.x_mesh[pos_both].flatten())
+        new_grid[tmp] = self.oLog[pos_both] # TODO deal with negative values
+
+        # remove values that are changed already
+        dx_large[pos_both] == 0
+        dy_large[pos_both] == 0
+
+        # cells that only move in x
+        dx_large_pos = np.nonzero(dx_large)
+        tmp = (self.y_mesh[dx_large_pos].flatten(),
+               dx_large[dx_large_pos].flatten() + self.x_mesh[dx_large_pos].flatten())
+        new_grid[tmp] = self.oLog[dx_large_pos] # TODO deal with negative values
+
+        # cells that move only in y
+        dy_large_pos = np.nonzero(dy_large)
+        tmp = (dy_large[dy_large_pos].flatten()+self.y_mesh[dy_large_pos].flatten(),
+               self.x_mesh[dy_large_pos].flatten())
+        a = tmp[0]
+        b = tmp[1]
+        tmp2 = (tmp[0][np.nonzero(np.logical_and(0 <= tmp[0], tmp[0] < self.jMax))], tmp[1][np.nonzero(np.logical_and(0 <= tmp[1], tmp[1] < self.iMax))])
+        new_grid[tmp2] = self.oLog[dy_large_pos] # TODO deal with negative values
+
+        # # Move whole cells
+        # for i in range(self.iMax):
+        #     for j in range(self.jMax):
+        #         i_new = dy_large[i, j] + i
+        #         j_new = dx_large[i, j] + j
+        #         if 0 <= i_new and i_new < self.iMax and 0 <= j_new and j_new < self.jMax:
+        #             new_grid[i_new, j_new] += self.oLog[i, j]
+        #             new_grid[i, j] -= self.oLog[i, j]
+        # new_grid2[dy_large+self.y_mesh, dx_large+self.x_mesh]
+        self.oLog = new_grid
+        return dx, dy
+
     def rotate_grid(self, delta_psi):
         # TODO fix behaviour around origo X
         # Check if movement is less than MIN_ROT => save for later
@@ -370,37 +425,13 @@ class OGrid(object):
             self.rotate_grid(new_delta_psi)
             logger.debug('Rotation is to great, itterating')
 
-        dx = self.r*np.sin(delta_psi+self.theta) - self.cell_x_value
-        dy = self.r*np.cos(delta_psi+self.theta) - self.cell_y_value
-
-        dx_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
-        dy_large = np.zeros((self.iMax, self.jMax), dtype=np.int16)
-
-        dx_large_pos = np.nonzero(np.abs(dx) >= self.cellSize)
-        dy_large_pos = np.nonzero(np.abs(dy) >= self.cellSize)
-
-        # dy_large and dx_large is number of cells to move
-        dx_large[dx_large_pos] = np.floor(dx[dx_large_pos]/self.cellSize)
-        dy_large[dy_large_pos] = -np.floor(dy[dy_large_pos]/self.cellSize)
-        dx -= dx_large*self.cellSize
-        dy += dy_large*self.cellSize
-
+        dx, dy = self.rotate_grid_large(delta_psi)
 
         if np.any(np.abs(dx) >= self.cellSize) or np.any(np.abs(dy) >= self.cellSize):
             raise MyException('delta x or y to large')
         new_left_grid = np.zeros(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
         new_right_grid = np.zeros(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
-        new_grid = np.copy(self.oLog)
-        new_grid2 = np.zeros((self.iMax, self.jMax), dtype=self.oLog_type)
 
-        # Move whole cells
-        for i in range(self.iMax):
-            for j in range(self.jMax):
-                i_new = dy_large[i, j] + i
-                j_new = dx_large[i, j] + j
-                if 0 <= i_new and i_new < self.iMax and 0 <= j_new and j_new < self.jMax:
-                    new_grid[i_new, j_new] = self.oLog[i, j]
-        # new_grid2[dy_large+self.y_mesh, dx_large+self.x_mesh]
         # Move fractions
         if delta_psi >= 0:
             # Left grid both positive. Right grid x_postive, y negative
@@ -458,7 +489,89 @@ class OGrid(object):
                                      wr5[:-1, :-1] * self.oLog[1:, self.origoJ+1:] + self.OZero
         self.oLog[:, :self.origoJ] = new_left_grid
         self.oLog[:, self.origoJ:] = new_right_grid
-        # self.cell_rotation(delta_psi)
+        self.cell_rotation(delta_psi)
+
+    def rotate_grid_old(self, delta_psi):
+        # TODO remove old, remember max_rot_old
+        # Check if movement is less than MIN_ROT => save for later
+        delta_psi += self.old_delta_psi
+        if abs(delta_psi) < self.MIN_ROT:
+            self.old_delta_psi = delta_psi
+            return 0
+
+        # Check if rotation is to great
+        if abs(delta_psi) >= self.MAX_ROT_OLD:
+            new_delta_psi = (abs(delta_psi) - self.MAX_ROT) * np.sign(delta_psi)
+            delta_psi = self.MAX_ROT * np.sign(delta_psi)
+            self.rotate_grid_old(new_delta_psi)
+
+        delta_x = self.r * np.sin(delta_psi + self.theta) - self.cell_x_value
+        delta_y = self.r * np.cos(delta_psi + self.theta) - self.cell_y_value
+        if np.any(np.abs(delta_x) >= self.cellSize) or np.any(np.abs(delta_y) >= self.cellSize):
+            raise MyException('delta x or y to large')
+        new_left_grid = np.ones(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
+        new_right_grid = np.ones(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
+        if delta_psi >= 0:
+            # Left grid both positive. Right grid x_postive, y negative
+            new_left_grid[0, :] = self.OZero
+            new_left_grid[:, -1] = self.OZero
+            wl2 = (self.cellSize - delta_x[:, :self.origoJ]) * delta_y[:, :self.origoJ] / self.cellArea
+            wl3 = delta_x[:, :self.origoJ] * delta_y[:, :self.origoJ] / self.cellArea
+            wl5 = (self.cellSize - delta_x[:, :self.origoJ]) * (
+            self.cellSize - delta_y[:, :self.origoJ]) / self.cellArea
+            wl6 = delta_x[:, :self.origoJ] * (self.cellSize - delta_y[:, :self.origoJ]) / self.cellArea
+            if np.any(np.abs(wl2 + wl3 + wl5 + wl6 - 1) > 0.00001):
+                logger.debug('Sum = {}!'.format(np.max(np.max(wl2 + wl3 + wl5 + wl6))))
+            new_left_grid[1:, :-1] = wl2[1:, :-1] * self.oLog[:-1, :self.origoJ - 1] + \
+                                     wl3[1:, :-1] * self.oLog[:-1, 1:self.origoJ] + \
+                                     wl5[1:, :-1] * self.oLog[1:, :self.origoJ - 1] + \
+                                     wl6[1:, :-1] * self.oLog[1:, 1:self.origoJ] + self.OZero
+
+            new_right_grid[-1, :] = self.OZero
+            new_right_grid[:, -1] = self.OZero
+            wr5 = (self.cellSize - delta_x[:, self.origoJ:]) * (
+            self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
+            wr6 = delta_x[:, self.origoJ:] * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
+            wr8 = (self.cellSize - delta_x[:, self.origoJ:]) * (-delta_y[:, self.origoJ:]) / self.cellArea
+            wr9 = delta_x[:, self.origoJ:] * (-delta_y[:, self.origoJ:]) / self.cellArea
+            if np.any(np.abs(wr5 + wr6 + wr8 + wr9 - 1) > 0.00001):
+                logger.debug('Sum = {}!'.format(np.max(np.max(wr5 + wr6 + wr8 + wr9))))
+            new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.oLog[:-1, self.origoJ:-1] + \
+                                       wr6[:-1, :-1] * self.oLog[:-1, self.origoJ + 1:] + \
+                                       wr8[:-1, :-1] * self.oLog[1:, self.origoJ:-1] + \
+                                       wr9[:-1, :-1] * self.oLog[1:, self.origoJ + 1:] + self.OZero
+        else:
+            # Left grid: both neg, right grid: x neg, y pos
+            new_left_grid[-1, :] = self.OZero
+            new_left_grid[:, 0] = self.OZero
+            wl4 = (-delta_x[:, :self.origoJ]) * (self.cellSize + delta_y[:, :self.origoJ]) / self.cellArea
+            wl5 = (self.cellSize + delta_x[:, :self.origoJ]) * (
+            self.cellSize + delta_y[:, :self.origoJ]) / self.cellArea
+            wl7 = (-delta_x[:, :self.origoJ]) * (-delta_y[:, :self.origoJ]) / self.cellArea
+            wl8 = (self.cellSize + delta_x[:, :self.origoJ]) * (-delta_y[:, :self.origoJ]) / self.cellArea
+            if np.any(np.abs(wl4 + wl5 + wl7 + wl8 - 1) > 0.00001):
+                logger.debug('Sum = {}!'.format(np.max(np.max(wl4 + wl5 + wl7 + wl8))))
+            new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.oLog[:-1, :self.origoJ - 1] + \
+                                     wl5[1:, :-1] * self.oLog[:-1, 1:self.origoJ] + \
+                                     wl7[1:, :-1] * self.oLog[1:, :self.origoJ - 1] + \
+                                     wl8[1:, :-1] * self.oLog[1:, 1:self.origoJ] + self.OZero
+
+            new_right_grid[0, :] = self.OZero
+            new_right_grid[:, 0] = self.OZero
+            wr1 = -delta_x[:, self.origoJ:] * delta_y[:, self.origoJ:] / self.cellArea
+            wr2 = (self.cellSize + delta_x[:, self.origoJ:]) * delta_y[:, self.origoJ:] / self.cellArea
+            wr4 = -delta_x[:, self.origoJ:] * (self.cellSize - delta_y[:, self.origoJ:]) / self.cellArea
+            wr5 = (self.cellSize + delta_x[:, self.origoJ:]) * (
+            self.cellSize - delta_y[:, self.origoJ:]) / self.cellArea
+            if np.any(np.abs(wr1 + wr2 + wr4 + wr5 - 1) > 0.00001):
+                logger.debug('Sum = {}!'.format(np.max(np.max(wr1 + wr2 + wr4 + wr5))))
+            new_right_grid[1:, 1:] = wr1[:-1, :-1] * self.oLog[:-1, self.origoJ:-1] + \
+                                     wr2[:-1, :-1] * self.oLog[:-1, self.origoJ + 1:] + \
+                                     wr4[:-1, :-1] * self.oLog[1:, self.origoJ:-1] + \
+                                     wr5[:-1, :-1] * self.oLog[1:, self.origoJ + 1:] + self.OZero
+        self.oLog[:, :self.origoJ] = new_left_grid
+        self.oLog[:, self.origoJ:] = new_right_grid
+        self.cell_rotation(delta_psi)
 
 # Exeption class for makin understanable exception
 class MyException(Exception):
