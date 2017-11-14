@@ -20,7 +20,7 @@ class OGrid(object):
     old_delta_psi = 0
     MIN_ROT = 0.1*math.pi/180
 
-    def __init__(self, cellSize, sizeX, sizeY, p_m):
+    def __init__(self, cellSize, sizeX, sizeY, p_m, binary_threshold=0.7):
         if cellSize > 0:
             if (sizeX > cellSize) or (sizeY > cellSize):
                 if round(sizeX / cellSize) % 2 == 0:
@@ -37,6 +37,7 @@ class OGrid(object):
                 self.origoJ = round(self.X / 2)
                 self.origoI = self.Y
                 self.OZero = math.log(p_m / (1 - p_m))
+                self.binary_threshold = math.log(binary_threshold/(1-binary_threshold))
                 self.oLog = np.ones((self.Y, self.X), dtype=self.oLog_type) * self.OZero
                 self.O_logic = np.zeros((self.Y, self.X), dtype=bool)
                 [self.iMax, self.jMax] = np.shape(self.oLog)
@@ -179,6 +180,9 @@ class OGrid(object):
         except RuntimeWarning:
             logger.debug('Overflow when calculating probability')
         return P
+
+    def get_binary_map(self):
+        return (self.oLog > self.binary_threshold).astype(np.float)
 
     def updateCellsZhou2(self, cone, rangeScale, theta):
         # UPDATECELLSZHOU
@@ -357,10 +361,14 @@ class OGrid(object):
             return 0
 
         # Check if rotation is to great
-        if abs(delta_psi) >= self.MAX_ROT:
-            new_delta_psi = (abs(delta_psi) - self.MAX_ROT) * np.sign(delta_psi)
-            delta_psi = self.MAX_ROT * np.sign(delta_psi)
-            self.rotate_grid(new_delta_psi)
+        if abs(delta_psi) > self.MAX_ROT:
+            n = math.floor(abs(delta_psi)/self.MAX_ROT)
+            if n > 8:
+                logger.error('Stacked rotation is big. n = {}\tDelta_psi_orig={} deg'.format(n, delta_psi*180/math.pi))
+            delta_psi += -np.sign(delta_psi) * n * self.MAX_ROT
+            max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
+            for i in range(n):
+                self.rotate_grid(max_rot_signed)
 
         delta_x = self.r*np.sin(delta_psi+self.theta) - self.cell_x_value
         delta_y = self.r*np.cos(delta_psi+self.theta) - self.cell_y_value

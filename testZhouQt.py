@@ -32,6 +32,8 @@ class MainWindow(QtGui.QMainWindow):
 
 
 class MainWidget(QtGui.QWidget):
+    binary_plot = True
+
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
         main_layout = QtGui.QHBoxLayout() # Main layout
@@ -43,8 +45,9 @@ class MainWidget(QtGui.QWidget):
         view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
 
         # IMAGE Window
-        self.img_item = pg.ImageItem() # image item. the actual plot
+        self.img_item = pg.ImageItem(autoLevels=False, levels=(0.0, 1.0))  # image item. the actual plot
         colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array([[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
+        # if not self.binary_plot:
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         # Button
@@ -136,6 +139,7 @@ class MainWidget(QtGui.QWidget):
         self.latest_sonar_msg_moose = None
         self.latest_pos_msg_moose = None
         self.old_pos_msg_moose = None
+        self.counter = 0
 
 
     def run_morse(self):
@@ -193,7 +197,13 @@ class MainWidget(QtGui.QWidget):
             self.latest_pos_msg_moose = None
 
         if updated:
-            self.img_item.setImage(self.grid.getP().T)
+            if not self.binary_plot:
+                self.counter += 1
+                if self.counter == 5:
+                    self.img_item.setImage(self.grid.get().T)
+                    self.counter = 0
+            else:
+                self.img_item.setImage(self.grid.get_binary_map().T)
 
     def log_plotter_init(self):
         if self.first_run:

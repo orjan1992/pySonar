@@ -1,6 +1,7 @@
 from math import cos, sin
 import numpy as np
 from messages.sensor import Sensor
+from readLogFile.helperFunctions import Wrap2pi
 
 
 class PosMsg(Sensor):
@@ -35,5 +36,5 @@ class PosMsg(Sensor):
         xy = np.dot(R.T, lat_long)
         msg.x = xy[0]
         msg.y = xy[1]
-        msg.head = self.head - other.head
+        msg.head = Wrap2pi(self.head - other.head)
         return msg
