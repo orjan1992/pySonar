@@ -91,9 +91,9 @@ class ReadCsvFile(object):
         data = str(binascii.unhexlify(''.join(raw_msg[0]['data'].split()))).split(',')
         # print(data)
         msg.id = data[0]
-        msg.head = float(data[1])
-        msg.roll = float(data[2])
-        msg.pitch = float(data[3])
+        msg.head = float(data[1])*pi/180
+        msg.roll = float(data[2])*pi/180
+        msg.pitch = float(data[3])*pi/180
         msg.depth = float(data[4])
         msg.alt = float(data[5])
         msg.lat = float(data[6])

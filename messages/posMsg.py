@@ -39,6 +39,4 @@ class PosMsg(Sensor):
         msg.x = xy[0]
         msg.y = xy[1]
         msg.head = Wrap2pi(self.head - other.head)
-        if abs(msg.head) > 5*pi/180:
-            logger.debug('big yaw diff: {}'.format(msg.head*180/pi))
         return msg

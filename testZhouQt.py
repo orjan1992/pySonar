@@ -20,6 +20,7 @@ logger.disabled = True
 logging.getLogger('messages.MoosMsgs').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
+# logging.getLogger('readLogFile.ReadCsvFile').disabled = True
 
 
 class MainWindow(QtGui.QMainWindow):
@@ -231,6 +232,7 @@ class MainWidget(QtGui.QWidget):
 
     def log_updater(self):
         msg = self.file.read_next_msg()
+        updated = False
         if msg == -1:
             self.stop_plot()
         elif msg != 0:
@@ -238,22 +240,27 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.read_next_msg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
-                self.img_item.setImage(self.grid.getP().T)
+                updated = True
             elif msg.sensor == 1:
                 if not self.old_pos_msg:
                     self.old_pos_msg = msg
                 delta_msg = msg - self.old_pos_msg
                 if delta_msg.x != 0 or delta_msg.y != 0 or delta_msg.head != 0:
                     self.grid.translational_motion(delta_msg.y, delta_msg.x)  # ogrid reference frame
-                    # self.grid.rotate_grid(delta_msg.head*pi/180)
+                    self.grid.rotate_grid(delta_msg.head)
                     self.lat_box.setText('Lat: {:G}'.format(msg.lat))
                     self.long_box.setText('Long: {:G}'.format(msg.long))
                     self.rot_box.setText('Heading: {:G} deg'.format(msg.head))
-                    # self.grid.rotate_grid(delta_msg.head)
-                    logger.debug('Delta x: {}\tDeltaY: {}\tDelta psi: {} deg'.format(delta_msg.x, delta_msg.y, delta_msg.head))
+                    logger.debug('Delta x: {}\tDeltaY: {}\tDelta psi: {} deg'.format(delta_msg.x, delta_msg.y,
+                                                                                     delta_msg.head*pi/180))
 
             self.msg_date.setText('Date: {}'.format(msg.date))
             self.msg_time.setText('Time: {}'.format(msg.time))
+            if updated:
+                if not self.binary_plot:
+                    self.img_item.setImage(self.grid.getP().T)
+                else:
+                    self.img_item.setImage(self.grid.get_binary_map().T)
 
     def clear_img(self):
         self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))

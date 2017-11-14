@@ -101,6 +101,7 @@ class OGrid(object):
                              cell_y_value=self.cell_y_value)
             self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
                                   np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
+            self.MAX_ROT_BEFORE_RESET = 10*math.pi/180
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD * math.pi)
             self.mappingMax = int(self.X * self.Y / 10)
@@ -358,15 +359,22 @@ class OGrid(object):
     def rotate_grid(self, delta_psi):
         # Check if movement is less than MIN_ROT => save for later
         delta_psi += self.old_delta_psi
+        self.old_delta_psi = 0
         if abs(delta_psi) < self.MIN_ROT:
             self.old_delta_psi = delta_psi
             return 0
 
+        # Check if movement is to big to rotate fast enough
+        if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
+            self.clearGrid()
+            logger.warning('Reset grid because requested rotation was: {:.2f} deg'.format(delta_psi*180/math.pi))
+            return 0
         # Check if rotation is to great
         if abs(delta_psi) > self.MAX_ROT:
             n = int(math.floor(abs(delta_psi)/self.MAX_ROT))
             if n > 8:
                 logger.error('Stacked rotation is big. n = {}\tDelta_psi_orig={} deg'.format(n, delta_psi*180/math.pi))
+
             max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
             delta_psi += -max_rot_signed * n
             for i in range(n):
