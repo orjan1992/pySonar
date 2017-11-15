@@ -34,6 +34,21 @@ class MainWindow(QtGui.QMainWindow):
 
 class MainWidget(QtGui.QWidget):
     binary_plot = True
+    ogrid_conditions = [0.3, 60, 30, 0.5]
+    old_pos_msg = 0
+    grid = 0
+    morse_running = False
+    latest_sonar_msg_moose = None
+    latest_pos_msg_moose = None
+    old_pos_msg_moose = None
+    counter = 0
+
+
+    first_run = True
+    pause = True
+    # fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
+    # fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
+    fname = '/home/orjangr/Repos/pySonar/logs/Sonar Log/UdpHubLog_4001_2017_11_02_09_16_58.csv'
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -43,13 +58,18 @@ class MainWidget(QtGui.QWidget):
         bottom_right_layout = QtGui.QGridLayout()
 
         graphics_view = pg.GraphicsLayoutWidget() # layout for holding graphics object
-        view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
-
+        # view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
+        self.plot_window = pg.PlotItem()
+        graphics_view.addItem(self.plot_window)
         # IMAGE Window
-        self.img_item = pg.ImageItem(autoLevels=False, levels=(0.0, 1.0))  # image item. the actual plot
-        colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array([[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
+        self.img_item = pg.ImageItem(autoLevels=False, levels=(0, 1))  # image item. the actual plot
+        colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array(
+            [[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
+        self.plot_window.addItem(self.img_item)
+        self.plot_window.getAxis('left').setGrid(200)
+        self.img_item.getViewBox().invertY(True)
         # Button
         self.start_plotting_button = QtGui.QPushButton('Start Plotting')
 
@@ -106,8 +126,8 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
-        view_box.addItem(self.img_item)
-        graphics_view.addItem(view_box)
+        # view_box.addItem(self.img_item)
+        # graphics_view.addItem(view_box)
 
         bottom_right_layout.addWidget(self.msg_date, 0, 0, 1, 1)
         bottom_right_layout.addWidget(self.msg_time, 0, 1, 1, 1)
@@ -131,26 +151,15 @@ class MainWidget(QtGui.QWidget):
         self.binary_plot_button.clicked.connect(self.binary_plot_clicked)
 
         #######
-        self.first_run = True
-        self.pause = True
-        # self.fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
-        # self.fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
-        self.fname = '/home/orjangr/Repos/pySonar/logs/Sonar Log/UdpHubLog_4001_2017_11_02_09_16_58.csv'
         self.timer = QtCore.QTimer()
-        self.ogrid_conditions = [0.2, 20, 30, 0.5]
-        self.old_pos_msg = 0
-        self.grid = 0
-        self.morse_running = False
-        self.latest_sonar_msg_moose = None
-        self.latest_pos_msg_moose = None
-        self.old_pos_msg_moose = None
-        self.counter = 0
 
 
     def run_morse(self):
         if self.first_run:
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
                               self.ogrid_conditions[3])
+            self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
+            self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.first_run = False
         else:
             self.grid.clearGrid()
@@ -184,6 +193,7 @@ class MainWidget(QtGui.QWidget):
 
     def moos_updater(self):
         updated = False
+        # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
             updated = True
@@ -220,6 +230,8 @@ class MainWidget(QtGui.QWidget):
             else:
                 self.file = ReadLogFile(self.fname)
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
+            self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
+            self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.timer.timeout.connect(self.log_updater)
             self.first_run = False
 

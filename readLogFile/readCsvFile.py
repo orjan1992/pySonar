@@ -7,7 +7,6 @@ import numpy as np
 from datetime import datetime, timedelta
 from os import walk
 
-
 from messages.sonarMsg import SonarMsg
 from messages.posMsg import PosMsg
 from readLogFile.helperFunctions import Wrap2pi, getTimeCsv, get_time_csv_file_name

@@ -9,14 +9,12 @@ import inspect
 logger = logging.getLogger('OGrid')
 
 class OGrid(object):
-    deltaSurface = 0.1
-
     cur_step = 0
     GRAD2RAD = math.pi / (16 * 200)
     RAD2GRAD = (16 * 200) / math.pi
     PI2 = math.pi / 2
     PI4 = math.pi / 4
-    oLog_type = np.float16
+    oLog_type = np.float32
     old_delta_x = 0
     old_delta_y = 0
     old_delta_psi = 0
@@ -101,12 +99,14 @@ class OGrid(object):
                              cell_y_value=self.cell_y_value)
             self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
                                   np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
-            self.MAX_ROT_BEFORE_RESET = 10*math.pi/180
+            self.MAX_ROT_BEFORE_RESET = 30*self.MAX_ROT
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD * math.pi)
             self.mappingMax = int(self.X * self.Y / 10)
             self.makeMap(self.steps)
             self.loadMap(self.steps[0] * self.GRAD2RAD)
+            self.deltaSurface = 1.5*self.cellSize
+            self.cellSize_with_margin = self.cellSize*1.01
 
     def makeMap(self, step_angle_size):
         filename_base = 'OGrid_data/Step_X=%i_Y=%i_size=%i_step=' % (self.X, self.Y, int(self.cellSize * 100))
@@ -373,7 +373,7 @@ class OGrid(object):
         if abs(delta_psi) > self.MAX_ROT:
             n = int(math.floor(abs(delta_psi)/self.MAX_ROT))
             if n > 8:
-                logger.error('Stacked rotation is big. n = {}\tDelta_psi_orig={} deg'.format(n, delta_psi*180/math.pi))
+                logger.error('Stacked rotation is big. n = {}\tDelta_psi_orig={:.2f} deg'.format(n, delta_psi*180/math.pi))
 
             max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
             delta_psi += -max_rot_signed * n
@@ -383,7 +383,7 @@ class OGrid(object):
             logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
         delta_x = self.r*np.sin(delta_psi+self.theta) - self.cell_x_value
         delta_y = self.r*np.cos(delta_psi+self.theta) - self.cell_y_value
-        if np.any(np.abs(delta_x) >= self.cellSize) or np.any(np.abs(delta_y) >= self.cellSize):
+        if np.any(np.abs(delta_x) > self.cellSize_with_margin) or np.any(np.abs(delta_y) > self.cellSize_with_margin):
             raise MyException('delta x or y to large')
         new_left_grid = np.ones(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
         new_right_grid = np.ones(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
