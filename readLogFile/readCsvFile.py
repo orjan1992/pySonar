@@ -27,6 +27,8 @@ class ReadCsvFile(object):
     def __init__(self, filename, sonarPort =4002, posPort=13102, cont_reading=False):
         self.file = open(filename, newline='')
         self.reader = csv.DictReader(self.file, delimiter=';', fieldnames=['time', 'ip', 'port', 'data'])
+        self.out_file = open('test.csv', 'w', newline='')
+        self.writer = csv.writer(self.out_file, delimiter=',')
         self.cont_reading = cont_reading
         if cont_reading:
             tmp = filename.split('/')
@@ -44,6 +46,7 @@ class ReadCsvFile(object):
 
     def close(self):
         self.file.close()
+        self.out_file.close()
 
     def readNextRow(self):
         """
@@ -97,6 +100,7 @@ class ReadCsvFile(object):
         msg.alt = float(data[5])
         msg.lat = float(data[6])
         msg.long = float(data[7])
+        self.writer.writerow([msg.lat, msg.long])
         return msg
 
 

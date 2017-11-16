@@ -1,39 +1,54 @@
-import sys
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
+import numpy as np
+from matplotlib import pyplot as plt
+from math import pi
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
+from messages.sonarMsg import SonarMsg
+from ogrid.oGrid import OGrid
+from readLogFile.readCsvFile import ReadCsvFile
+from readLogFile.readLogFile import ReadLogFile
 
-class filedialogdemo(QWidget):
-    def __init__(self, parent=None):
-        super(filedialogdemo, self).__init__(parent)
+csv = 0
+if csv:
+    log = '/home/orjangr/Repos/pySonar/logs/UdpHubLog_4001_2017_11_02_09_00_03.csv'
+    log = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
+    file = ReadCsvFile(log, 4002, 13102, cont_reading=False)
+else:
+    log = '/home/orjangr/Repos/pySonar/logs/360 degree scan harbour piles.V4LOG'
+    file = ReadLogFile(log)
 
-        layout = QVBoxLayout()
-        self.btn = QPushButton("QFileDialog static method demo")
-        self.btn.clicked.connect(self.getfile)
+O = OGrid(0.2, 20, 10, 0.5)
+Threshold = 60
+theta = np.zeros(1)
+while file.messagesReturned < 10:
+    msg = file.read_next_msg()
+    if type(msg) is SonarMsg and msg.type == 2:
+        # print(file.messagesReturned)
+        O.autoUpdateZhou(msg, Threshold)
+        theta = np.append(theta, msg.bearing)
+    elif msg == -1:
+        break
+file.close()
 
-        layout.addWidget(self.btn)
-        self.le = QLabel("Hello")
-
-        layout.addWidget(self.le)
-        self.btn1 = QPushButton("QFileDialog object")
-        self.btn1.clicked.connect(self.getfiles)
-        layout.addWidget(self.btn1)
-
-        self.contents = QTextEdit()
-        layout.addWidget(self.contents)
-        self.setLayout(layout)
-        self.setWindowTitle("File Dialog demo")
-
-    def getfile(self):
-        fname = QtGui.QFileDialog.getOpenFileName(self, 'Open file',
-                                            'c:\\', "Image files (*.jpg *.gif)")
-
-def main():
-    app = QApplication(sys.argv)
-    ex = filedialogdemo()
-    ex.show()
-    sys.exit(app.exec_())
-
-
-if __name__ == '__main__':
-    main()
+# fig = plt.figure()
+# ax = fig.gca(projection='3d')
+# surf = ax.plot_surface(O.cell_x_value, O.cell_y_value, np.arcsin((O.cellSize+O.cell_x_value)/O.r)-O.theta,
+#                        cmap=cm.coolwarm,
+#                        linewidth=0, antialiased=False)
+#
+#
+# # plt(O.cell_x_value, O.cell_y_value, np.arcsin((O.cellSize+O.cell_x_value)/O.r)-O.theta)
+# # plt.plot(O.cell_x_value[0, :], (O.cellSize+O.cell_x_value[0, :])/np.max(np.max(O.r)))
+# plt.show()
+delta_psi = 1*pi/180
+delta_x = O.r*np.sin(delta_psi+O.theta) - O.cell_x_value
+delta_y = O.r*np.cos(delta_psi+O.theta) - O.cell_y_value
+xmax = np.max(np.max(np.abs(delta_x)))
+ymax = np.max(np.max(np.abs(delta_y)))
+print(xmax)
+print(ymax)
+print(np.nonzero(np.abs(delta_x)==xmax))
+print(np.nonzero(np.abs(delta_y)==ymax))
+print(O.jMax)
