@@ -4,7 +4,7 @@ from messages.sensor import Sensor
 from readLogFile.helperFunctions import Wrap2pi
 import logging
 logger = logging.getLogger('messages.posMsg')
-
+import csv
 
 class PosMsg(Sensor):
 
@@ -40,3 +40,6 @@ class PosMsg(Sensor):
         msg.y = xy[1]
         msg.head = Wrap2pi(self.head - other.head)
         return msg
+
+    def write_to_csv(self, writer):
+        writer.writerow([self.time, self.lat, self.long])
