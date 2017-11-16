@@ -4,6 +4,9 @@ from math import pi
 import numpy as np
 import pyqtgraph as pg
 from PyQt4 import QtCore, QtGui
+# from PIL import Image
+# from matplotlib import pyplot as plt
+import scipy.io
 
 from ogrid.oGrid import OGrid
 from readLogFile.readCsvFile import ReadCsvFile
@@ -42,6 +45,11 @@ class MainWidget(QtGui.QWidget):
     latest_pos_msg_moose = None
     old_pos_msg_moose = None
     counter = 0
+    counter2 = 0
+
+    cur_lat = 0
+    cur_long = 0
+    cur_head = 0
 
 
     first_run = True
@@ -54,7 +62,7 @@ class MainWidget(QtGui.QWidget):
         super(MainWidget, self).__init__(parent)
         main_layout = QtGui.QHBoxLayout() # Main layout
         left_layout = QtGui.QVBoxLayout()
-        right_layout = QtGui.QVBoxLayout()
+        right_layout = QtGui.QGridLayout()
         bottom_right_layout = QtGui.QGridLayout()
 
         graphics_view = pg.GraphicsLayoutWidget() # layout for holding graphics object
@@ -64,12 +72,19 @@ class MainWidget(QtGui.QWidget):
         # IMAGE Window
         self.img_item = pg.ImageItem(autoLevels=False, levels=(0, 1))  # image item. the actual plot
         colormap = pg.ColorMap([0, 0.33, 0.67, 1], np.array(
-            [[0.2, 0.2, 0.2, 1.0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
+            [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]))
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         self.plot_window.addItem(self.img_item)
         self.plot_window.getAxis('left').setGrid(200)
         self.img_item.getViewBox().invertY(True)
+
+        # Scanline plot
+        scan_line_widget = pg.PlotWidget()
+        self.scan_line_plot = scan_line_widget.getPlotItem()
+        self.scan_line = self.scan_line_plot.plot(np.array([0, 0]), np.array([0, 0]))
+        self.scan_line_plot.setYRange(0, 255)
+
         # Button
         self.start_plotting_button = QtGui.QPushButton('Start Plotting')
 
@@ -77,7 +92,7 @@ class MainWidget(QtGui.QWidget):
         self.threshold_box = QtGui.QSpinBox()
         self.threshold_box.setMinimum(0)
         self.threshold_box.setMaximum(255)
-        self.threshold_box.setValue(60)
+        self.threshold_box.setValue(45)
 
         # Select file
         self.select_file_button = QtGui.QPushButton('Select File')
@@ -136,8 +151,9 @@ class MainWidget(QtGui.QWidget):
         bottom_right_layout.addWidget(self.long_box, 1, 1, 1, 1)
         bottom_right_layout.addWidget(self.rot_box, 1, 2, 1, 1)
 
-        right_layout.addWidget(graphics_view)
-        right_layout.addLayout(bottom_right_layout)
+        right_layout.addWidget(graphics_view, 0, 0, 2, 1)
+        right_layout.addWidget(scan_line_widget, 2, 0, 1, 1)
+        right_layout.addLayout(bottom_right_layout, 3, 0, 1, 1)
 
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
@@ -152,6 +168,8 @@ class MainWidget(QtGui.QWidget):
 
         #######
         self.timer = QtCore.QTimer()
+        self.timer_save = QtCore.QTimer()
+        # self.colormap = plt.get_cmap('OrRd')
 
 
     def run_morse(self):
@@ -179,11 +197,12 @@ class MainWidget(QtGui.QWidget):
             self.pause = False
             self.from_morse_button.setText('Stop from morse ')
 
+            self.timer_save.timeout.connect(self.moos_save_img)
+            self.timer_save.start(2000)
+
     def moos_sonar_message_recieved(self, msg):
-        msg.rangeScale = 30
-        msg.step = 1.8*pi/180
         logger.info('max = {}'.format(max(msg.data)))
-        msg.bearing = msg.bearing-pi/2
+        msg.bearing = msg.bearing
         self.latest_sonar_msg_moose = msg
         return True
 
@@ -196,11 +215,15 @@ class MainWidget(QtGui.QWidget):
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
+            self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
             updated = True
             self.latest_sonar_msg_moose = None
         if self.latest_pos_msg_moose:
             if not self.old_pos_msg_moose:
                 self.old_pos_msg_moose = self.latest_pos_msg_moose
+            self.cur_lat = self.latest_pos_msg_moose.lat
+            self.cur_long = self.latest_pos_msg_moose.long
+            self.cur_head = self.latest_pos_msg_moose.head
             delta_msg = self.latest_pos_msg_moose - self.old_pos_msg_moose
             if delta_msg.x != 0 or delta_msg.y != 0 or delta_msg.head != 0:
                 self.grid.translational_motion(delta_msg.y, delta_msg.x) # ogrid reference frame
@@ -208,8 +231,6 @@ class MainWidget(QtGui.QWidget):
                 self.lat_box.setText('Lat: {:G}'.format(self.latest_pos_msg_moose.lat))
                 self.long_box.setText('Long: {:G}'.format(self.latest_pos_msg_moose.long))
                 self.rot_box.setText('Heading: {:G} deg'.format(self.latest_pos_msg_moose.head * 180 / pi))
-                # print('Transformed grid: delta_x: {}\tdelta_y: {}\tdelta_psi: {} deg'.format(delta_msg.x, delta_msg.y,
-                #                                                                              delta_msg.head * 180 / pi))
                 updated = True
             self.old_pos_msg_moose = self.latest_pos_msg_moose
             self.latest_pos_msg_moose = None
@@ -222,6 +243,20 @@ class MainWidget(QtGui.QWidget):
                     self.counter = 0
             else:
                 self.img_item.setImage(self.grid.get_binary_map().T)
+
+    def moos_save_img(self):
+        self.counter2 += 1
+        scipy.io.savemat('sonar_plots/logs/bin_grid_{}.mat'.format(self.counter2),
+                         mdict={'bin_grid': self.grid.get_binary_map(), 'lat': self.cur_lat,
+                                'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
+                                'ymax': self.grid.YLimMeters})
+        scipy.io.savemat('sonar_plots/logs/oLog_grid_{}.mat'.format(self.counter2),
+                         mdict={'oLog': self.grid.oLog, 'lat': self.cur_lat,
+                                'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
+                                'ymax': self.grid.YLimMeters})
+
+        # Image.fromarray(self.colormap(self.grid.oLog, bytes=True)).save('sonar_plots/file_{}_{:.2G}_{:.2G}_{:.2G}.tiff'.format(self.counter2, self.cur_lat, self.cur_long, self.cur_head))
+
 
     def log_plotter_init(self):
         if self.first_run:
@@ -253,6 +288,7 @@ class MainWidget(QtGui.QWidget):
                     msg = self.file.read_next_msg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
                 updated = True
+                self.scan_line.setData(np.arange(len(msg.data)), msg.data)
             elif msg.sensor == 1:
                 if not self.old_pos_msg:
                     self.old_pos_msg = msg
@@ -289,6 +325,7 @@ class MainWidget(QtGui.QWidget):
 
     def stop_plot(self):
         self.timer.stop()
+        self.timer_save.stop()
         self.pause = True
         self.start_plotting_button.setText('Start plotting')
 

@@ -193,7 +193,7 @@ class OGrid(object):
         onRange = cone[self.rLow.flat[cone] < (rangeScale + self.deltaSurface)]
         onRange = onRange[self.rHigh.flat[onRange] > (rangeScale - self.deltaSurface)]
 
-        self.oLog.flat[subRange] -= 4.595119850134590
+        self.oLog.flat[subRange] -= 2.19722  #self.OZero  # 4.595119850134590
 
         alpha = np.abs(theta - self.theta.flat[onRange])
         kh2 = 0.5  # MÅ defineres
