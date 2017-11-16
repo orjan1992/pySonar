@@ -1,7 +1,8 @@
 import pymoos as pm
 from pymoos import moos_msg
 import logging
-from struct import unpack, error as struct_error, calcsize
+from struct import unpack, calcsize
+from math import pi
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.posMsg import PosMsg
@@ -56,11 +57,13 @@ class MoosMsgs(object):
             self.logger_bins.debug(msg.is_binary())
             self.logger_bins.debug(type(msg.binary_data()))
             data = msg.binary_data().encode('latin-1')
-            tmp = unpack('>dH{:d}B'.format((len(data) - 10)), data)
+            tmp = unpack('>dddH{:d}B'.format((len(data) - 26)), data)
             self.logger_bins.debug('Unpacking complte')
-            sonar_msg.bearing = tmp[0]
-            sonar_msg.length = tmp[1]
-            sonar_msg.data = tmp[2:] # = np.array(tmp[2:])
+            sonar_msg.bearing = tmp[0] - pi/2
+            sonar_msg.step = tmp[1]
+            sonar_msg.rangeScale = tmp[2]
+            sonar_msg.length = tmp[3]
+            sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
             self.new_sonar_msg_func(sonar_msg)
             self.logger_bins.debug('Callback OK')
         return True
@@ -108,8 +111,19 @@ class MoosMsgs(object):
         self.comms.register('currentNEDPos_x', 0)
         self.comms.register('currentNEDPos_y', 0)
         self.comms.register('bins', 0)
+
+        # self.comms.register("cVelocity", 0)
+        # self.comms.register("cYawRate", 0)
+        # self.comms.register("cSteer", 0)
+        # self.comms.register("cThrottle", 0)
+        # self.comms.register("cBrake", 0)
         return True
 
     def dummy_func(self, msg):
         # inital function for callbacks
         return True
+
+    # def send_speed(self, v=0, w=0):
+    #     self.comms.notify("cVelocity", v, pm.time())
+    #     self.comms.notify("cYawRate", w, pm.time())
+    #     self.comms.notify("cThrottle", 10, pm.time())
