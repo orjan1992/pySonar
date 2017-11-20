@@ -105,7 +105,7 @@ class OGrid(object):
             self.mappingMax = int(self.X * self.Y / 10)
             self.makeMap(self.steps)
             self.loadMap(self.steps[0] * self.GRAD2RAD)
-            self.deltaSurface = 1.5*self.cellSize
+            self.deltaSurface = 0  # 1.5*self.cellSize
             self.cellSize_with_margin = self.cellSize*1.01
 
     def makeMap(self, step_angle_size):
@@ -181,6 +181,9 @@ class OGrid(object):
         try:
             P = 1 - 1 / (1 + np.exp(self.oLog))
         except RuntimeWarning:
+            self.oLog[np.nonzero(self.oLog > 50)] = 50
+            self.oLog[np.nonzero(self.oLog < -50)] = -50
+            P = 1 - 1 / (1 + np.exp(self.oLog))
             logger.debug('Overflow when calculating probability')
         return P
 
@@ -193,7 +196,7 @@ class OGrid(object):
         onRange = cone[self.rLow.flat[cone] < (rangeScale + self.deltaSurface)]
         onRange = onRange[self.rHigh.flat[onRange] > (rangeScale - self.deltaSurface)]
 
-        self.oLog.flat[subRange] -= 2.19722  #self.OZero  # 4.595119850134590
+        self.oLog.flat[subRange] -= self.OZero  #2.19722  #self.OZero  # 4.595119850134590
 
         alpha = np.abs(theta - self.theta.flat[onRange])
         kh2 = 0.5  # MÅ defineres
@@ -233,13 +236,14 @@ class OGrid(object):
         :param delta_y: Change in positive grid direction [m] (surge)
         :return: Nothing
         """
+        logger.debug('delta_x{}\tdelta_y:{}'.format(delta_x, delta_y))
         # Check if movement is less than 1/4 of cell size => save for later
         delta_x += self.old_delta_x
         delta_y += self.old_delta_y
-        if abs(delta_x) < self.fourth_cell_size:
+        if abs(delta_x) < .01:  #self.fourth_cell_size:
             self.old_delta_x = delta_x
             delta_x = 0
-        if abs(delta_y) < self.fourth_cell_size:
+        if abs(delta_y) < .01:  #self.fourth_cell_size:
             self.old_delta_y = delta_y
             delta_y = 0
         if delta_y == delta_x == 0:
@@ -264,43 +268,60 @@ class OGrid(object):
         new_grid = np.zeros(np.shape(self.oLog))
         if delta_x >= 0:
             if delta_y >= 0:
-                new_grid[0, :] = self.OZero
-                new_grid[:, -1] = self.OZero
                 w2 = (self.cellSize - delta_x) * delta_y / self.cellArea
                 w3 = delta_x * delta_y / self.cellArea
                 w5 = (self.cellSize - delta_x) * (self.cellSize - delta_y) / self.cellArea
                 w6 = delta_x * (self.cellSize - delta_y) / self.cellArea
                 new_grid[1:, :-1] = w2 * self.oLog[:-1, :-1] + w3 * self.oLog[:-1, 1:] + \
-                                    w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:] + self.OZero
+                                    w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:]
+
+                new_grid[0, :-1] = (w2+w3) * self.OZero*np.ones(self.jMax-1) + \
+                                    w5 * self.oLog[1, :-1] + w6 * self.oLog[1, 1:]
+                new_grid[1:, -1] = w2 * self.oLog[:-1, -2] + (w3+w6) * self.OZero*np.ones(self.iMax-1) + \
+                                    w5 * self.oLog[1:, -2]
+                new_grid[0, -1] = (w2+w3+w6)*self.OZero + w5*self.oLog[1, -2]
 
             else:
-                new_grid[-1, :] = self.OZero
-                new_grid[:, -1] = self.OZero
                 w5 = (self.cellSize - delta_x) * (self.cellSize + delta_y) / self.cellArea
                 w6 = delta_x * (self.cellSize + delta_y) / self.cellArea
                 w8 = (self.cellSize - delta_x) * (-delta_y) / self.cellArea
                 w9 = delta_x * (-delta_y) / self.cellArea
                 new_grid[:-1, :-1] = w5 * self.oLog[:-1, :-1] + w6 * self.oLog[:-1, 1:] + \
-                                     w8 * self.oLog[1:, :-1] + w9 * self.oLog[1:, 1:] + self.OZero
+                                     w8 * self.oLog[1:, :-1] + w9 * self.oLog[1:, 1:]
+
+                new_grid[-1, :-1] = w5 * self.oLog[-2, :-1] + w6 * self.oLog[-2, 1:] + \
+                                  (w8 + w9) * self.OZero*np.ones(self.jMax-1)
+                new_grid[:-1, -1] = w5 * self.oLog[:-1, -2] + (w6 + w9) * self.OZero*np.ones(self.iMax-1) + \
+                                     w8 * self.oLog[1:, -2]
+                new_grid[-1, -1] = w5 * self.oLog[-2, -2] + (w6+w8+w9) * self.OZero
         else:
             if delta_y >= 0:
-                new_grid[0, :] = self.OZero
-                new_grid[:, 0] = self.OZero
+                # TODO check end row/col
                 w1 = -delta_x * delta_y / self.cellArea
                 w2 = (self.cellSize + delta_x) * delta_y / self.cellArea
                 w4 = -delta_x * (self.cellSize - delta_y) / self.cellArea
                 w5 = (self.cellSize + delta_x) * (self.cellSize - delta_y) / self.cellArea
                 new_grid[1:, 1:] = w1 * self.oLog[:-1, :-1] + w2 * self.oLog[:-1, 1:] + \
-                                   w4 * self.oLog[1:, :-1] + w5 * self.oLog[1:, 1:] + self.OZero
+                                   w4 * self.oLog[1:, :-1] + w5 * self.oLog[1:, 1:]
+
+                new_grid[0, 1:] = (w1 + w2) * self.OZero*np.ones(self.jMax-1) + \
+                                   w4 * self.oLog[0, :-1] + w5 * self.oLog[0, 1:]
+                new_grid[1:, 0] = (w1 + w4) * self.OZero*np.ones(self.iMax-1) + w2 * self.oLog[:-1, 0] + \
+                                   w5 * self.oLog[1:, 0]
+                new_grid[0, 0] = (w1 + w2 + w4) * self.OZero + w5 * self.oLog[1, 1]
             else:
-                new_grid[-1, :] = self.OZero
-                new_grid[:, 0] = self.OZero
                 w4 = (-delta_x) * (self.cellSize + delta_y) / self.cellArea
                 w5 = (self.cellSize + delta_x) * (self.cellSize + delta_y) / self.cellArea
                 w7 = (-delta_x) * (-delta_y) / self.cellArea
                 w8 = (self.cellSize + delta_x) * (-delta_y) / self.cellArea
                 new_grid[:-1, 1:] = w4 * self.oLog[:-1, :-1] + w5 * self.oLog[:-1, 1:] + \
-                                    w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:] + self.OZero
+                                    w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:]
+
+                new_grid[-1, 1:] = w4 * self.oLog[-2, :-1] + w5 * self.oLog[-2, 1:] + \
+                                   (w7 + w8) * self.OZero*np.ones(self.jMax-1)
+                new_grid[:-1, 0] = (w4+w7)*self.OZero*np.ones(self.iMax-1) + w5 * self.oLog[:-1, 1] + \
+                                    w8 * self.oLog[1:, 1]
+                new_grid[-1, 0] = (w4+w7+w8)*self.OZero + w5 * self.oLog[-2, 1]
         self.oLog = new_grid
 
     def cell_rotation(self, delta_psi):
@@ -332,7 +353,7 @@ class OGrid(object):
                                     self.oLog[0, :-2] + self.oLog[0, 2:])
         # last row
         new_grid[-1, 1:-1] = A * self.oLog[-1, 1:-1] +\
-                               w * (self.oLog[-2, 1:-1] + self.OZero +
+                               w * (self.oLog[-2, 1:-1] +
                                     self.oLog[-1, :-2] + self.oLog[-1, 2:])
         # first column
         new_grid[1:-1, 0] = A * self.oLog[1:-1, 0] +\
