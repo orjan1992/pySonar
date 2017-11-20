@@ -296,7 +296,6 @@ class OGrid(object):
                 new_grid[-1, -1] = w5 * self.oLog[-2, -2] + (w6+w8+w9) * self.OZero
         else:
             if delta_y >= 0:
-                # TODO check end row/col
                 w1 = -delta_x * delta_y / self.cellArea
                 w2 = (self.cellSize + delta_x) * delta_y / self.cellArea
                 w4 = -delta_x * (self.cellSize - delta_y) / self.cellArea
@@ -406,12 +405,10 @@ class OGrid(object):
         delta_y = self.r*np.cos(delta_psi+self.theta) - self.cell_y_value
         if np.any(np.abs(delta_x) > self.cellSize_with_margin) or np.any(np.abs(delta_y) > self.cellSize_with_margin):
             raise MyException('delta x or y to large')
-        new_left_grid = np.ones(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
-        new_right_grid = np.ones(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
+        new_left_grid = np.zeros(np.shape(self.oLog[:, :self.origoJ]), dtype=self.oLog_type)
+        new_right_grid = np.zeros(np.shape(self.oLog[:, self.origoJ:]), dtype=self.oLog_type)
         if delta_psi >= 0:
             # Left grid both positive. Right grid x_postive, y negative
-            new_left_grid[0, :] = self.OZero
-            new_left_grid[:, -1] = self.OZero
             wl2 = (self.cellSize - delta_x[:, :self.origoJ+1]) * delta_y[:, :self.origoJ+1] / self.cellArea
             wl3 = delta_x[:, :self.origoJ+1] * delta_y[:, :self.origoJ+1] / self.cellArea
             wl5 = (self.cellSize - delta_x[:, :self.origoJ+1]) * (self.cellSize - delta_y[:, :self.origoJ+1]) / self.cellArea
@@ -421,10 +418,13 @@ class OGrid(object):
             new_left_grid[1:, :] = wl2[1:, :-1] * self.oLog[:-1, :self.origoJ] + \
                                      wl3[1:, :-1] * self.oLog[:-1, 1:self.origoJ+1] + \
                                      wl5[1:, :-1] * self.oLog[1:, :self.origoJ] + \
-                                     wl6[1:, :-1] * self.oLog[1:, 1:self.origoJ+1] + self.OZero
+                                     wl6[1:, :-1] * self.oLog[1:, 1:self.origoJ+1]
 
-            new_right_grid[-1, :] = self.OZero
-            new_right_grid[:, -1] = self.OZero
+            new_left_grid[0, :] = (wl2[0, :-1]+wl3[0, :-1]) * self.OZero*np.ones(np.shape(new_left_grid[0, :])) + \
+                                     wl5[0, :-1] * self.oLog[1, :self.origoJ] + \
+                                     wl6[0, :-1] * self.oLog[1, 1:self.origoJ+1]
+
+
             wr5 = (self.cellSize - delta_x[:, self.origoJ:]) * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
             wr6 = delta_x[:, self.origoJ:] * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
             wr8 = (self.cellSize - delta_x[:, self.origoJ:]) * (-delta_y[:, self.origoJ:]) / self.cellArea
@@ -434,11 +434,18 @@ class OGrid(object):
             new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.oLog[:-1, self.origoJ:-1] +\
                                        wr6[:-1, :-1] * self.oLog[:-1, self.origoJ+1:] +\
                                        wr8[:-1, :-1] * self.oLog[1:, self.origoJ:-1] +\
-                                       wr9[:-1, :-1] * self.oLog[1:, self.origoJ+1:] + self.OZero
+                                       wr9[:-1, :-1] * self.oLog[1:, self.origoJ+1:]
+
+            new_right_grid[-1, :-1] = wr5[-1, :-1] * self.oLog[-1, self.origoJ:-1] +\
+                                    wr6[-1, :-1] * self.oLog[-1, self.origoJ+1:] +\
+                                    (wr8[-1, :-1] + wr9[-1, :-1]) * self.OZero*np.ones(np.shape(new_right_grid[-1, :-1]))
+            new_right_grid[:-1, -1] = wr5[:-1, -1] * self.oLog[:-1, -1] +\
+                                    wr8[:-1, -1] * self.oLog[1:, -1] +\
+                                    (wr6[:-1, -1] + wr9[:-1, -1]) * self.OZero*np.ones(np.shape(new_right_grid[:-1, -1]))
+            new_right_grid[-1, -1] = wr5[-1, -1] * self.oLog[-1, -1] +\
+                                    (wr6[-1, -1] + wr8[-1, -1] + wr9[-1, -1]) * self.OZero
         else:
             # Left grid: both neg, right grid: x neg, y pos
-            new_left_grid[-1, :] = self.OZero
-            new_left_grid[:, 0] = self.OZero
             wl4 = (-delta_x[:, :self.origoJ]) * (self.cellSize + delta_y[:, :self.origoJ]) / self.cellArea
             wl5 = (self.cellSize + delta_x[:, :self.origoJ]) * (self.cellSize + delta_y[:, :self.origoJ]) / self.cellArea
             wl7 = (-delta_x[:, :self.origoJ]) * (-delta_y[:, :self.origoJ]) / self.cellArea
@@ -448,10 +455,17 @@ class OGrid(object):
             new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.oLog[:-1, :self.origoJ-1] +\
                                      wl5[1:, :-1] * self.oLog[:-1, 1:self.origoJ] +\
                                      wl7[1:, :-1] * self.oLog[1:, :self.origoJ-1] +\
-                                     wl8[1:, :-1] * self.oLog[1:, 1:self.origoJ] + self.OZero
+                                     wl8[1:, :-1] * self.oLog[1:, 1:self.origoJ]
 
-            new_right_grid[0, :] = self.OZero
-            new_right_grid[:, 0] = self.OZero
+            new_left_grid[-1, :-1] = wl4[-1, :-1] * self.oLog[-1, :self.origoJ-1] +\
+                                     wl5[-1, :-1] * self.oLog[-1, 1:self.origoJ] +\
+                                   (wl7[-1, :-1] + wl8[-1, :-1]) * self.OZero*np.ones(np.shape(new_left_grid[-1, :-1]))
+            new_left_grid[1:, 0] = wl5[1:, 0] * self.oLog[:-1, 1] +\
+                                     (wl4[1:, 0] + wl7[1:, 0]) * self.OZero*np.ones(np.shape(new_left_grid[1:, 0])) +\
+                                     wl8[1:, 0] * self.oLog[1:, 1]
+            new_left_grid[-1, 0] = wl5[-1, 0] * self.oLog[-1, 0] +\
+                                     (wl4[-1, 0] + wl7[-1, 0] + wl8[-1, 0]) * self.OZero
+
             wr1 = -delta_x[:, self.origoJ-1:] * delta_y[:, self.origoJ-1:] / self.cellArea
             wr2 = (self.cellSize + delta_x[:, self.origoJ-1:]) * delta_y[:, self.origoJ-1:] / self.cellArea
             wr4 = -delta_x[:, self.origoJ-1:] * (self.cellSize - delta_y[:, self.origoJ-1:]) / self.cellArea
@@ -461,7 +475,10 @@ class OGrid(object):
             new_right_grid[1:, :] = wr1[:-1, :-1] * self.oLog[:-1, self.origoJ-1:-1] +\
                                      wr2[:-1, :-1] * self.oLog[:-1, self.origoJ:] +\
                                      wr4[:-1, :-1] * self.oLog[1:, self.origoJ-1:-1] +\
-                                     wr5[:-1, :-1] * self.oLog[1:, self.origoJ:] + self.OZero
+                                     wr5[:-1, :-1] * self.oLog[1:, self.origoJ:]
+            new_right_grid[0, :] = (wr1[0, 1:]+wr2[0, 1:]) * self.OZero*np.ones(np.shape(new_right_grid[0, :])) +\
+                                     wr4[0, 1:] * self.oLog[0, self.origoJ-1:-1] +\
+                                     wr5[0, 1:] * self.oLog[0, self.origoJ:]
         self.oLog[:, :self.origoJ] = new_left_grid
         self.oLog[:, self.origoJ:] = new_right_grid
         # self.cell_rotation(delta_psi)
