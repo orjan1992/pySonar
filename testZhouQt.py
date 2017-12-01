@@ -9,6 +9,7 @@ from PyQt4 import QtCore, QtGui
 import scipy.io
 
 from ogrid.oGrid import OGrid
+from ogrid.rawPlot import RawPlot
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
 from messages.moosMsgs import MoosMsgs
@@ -79,6 +80,19 @@ class MainWidget(QtGui.QWidget):
         self.plot_window.addItem(self.img_item)
         self.plot_window.getAxis('left').setGrid(200)
         self.img_item.getViewBox().invertY(True)
+
+
+        # raw plot
+        raw_graphics_view = pg.GraphicsLayoutWidget()  # layout for holding graphics object
+        # view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
+        self.raw_plot_window = pg.PlotItem()
+        raw_graphics_view.addItem(self.raw_plot_window)
+        self.raw_img_item = pg.ImageItem(autoLevels=False, levels=(0, 1))  # image item. the actual plot
+        self.raw_img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
+
+        self.plot_window.addItem(self.raw_img_item)
+        self.plot_window.getAxis('left').setGrid(200)
+        self.raw_img_item.getViewBox().invertY(True)
 
         # Scanline plot
         scan_line_widget = pg.PlotWidget()
@@ -153,8 +167,9 @@ class MainWidget(QtGui.QWidget):
         bottom_right_layout.addWidget(self.long_box, 1, 1, 1, 1)
         bottom_right_layout.addWidget(self.rot_box, 1, 2, 1, 1)
 
-        right_layout.addWidget(graphics_view, 0, 0, 2, 1)
-        right_layout.addWidget(scan_line_widget, 2, 0, 1, 1)
+        right_layout.addWidget(graphics_view, 0, 0, 1, 1)
+        right_layout.addWidget(scan_line_widget, 0, 1, 2, 1)
+        right_layout.addWidget(raw_graphics_view, 1, 0, 1, 1)
         right_layout.addLayout(bottom_right_layout, 3, 0, 1, 1)
 
         main_layout.addLayout(left_layout)
@@ -183,11 +198,13 @@ class MainWidget(QtGui.QWidget):
         if self.first_run:
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
                               self.ogrid_conditions[3], self.ogrid_conditions[4])
+            self.raw_grid = RawPlot(self.ogrid_conditions[1], self.ogrid_conditions[2], 10/self.ogrid_conditions[0])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.first_run = False
         else:
             self.grid.clearGrid()
+            self.raw_grid.clear()
         if self.morse_running:
             self.moos_client.close()
             self.morse_running = False
@@ -249,6 +266,7 @@ class MainWidget(QtGui.QWidget):
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
+            self.raw_grid.update_grid(self.latest_sonar_msg_moose)
             self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
             updated = True
             self.latest_sonar_msg_moose = None
@@ -277,6 +295,7 @@ class MainWidget(QtGui.QWidget):
                     self.counter = 0
             else:
                 self.img_item.setImage(self.grid.get_binary_map().T)
+
 
     def moos_save_img(self):
         if self.new_sonar_msg:
@@ -347,6 +366,7 @@ class MainWidget(QtGui.QWidget):
             else:
                 self.file = ReadLogFile(self.fname)
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
+            self.raw_grid = RawPlot(self.ogrid_conditions[1], self.ogrid_conditions[2], 10/self.ogrid_conditions[0])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.timer.timeout.connect(self.log_updater)
@@ -369,6 +389,7 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.read_next_msg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+                self.raw_grid.update_grid(msg)
                 updated = True
                 self.scan_line.setData(np.arange(len(msg.data)), msg.data)
                 self.new_sonar_msg = msg
@@ -397,6 +418,7 @@ class MainWidget(QtGui.QWidget):
         self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))
         if self.grid:
             self.grid.clearGrid()
+            self.raw_grid.clear()
 
     def getFile(self):
         self.stop_plot()
