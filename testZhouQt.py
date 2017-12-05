@@ -20,7 +20,7 @@ logging.basicConfig(filename=LOG_FILENAME,
                     level=logging.DEBUG,
                     filemode='w',)
 logger = logging.getLogger('ZhouQt')
-logger.disabled = True
+logger.disabled = False
 # logging.getLogger('readLogFile.ReadCsvFile').disabled = True
 logging.getLogger('messages.MoosMsgs').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
@@ -39,7 +39,9 @@ class MainWindow(QtGui.QMainWindow):
 
 class MainWidget(QtGui.QWidget):
     binary_plot = True
+    # ogrid_conditions = [0.3, 16, 8, 0.65, 0.78]
     ogrid_conditions = [0.3, 60, 30, 0.65, 0.78]
+    raw_res = 0.1
     old_pos_msg = 0
     grid = 0
     morse_running = False
@@ -56,9 +58,10 @@ class MainWidget(QtGui.QWidget):
 
     first_run = True
     pause = True
-    # fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
+    start_rec_on_moos_start = False
+    fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
     # fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
-    fname = '/home/orjangr/Repos/pySonar/logs/Sonar Log/UdpHubLog_4001_2017_11_02_09_16_58.csv'
+    # fname = '/home/orjangr/Repos/pySonar/logs/Sonar Log/UdpHubLog_4001_2017_11_02_09_16_58.csv'
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -87,11 +90,11 @@ class MainWidget(QtGui.QWidget):
         # view_box = pg.ViewBox(invertY=True) # making viewbox for the image, inverting y to make it right
         self.raw_plot_window = pg.PlotItem()
         raw_graphics_view.addItem(self.raw_plot_window)
-        self.raw_img_item = pg.ImageItem(autoLevels=False, levels=(0, 1))  # image item. the actual plot
-        self.raw_img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
+        self.raw_img_item = pg.ImageItem(autoLevels=False, levels=(0, 255))  # image item. the actual plot
+        self.raw_img_item.setLookupTable(colormap.getLookupTable())
 
-        self.plot_window.addItem(self.raw_img_item)
-        self.plot_window.getAxis('left').setGrid(200)
+        self.raw_plot_window.addItem(self.raw_img_item)
+        self.raw_plot_window.getAxis('left').setGrid(200)
         self.raw_img_item.getViewBox().invertY(True)
 
         # Scanline plot
@@ -198,13 +201,13 @@ class MainWidget(QtGui.QWidget):
         if self.first_run:
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
                               self.ogrid_conditions[3], self.ogrid_conditions[4])
-            self.raw_grid = RawPlot(self.ogrid_conditions[1], self.ogrid_conditions[2], 10/self.ogrid_conditions[0])
+            self.raw_grid = RawPlot(self.raw_res, self.ogrid_conditions[1], self.ogrid_conditions[2])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.first_run = False
         else:
             self.grid.clearGrid()
-            self.raw_grid.clear()
+            self.raw_grid.clearGrid()
         if self.morse_running:
             self.moos_client.close()
             self.morse_running = False
@@ -220,8 +223,14 @@ class MainWidget(QtGui.QWidget):
             self.timer.start(0)
             self.pause = False
             self.from_morse_button.setText('Stop from morse ')
+            if self.start_rec_on_moos_start:
+                self.start_rec()
+                self.start_rec_on_moos_start = False
 
     def start_rec(self):
+        if not self.morse_running:
+            self.start_rec_on_moos_start = True
+            return 1
         if self.rec_started:
             self.timer_save.stop()
             self.start_rec_button.setText('Start Rec')
@@ -233,16 +242,10 @@ class MainWidget(QtGui.QWidget):
         else:
             self.counter_save_scanline = 0
             self.lastest_head_diff = 0
-            self.data_msgs = np.ones((1, 300), dtype=np.uint8)
-            self.lat_msgs = np.ones(1)
-            self.long_msgs = np.ones(1)
-            self.head_msgs = np.ones(1)
-            self.bearing_msgs = np.ones(1)
             self.last_msg = MoosSonarMsg()
             self.last_msg.bearing = 0
             self.latest_head_diff = 0
             self.new_sonar_msg = None
-            self.nbins = np.ones(1)
 
             if self.morse_running:
                 self.timer_save.start(0)
@@ -252,7 +255,7 @@ class MainWidget(QtGui.QWidget):
             self.rec_started = True
 
     def moos_sonar_message_recieved(self, msg):
-        logger.info('max = {}'.format(max(msg.data)))
+        logger.info('bearing : {}'.format(msg.bearing*180/pi))
         self.latest_sonar_msg_moose = msg
         self.new_sonar_msg = msg
         return True
@@ -262,11 +265,13 @@ class MainWidget(QtGui.QWidget):
         return True
 
     def moos_updater(self):
+        # TODO remove saving of scanlines
         updated = False
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
-            self.raw_grid.update_grid(self.latest_sonar_msg_moose)
+            self.raw_grid.autoUpdate(self.latest_sonar_msg_moose)
+            self.raw_img_item.setImage(self.raw_grid.grid.T)
             self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
             updated = True
             self.latest_sonar_msg_moose = None
@@ -296,35 +301,26 @@ class MainWidget(QtGui.QWidget):
             else:
                 self.img_item.setImage(self.grid.get_binary_map().T)
 
-
     def moos_save_img(self):
         if self.new_sonar_msg:
             if not(np.sign(self.latest_head_diff) == np.sign(self.new_sonar_msg.bearing - self.last_msg.bearing)):
-                if not np.all(self.data_msgs == 1):
-                    self.counter2 += 1
-                    scipy.io.savemat('sonar_plots/logs/bin_grid_{}.mat'.format(self.counter2),
-                                     mdict={'bin_grid': self.grid.get_binary_map(), 'lat': self.cur_lat,
-                                            'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
-                                            'ymax': self.grid.YLimMeters})
-                    scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
-                                     mdict={'prob': self.grid.getP(), 'lat': self.cur_lat,
-                                            'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
-                                            'ymax': self.grid.YLimMeters})
-                    scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
-                                     mdict={'scanline': self.data_msgs, 'lat': self.lat_msgs,
-                                            'long': self.long_msgs, 'head': self.head_msgs, 'bearing': self.bearing_msgs})
+                self.counter2 += 1
+                scipy.io.savemat('sonar_plots/logs/bin_grid_{}.mat'.format(self.counter2),
+                                 mdict={'bin_grid': self.grid.get_binary_map(), 'lat': self.cur_lat,
+                                        'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters, 'time': self.new_sonar_msg.time})
+                scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
+                                 mdict={'prob': self.grid.getP(), 'lat': self.cur_lat,
+                                        'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters})
+                # scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
+                #                  mdict={'scanline': self.data_msgs, 'lat': self.lat_msgs,
+                #                         'long': self.long_msgs, 'head': self.head_msgs, 'bearing': self.bearing_msgs})
+                scipy.io.savemat('sonar_plots/logs/raw_grid_{}.mat'.format(self.counter2),
+                                 mdict={'raw_grid': self.raw_grid.grid,
+                                        'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters})
 
-                    self.data_msgs = np.ones(1, dtype=np.uint8)
-                    self.lat_msgs = np.ones(1)
-                    self.long_msgs = np.ones(1)
-                    self.head_msgs = np.ones(1)
-                    self.bearing_msgs = np.ones(1)
-
-            self.data_msgs = np.append(self.data_msgs, self.new_sonar_msg.data)
-            self.lat_msgs = np.append(self.lat_msgs, self.cur_lat)
-            self.long_msgs = np.append(self.long_msgs, self.cur_long)
-            self.head_msgs = np.append(self.head_msgs, self.cur_head)
-            self.bearing_msgs = np.append(self.bearing_msgs, self.new_sonar_msg.bearing)
             self.latest_head_diff = self.new_sonar_msg.bearing - self.last_msg.bearing
             self.last_msg = self.new_sonar_msg
             self.new_sonar_msg = None
@@ -332,29 +328,22 @@ class MainWidget(QtGui.QWidget):
     def log_save_img(self):
         if self.new_sonar_msg:
             if not (np.sign(self.latest_head_diff) == np.sign(self.new_sonar_msg.bearing - self.last_msg.bearing)):
-                if not np.all(self.data_msgs == 1):
-                    self.counter2 += 1
-                    scipy.io.savemat('sonar_plots/logs/bin_grid_{}.mat'.format(self.counter2),
-                                     mdict={'bin_grid': self.grid.get_binary_map(),
-                                            'xmax': self.grid.XLimMeters,
-                                            'ymax': self.grid.YLimMeters})
-                    scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
-                                     mdict={'prob': self.grid.getP(),
-                                            'xmax': self.grid.XLimMeters,
-                                            'ymax': self.grid.YLimMeters})
-                    scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
-                                     mdict={'scanline': self.data_msgs, 'nbins': self.nbins})
+                self.counter2 += 1
+                scipy.io.savemat('sonar_plots/logs/bin_grid_{}.mat'.format(self.counter2),
+                                 mdict={'bin_grid': self.grid.get_binary_map(),
+                                        'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters})
+                scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
+                                 mdict={'prob': self.grid.getP(),
+                                        'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters})
+                # scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
+                #                  mdict={'scanline': self.data_msgs, 'nbins': self.nbins})
+                scipy.io.savemat('sonar_plots/logs/raw_grid_{}.mat'.format(self.counter2),
+                                 mdict={'prob': self.raw_grid.grid,
+                                        'xmax': self.grid.XLimMeters,
+                                        'ymax': self.grid.YLimMeters})
 
-                    self.data_msgs = np.ones(1, dtype=np.uint8)
-                    self.lat_msgs = np.ones(1)
-                    self.long_msgs = np.ones(1)
-                    self.head_msgs = np.ones(1)
-                    self.bearing_msgs = np.ones(1)
-                    self.nbins = np.ones(1)
-
-            self.data_msgs = np.append(self.data_msgs, self.new_sonar_msg.data)
-            self.bearing_msgs = np.append(self.bearing_msgs, self.new_sonar_msg.bearing)
-            self.nbins = np.append(self.nbins, self.new_sonar_msg.dataBins)
             self.latest_head_diff = self.new_sonar_msg.bearing - self.last_msg.bearing
             self.last_msg = self.new_sonar_msg
             self.new_sonar_msg = None
@@ -366,7 +355,7 @@ class MainWidget(QtGui.QWidget):
             else:
                 self.file = ReadLogFile(self.fname)
             self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
-            self.raw_grid = RawPlot(self.ogrid_conditions[1], self.ogrid_conditions[2], 10/self.ogrid_conditions[0])
+            self.raw_grid = RawPlot(self.raw_res, self.ogrid_conditions[1], self.ogrid_conditions[2])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.timer.timeout.connect(self.log_updater)
@@ -389,7 +378,8 @@ class MainWidget(QtGui.QWidget):
                 while msg.type != 2:
                     msg = self.file.read_next_msg()
                 self.grid.autoUpdateZhou(msg, self.threshold_box.value())
-                self.raw_grid.update_grid(msg)
+                self.raw_grid.autoUpdate(msg)
+                self.raw_img_item.setImage(self.raw_grid.grid.T)
                 updated = True
                 self.scan_line.setData(np.arange(len(msg.data)), msg.data)
                 self.new_sonar_msg = msg
@@ -418,7 +408,7 @@ class MainWidget(QtGui.QWidget):
         self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))
         if self.grid:
             self.grid.clearGrid()
-            self.raw_grid.clear()
+            self.raw_grid.clearGrid()
 
     def getFile(self):
         self.stop_plot()

@@ -62,8 +62,10 @@ class MoosMsgs(object):
             sonar_msg.bearing = tmp[0] - pi/2
             sonar_msg.step = tmp[1]
             sonar_msg.rangeScale = tmp[2]
-            sonar_msg.length = tmp[3]
+            sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
+            sonar_msg.dataBins = tmp[3]  # TODO one variable to much, which is needed?
             sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
+            sonar_msg.time = msg.time()
             self.new_sonar_msg_func(sonar_msg)
             self.logger_bins.debug('Callback OK')
         return True
