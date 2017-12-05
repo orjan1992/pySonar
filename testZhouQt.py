@@ -39,9 +39,9 @@ class MainWindow(QtGui.QMainWindow):
 
 class MainWidget(QtGui.QWidget):
     binary_plot = True
-    # ogrid_conditions = [0.3, 16, 8, 0.65, 0.78]
-    ogrid_conditions = [0.3, 60, 30, 0.65, 0.78]
-    raw_res = 0.1
+    ogrid_conditions = [0.1, 16, 8, 0.65, 0.78]
+    # ogrid_conditions = [0.3, 60, 30, 0.65, 0.78]
+    raw_res = 0.05
     old_pos_msg = 0
     grid = 0
     morse_running = False
@@ -59,8 +59,8 @@ class MainWidget(QtGui.QWidget):
     first_run = True
     pause = True
     start_rec_on_moos_start = False
-    fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
-    # fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
+    # fname = 'logs/360 degree scan harbour piles.V4LOG' #inital file name
+    fname = 'logs/UdpHubLog_4001_2017_11_02_09_01_58.csv'
     # fname = '/home/orjangr/Repos/pySonar/logs/Sonar Log/UdpHubLog_4001_2017_11_02_09_16_58.csv'
 
     def __init__(self, parent=None):
@@ -228,7 +228,7 @@ class MainWidget(QtGui.QWidget):
                 self.start_rec_on_moos_start = False
 
     def start_rec(self):
-        if not self.morse_running:
+        if not (self.morse_running or not self.pause):
             self.start_rec_on_moos_start = True
             return 1
         if self.rec_started:
@@ -340,7 +340,7 @@ class MainWidget(QtGui.QWidget):
                 # scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
                 #                  mdict={'scanline': self.data_msgs, 'nbins': self.nbins})
                 scipy.io.savemat('sonar_plots/logs/raw_grid_{}.mat'.format(self.counter2),
-                                 mdict={'prob': self.raw_grid.grid,
+                                 mdict={'raw_grid': self.raw_grid.grid,
                                         'xmax': self.grid.XLimMeters,
                                         'ymax': self.grid.YLimMeters})
 
@@ -364,6 +364,9 @@ class MainWidget(QtGui.QWidget):
         if self.pause:
             self.timer.start(0)
             self.pause = False
+            if self.start_rec_on_moos_start:
+                self.start_rec()
+                self.start_rec_on_moos_start = False
             self.start_plotting_button.setText('Stop plotting ')
         else:
             self.stop_plot()
