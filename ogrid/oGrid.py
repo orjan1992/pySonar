@@ -13,6 +13,8 @@ class OGrid(object):
     RAD2GRAD = (16 * 200) / math.pi
     PI2 = math.pi / 2
     PI4 = math.pi / 4
+    DEG1_5 = 1.5*math.pi/180
+    DEG7_5 = DEG1_5/2
     oLog_type = np.float32
     old_delta_x = 0
     old_delta_y = 0
@@ -149,8 +151,9 @@ class OGrid(object):
 
     def sonarCone(self, step, theta):
         # TODO should be optimized
-        theta1 = max(theta - step / 2, -self.PI2)
-        theta2 = min(theta + step / 2, self.PI2)
+        # TODO option for 650kHz(1.5 deg x 40 deg beam) and 325kHz(3 deg x 20 deg beam)
+        theta1 = max(theta - self.DEG7_5, -self.PI2)
+        theta2 = min(theta + self.DEG7_5, self.PI2)
         (row, col) = np.nonzero(self.thetaLow <= theta2)
         a = self.sub2ind(row, col)
 
@@ -422,7 +425,6 @@ class OGrid(object):
             new_left_grid[0, :] = (wl2[0, :-1]+wl3[0, :-1]) * self.OZero*np.ones(np.shape(new_left_grid[0, :])) + \
                                      wl5[0, :-1] * self.oLog[1, :self.origoJ] + \
                                      wl6[0, :-1] * self.oLog[1, 1:self.origoJ+1]
-
 
             wr5 = (self.cellSize - delta_x[:, self.origoJ:]) * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
             wr6 = delta_x[:, self.origoJ:] * (self.cellSize + delta_y[:, self.origoJ:]) / self.cellArea
