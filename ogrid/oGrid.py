@@ -7,6 +7,7 @@ import os
 
 logger = logging.getLogger('OGrid')
 
+
 class OGrid(object):
     cur_step = 0
     GRAD2RAD = math.pi / (16 * 200)

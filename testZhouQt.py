@@ -3,7 +3,7 @@ from math import pi
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt4 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui
 # from PIL import Image
 # from matplotlib import pyplot as plt
 import scipy.io
@@ -11,9 +11,6 @@ import scipy.io
 from ogrid.oGrid import OGrid
 from ogrid.rawPlot import RawPlot
 from readLogFile.readCsvFile import ReadCsvFile
-from readLogFile.readLogFile import ReadLogFile
-from messages.moosMsgs import MoosMsgs
-from messages.moosSonarMsg import MoosSonarMsg
 
 LOG_FILENAME = 'ZhouLog.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -22,11 +19,8 @@ logging.basicConfig(filename=LOG_FILENAME,
 logger = logging.getLogger('ZhouQt')
 logger.disabled = False
 # logging.getLogger('readLogFile.ReadCsvFile').disabled = True
-logging.getLogger('messages.MoosMsgs').disabled = True
-logging.getLogger('messages.MoosMsgs.bins').disabled = True
-logging.getLogger('messages.MoosMsgs.pose').disabled = True
 # logging.getLogger('readLogFile.ReadCsvFile').disabled = True
-
+WINDOWS = True
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
