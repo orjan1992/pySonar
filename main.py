@@ -101,9 +101,7 @@ class MainWidget(QtGui.QWidget):
 
 
     def init_grid(self):
-        self.grid = OGrid(self.settings.grid_settings["cell_size"],
-                          self.settings.grid_settings["size_x"],
-                          self.settings.grid_settings["size_y"],
+        self.grid = OGrid(True,
                           self.settings.grid_settings["p_inital"],
                           self.settings.grid_settings["binary_threshold"])
         self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
