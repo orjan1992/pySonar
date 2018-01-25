@@ -7,3 +7,4 @@ class Settings(object):
         self.grid_settings = data["grid_settings"]
         self.plot_colors = data["plot_colors"]
         self.threshold = data["threshold"]
+        self.connection_settings = data["connection_settings"]

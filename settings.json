@@ -7,6 +7,9 @@
     "p_inital": 0.65,
     "binary_threshold": 0.78
   },
+  "connection_settings": {
+    "sonar_port": 5555
+  },
   "plot_colors":{
     "steps": [0, 0.33, 0.67, 1],
     "colors": [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]

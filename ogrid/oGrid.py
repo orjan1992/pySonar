@@ -99,9 +99,9 @@ class OGrid(object):
                     np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta,
                              thetaHigh=self.thetaHigh, thetaLow=self.thetaLow, cell_x_value=self.cell_x_value,
                              cell_y_value=self.cell_y_value)
-            self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
-                                  np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
-            self.MAX_ROT_BEFORE_RESET = 30*self.MAX_ROT
+            # self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
+            #                       np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
+            # self.MAX_ROT_BEFORE_RESET = 30*self.MAX_ROT
             self.steps = np.array([4, 8, 16, 32])
             self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD * math.pi)
             self.mappingMax = int(self.X * self.Y / 10)
@@ -214,7 +214,7 @@ class OGrid(object):
         return cone[self.rLow.flat[cone] >= (rangeScale + self.deltaSurface)]
 
     def autoUpdateZhou(self, msg, threshold):
-        dl = msg.rangeScale / np.shape(msg.data)[0]
+        dl = msg.range_scale / np.shape(msg.data)[0]
         theta = msg.bearing
         not_updated_cells = self.sonarConeLookup(msg.step, theta)
         distance_updated = False
