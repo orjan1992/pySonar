@@ -142,23 +142,6 @@ class OGrid(object):
     #     binary_file.close()
     #     new_file.close()
 
-    def sub2ind(self, row, col):
-        return col + row * self.jMax
-
-    def sonarConeLookup(self, step, theta):
-        # step is in rad
-        self.loadMap(step)
-        if np.min(np.absolute(theta - self.bearing_ref)) > step * 0.5:
-            logger.error('Difference between theta and theta ref in sonarConeLookup is {}'.format(
-                np.min(np.absolute(theta - self.bearing_ref))))
-            raise MyException('Difference between theta and theta ref is to large!')
-        j = np.argmin(np.absolute(theta - self.bearing_ref))
-        cone = self.mapping[j]
-        return cone[cone != 0]
-
-    def updateCells(self, cells, value):
-        for cell in cells:
-            self.oLog.flat[cell] = value
 
     def getP(self):
         try:
@@ -206,6 +189,26 @@ class OGrid(object):
                 distance_updated = True
         if not distance_updated:
             self.updateCellsZhou2(not_updated_cells, math.inf, theta)
+
+    def update_raw(self, msg):
+        range_step = self.MAXBINS / msg.dbytes
+        new_data = np.zeros(self.MAXBINS, dtype=np.uint8)
+        updated = np.zeros(self.MAXBINS, dtype=np.bool)
+        for i in range(0, msg.dbytes):
+            new_data[int(i*range_step)] = msg.data[i]
+            updated[int(i*range_step)] = True
+        for i in range(0, self.MAXBINS):
+            if not updated[i]:
+                j = i + 1
+                while j < self.MAXBINS:
+                    if updated[j]:
+                        break
+                val = (new_data[i] + new_data[j])/float(j - i)
+                for k in range(i, j):
+                    new_data[k] = val*(k+1) + new_data[i]
+                    updated[k] = True
+        for i in range(0, self.MAXCELLS):
+            self.oLog.flat[self.map[msg.bearing, :, i]] = new_data
 
     def clearGrid(self):
         self.oLog = np.ones((self.i_max, self.j_max)) * self.OZero

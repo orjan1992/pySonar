@@ -105,16 +105,16 @@ class MainWidget(QtGui.QWidget):
                           self.settings.grid_settings["p_inital"],
                           self.settings.grid_settings["binary_threshold"])
         self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
-        self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
+        # self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
 
     def new_msg(self, sender, **kw):
         msg = kw["msg"]
         # msg = MtHeadData(msg)
-        msg.step *= 1.0/3200.0
-        msg.bearing *= 1.0/3200.0
-        self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+        # msg.step *= 1.0/3200.0
+        # msg.bearing *= 1.0/3200.0
+        self.grid.update_raw(msg)
         self.plot_updated = True
-        self.img_item.setImage(self.grid.getP().T)
+        self.img_item.setImage(self.grid.oLog.T)
 
     def update_plot(self):
         # if self.plot_updated:

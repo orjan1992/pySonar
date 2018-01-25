@@ -68,7 +68,7 @@ class MtHeadData(Sensor):
                 if self.adc8on:
                     self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
                 else:
-                    tmp = struct.unpack(('<%iB' % self.dataBins), byte_array[44:(hex_length[0] + 5)])
+                    tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(hex_length[0] + 5)])
                     self.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)
                     for i in range(0, len(tmp)):
                         self.data[2 * i] = (self.data[i] & 240) >> 4  # 4 first bytes
