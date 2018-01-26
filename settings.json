@@ -1,18 +1,19 @@
 {
   "input_source": 0,
   "grid_settings": {
-    "cell_size": 0.1,
-    "size_x": 16,
-    "size_y": 8,
+    "half_grid": 1,
     "p_inital": 0.65,
-    "binary_threshold": 0.78
+    "binary_threshold": 0.78,
+    "binary_grid": 1
   },
   "connection_settings": {
     "sonar_port": 5555
   },
   "plot_colors":{
     "steps": [0, 0.33, 0.67, 1],
-    "colors": [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
+    "colors": [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]],
+    "max_val": 50.0,
+    "min_val": -50.0
   },
   "threshold" : 40
 }

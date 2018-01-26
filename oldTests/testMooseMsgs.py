@@ -20,7 +20,7 @@ class Test(object):
                           self.ogrid_conditions[3])
 
     def print_msg(self, msg):
-        a = self.grid.getP()
+        a = self.grid.get_p()
         print('heading: {}\tlength: {}\n{}'.format(msg.bearing, msg.length, msg.data))
         return True
 

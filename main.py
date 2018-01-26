@@ -36,6 +36,7 @@ class MainWidget(QtGui.QWidget):
         super(MainWidget, self).__init__(parent)
 
         self.settings = Settings()
+        self.binary_plot_on = self.settings.grid_settings['binary_grid'] == 1
 
         main_layout = QtGui.QHBoxLayout() # Main layout
         left_layout = QtGui.QVBoxLayout()
@@ -46,7 +47,12 @@ class MainWidget(QtGui.QWidget):
         self.plot_window = pg.PlotItem()
         graphics_view.addItem(self.plot_window)
         # IMAGE Window
-        self.img_item = pg.ImageItem(autoLevels=False, levels=(0, 1))  # image item. the actual plot
+        self.img_item = pg.ImageItem(autoLevels=False, levels=(-50.0, 50.0))  # image item. the actual plot
+        # step = (len(self.settings.plot_colors["steps"]) - 1) / (self.settings.plot_colors["max_val"] - self.settings.plot_colors["min_val"])
+        # steps = np.arange(self.settings.plot_colors["min_val"], self.settings.plot_colors["max_val"], step)
+        # colors = np.zeros((len(steps), 3))
+        # for i in range(0, len(steps)):
+        #     colors[i, 1:3] = 0
         colormap = pg.ColorMap(self.settings.plot_colors["steps"], np.array(
             self.settings.plot_colors["colors"]))
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
@@ -66,9 +72,13 @@ class MainWidget(QtGui.QWidget):
 
         # binary plot
         self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
+        self.binary_plot_button.clicked.connect(self.binary_button_click)
+        if not self.binary_plot_on:
+            self.binary_plot_button.text = "Set Binary mode"
 
         # Clear grid
         self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
+        self.clear_grid_button.clicked.connect(self.clear_grid)
 
 
 
@@ -93,33 +103,51 @@ class MainWidget(QtGui.QWidget):
         new_msg_signal = signal('new_msg_sonar')
         new_msg_signal.connect(self.new_msg)
 
-        timer = QtCore.QTimer()
-        timer.timeout.connect(self.update_plot)
-        timer.start(100)
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start(1.0/24.0)
 
 
 
 
     def init_grid(self):
-        self.grid = OGrid(True,
+        self.grid = OGrid(self.settings.grid_settings["half_grid"] == 1,
                           self.settings.grid_settings["p_inital"],
                           self.settings.grid_settings["binary_threshold"])
         self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
-        # self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
+
+    def clear_grid(self):
+        self.grid.clearGrid()
+        self.plot_updated = False
+        self.update_plot()
 
     def new_msg(self, sender, **kw):
         msg = kw["msg"]
         # msg = MtHeadData(msg)
         # msg.step *= 1.0/3200.0
         # msg.bearing *= 1.0/3200.0
-        self.grid.update_raw(msg)
+        self.grid.autoUpdateZhou(msg, self.threshold_box.value())
         self.plot_updated = True
-        self.img_item.setImage(self.grid.oLog.T)
+        # if self.settings.grid_settings["half_grid"] == 1:
+        #     self.img_item.setPos(-msg.range_scale/10.0, -msg.range_scale/5.0)
+        # else:
+        #     self.img_item.setPos(-msg.range_scale / 10.0, -msg.range_scale / 10.0)
+        # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
     def update_plot(self):
-        # if self.plot_updated:
-        self.img_item.setImage(self.grid.getP().T)
-        self.plot_updated = False
+        if self.plot_updated:
+            if self.binary_plot_on:
+                self.img_item.setImage(self.grid.get_binary_map().T, levels=(0, 1))
+            else:
+                self.img_item.setImage(self.grid.get_p().T, levels=(-5.0, 5.0))
+            self.plot_updated = False
+
+    def binary_button_click(self):
+        if self.binary_plot_on:
+            self.binary_plot_button.text = "Set Prob mode"
+        else:
+            self.binary_plot_button.text = "Set Binary mode"
+        self.binary_plot_on = not self.binary_plot_on
 
 
 

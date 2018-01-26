@@ -32,7 +32,7 @@ while file.messagesReturned < 10:
 file.close()
 ax = plt.subplot(131)
 ax.set(xlabel='X [m]', ylabel='Y [m])')
-img = ax.imshow(O.getP(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
+img = ax.imshow(O.get_p(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
 # plt.colorbar(img, ax=ax)
 delta_psi = -2*pi/180
 O.rotate_grid(delta_psi)
@@ -40,11 +40,11 @@ O2.rotate_grid_old(delta_psi)
 
 ax2 = plt.subplot(132)
 ax2.set(xlabel='X [m]', ylabel='Y [m])')
-img = ax2.imshow(O.getP(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
+img = ax2.imshow(O.get_p(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
 # plt.colorbar(img, ax=ax2)
 
 ax3 = plt.subplot(133)
 ax3.set(xlabel='X [m]', ylabel='Y [m])')
-img = ax3.imshow(O2.getP(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
+img = ax3.imshow(O2.get_p(), extent=[-O.XLimMeters, O.XLimMeters, 0, O.YLimMeters])
 # plt.colorbar(img, ax=ax3)
 plt.show()

@@ -290,7 +290,7 @@ class MainWidget(QtGui.QWidget):
             if not self.binary_plot:
                 self.counter += 1
                 if self.counter == 5:
-                    self.img_item.setImage(self.grid.getP().T)
+                    self.img_item.setImage(self.grid.get_p().T)
                     self.counter = 0
             else:
                 self.img_item.setImage(self.grid.get_binary_map().T)
@@ -304,7 +304,7 @@ class MainWidget(QtGui.QWidget):
                                         'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
                                         'ymax': self.grid.YLimMeters, 'time': self.new_sonar_msg.time})
                 scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
-                                 mdict={'prob': self.grid.getP(), 'lat': self.cur_lat,
+                                 mdict={'prob': self.grid.get_p(), 'lat': self.cur_lat,
                                         'long': self.cur_long, 'head': self.cur_head, 'xmax': self.grid.XLimMeters,
                                         'ymax': self.grid.YLimMeters})
                 # scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
@@ -328,7 +328,7 @@ class MainWidget(QtGui.QWidget):
                                         'xmax': self.grid.XLimMeters,
                                         'ymax': self.grid.YLimMeters})
                 scipy.io.savemat('sonar_plots/logs/prob_grid_{}.mat'.format(self.counter2),
-                                 mdict={'prob': self.grid.getP(),
+                                 mdict={'prob': self.grid.get_p(),
                                         'xmax': self.grid.XLimMeters,
                                         'ymax': self.grid.YLimMeters})
                 # scipy.io.savemat('sonar_plots/logs/scanline_{}.mat'.format(self.counter2),
@@ -397,7 +397,7 @@ class MainWidget(QtGui.QWidget):
             self.msg_time.setText('Time: {}'.format(msg.time))
             if updated:
                 if not self.binary_plot:
-                    self.img_item.setImage(self.grid.getP().T)
+                    self.img_item.setImage(self.grid.get_p().T)
                 else:
                     self.img_item.setImage(self.grid.get_binary_map().T)
 

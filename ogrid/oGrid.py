@@ -33,12 +33,12 @@ class OGrid(object):
     map = np.zeros((6400, MAXBINS, MAXCELLS), dtype=np.uint32)
     last_data = np.zeros(MAXBINS, dtype=np.uint8)
 
-    def __init__(self, halfgrid, p_m, binary_threshold=0.7):
+    def __init__(self, half_grid, p_m, binary_threshold=0.7):
 
             self.j_maxLimMeters = 10
-            if halfgrid:
+            if half_grid:
                 self.i_maxLimMeters = 5
-                i_max = 800
+                self.i_max = int((1601 / 2) * (1 + math.tan(math.pi / 90.0)))
             else:
                 self.i_maxLimMeters = self.j_maxLimMeters
             self.cellSize = self.j_maxLimMeters/800
@@ -52,71 +52,9 @@ class OGrid(object):
             self.oLog = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
             self.O_logic = np.zeros((self.i_max, self.j_max), dtype=bool)
             [self.iMax, self.jMax] = np.shape(self.oLog)
-
-
-            fStr = 'OGrid_data/angleRad_1601.npz'
-            try:
-                tmp = np.load(fStr)
-                self.r = tmp['r']
-                self.rHigh = tmp['rHigh']
-                self.rLow = tmp['rLow']
-                self.theta = tmp['theta']
-                self.thetaHigh = tmp['thetaHigh']
-                self.thetaLow = tmp['thetaLow']
-                self.cell_x_value = tmp['cell_x_value']
-                self.cell_y_value = tmp['cell_y_value']
-            except FileNotFoundError:
-                # Calculate angles and radii
-                self.r = np.zeros((self.i_max, self.j_max))
-                self.rHigh = np.zeros((self.i_max, self.j_max))
-                self.rLow = np.zeros((self.i_max, self.j_max))
-                self.theta = np.zeros((self.i_max, self.j_max))
-                self.thetaHigh = np.zeros((self.i_max, self.j_max))
-                self.thetaLow = np.zeros((self.i_max, self.j_max))
-                self.cell_x_value = np.zeros((self.i_max, self.j_max))
-                self.cell_y_value = np.zeros((self.i_max, self.j_max))
-                for i in range(0, self.i_max):
-                    for j in range(0, self.j_max):
-                        self.cell_x_value[i, j] = (j - self.origoJ) * self.cellSize
-                        self.cell_y_value[i, j] = (self.origoI - i) * self.cellSize
-
-                self.r = np.sqrt(self.cell_x_value ** 2 + self.cell_y_value ** 2)
-                self.theta = np.arctan2(self.cell_x_value, self.cell_y_value)
-                # ranges
-                self.rHigh = np.sqrt((self.cell_x_value +
-                                      np.sign(self.cell_x_value) * self.half_cell_size) ** 2
-                                     + (self.cell_y_value + self.half_cell_size) ** 2)
-                self.rLow = np.sqrt((self.cell_x_value - np.sign(self.cell_x_value) * self.half_cell_size) ** 2 + (np.fmax(self.cell_y_value - self.half_cell_size, 0)) ** 2)
-
-                # angles x<0
-                self.thetaLow[:, :self.origoJ] = np.arctan2(self.cell_x_value[:, :self.origoJ] - self.half_cell_size,
-                                                          self.cell_y_value[:, :self.origoJ] - self.half_cell_size)
-                self.thetaHigh[:, :self.origoJ] = np.arctan2(self.cell_x_value[:, :self.origoJ] + self.half_cell_size,
-                                                           self.cell_y_value[:, :self.origoJ] + self.half_cell_size)
-                self.thetaLow[:, self.origoJ+1:] = np.arctan2(self.cell_x_value[:, self.origoJ+1:] - self.half_cell_size,
-                                                            self.cell_y_value[:, self.origoJ+1:] + self.half_cell_size)
-                self.thetaHigh[:, self.origoJ+1:] = np.arctan2(self.cell_x_value[:, self.origoJ+1:] + self.half_cell_size,
-                                                             self.cell_y_value[:, self.origoJ+1:] - self.half_cell_size)
-
-                self.thetaLow[:, self.origoJ] = np.arctan2(self.cell_x_value[:, self.origoJ] - self.half_cell_size,
-                                                            self.cell_y_value[:, self.origoJ] - self.half_cell_size)
-                self.thetaHigh[:, self.origoJ] = np.arctan2(self.cell_x_value[:, self.origoJ] + self.half_cell_size,
-                                                             self.cell_y_value[:, self.origoJ] - self.half_cell_size)
-                if not os.path.isdir('OGrid_data'):
-                    logger.info('Made a new directory for data files.')
-                    os.makedirs('OGrid_data')
-                np.savez(fStr, r=self.r, rHigh=self.rHigh, rLow=self.rLow, theta=self.theta,
-                         thetaHigh=self.thetaHigh, thetaLow=self.thetaLow, cell_x_value=self.cell_x_value,
-                         cell_y_value=self.cell_y_value)
-            # self.MAX_ROT = np.min(np.abs(np.arcsin((self.cellSize+self.cell_x_value[0, 0])/self.r[0, 0])-self.theta[0, 0]),
-            #                       np.abs(np.arccos((self.cellSize+self.cell_y_value[0, -1])/self.r[0, -1])-self.theta[0, -1]))
-            # self.MAX_ROT_BEFORE_RESET = 30*self.MAX_ROT
-            self.steps = np.array([4, 8, 16, 32])
-            self.bearing_ref = np.linspace(-self.PI2, self.PI2, self.RAD2GRAD * math.pi)
-            self.mappingMax = int(self.j_max * self.i_max / 10)
-            self.loadMap()
-            self.deltaSurface = 0  # 1.5*self.cellSize
-            self.cellSize_with_margin = self.cellSize*1.01
+            if not np.any(self.map != 0):
+                # self.loadMap()
+                self.map = np.load('OGrid_data/map_1601.npz')['map']
 
     def loadMap(self):
         binary_file = open('OGrid_data/map_1601_new_no_stride.bin', "rb")
@@ -129,25 +67,7 @@ class OGrid(object):
                     self.map[i, j, k] = (struct.unpack('<I', binary_file.read(4)))[0]
         binary_file.close()
 
-    # def convert_from_map_with_stride(self):
-    #     binary_file = open('OGrid_data/map_1601_new.bin', "rb")
-    #     new_file = open('OGrid_data/map_1601_new_no_stride.bin', 'wb')
-    #     for i in range(0, 6400):
-    #         for j in range(0, self.MAXBINS):
-    #             tmp_l = binary_file.read(1)
-    #             new_file.write(tmp_l)
-    #             length = (struct.unpack('<B', tmp_l))[0]
-    #             if length > self.MAXCELLS:
-    #                 raise Exception('Map variable to small')
-    #             for k in range(0, length):
-    #                 self.map[i, j, k] = (struct.unpack('<I', binary_file.read(4)))[0]
-    #                 tmp_ind = np.ravel_multi_index(np.unravel_index(self.map[i,j,k], (1601, 1604)), (1601, 1601))
-    #                 new_file.write(struct.pack('<I', tmp_ind))
-    #     binary_file.close()
-    #     new_file.close()
-
-
-    def getP(self):
+    def get_p(self):
         try:
             P = 1 - 1 / (1 + np.exp(self.oLog))
         except RuntimeWarning:
@@ -181,26 +101,16 @@ class OGrid(object):
         return cone[self.rLow.flat[cone] >= (rangeScale + self.deltaSurface)]
 
     def autoUpdateZhou(self, msg, threshold):
-        dl = msg.range_scale / np.shape(msg.data)[0]
-        theta = msg.bearing
-        not_updated_cells = self.sonarConeLookup(msg.step, theta)
-        distance_updated = False
-        for j in range(1, len(msg.data)):
-            if abs((j * dl) * math.sin(theta)) > self.j_maxLimMeters or abs((j * dl) * math.cos(theta)) > self.i_maxLimMeters:
-                break  # SJEKK DETTE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            if msg.data[j] > threshold:
-                not_updated_cells = self.updateCellsZhou2(not_updated_cells, j * dl, theta)
-                distance_updated = True
-        if not distance_updated:
-            self.updateCellsZhou2(not_updated_cells, math.inf, theta)
-
-    def update_raw(self, msg):
         range_step = self.MAXBINS / msg.dbytes
         new_data = np.zeros(self.MAXBINS, dtype=np.uint8)
         updated = np.zeros(self.MAXBINS, dtype=np.bool)
-        for i in range(0, msg.dbytes):
-            new_data[int(i*range_step)] = msg.data[i]
-            updated[int(i*range_step)] = True
+        try:
+            for i in range(0, msg.dbytes):
+                new_data[int(round(i*range_step))] = msg.data[i]
+                updated[int(round(i*range_step))] = True
+        except Exception as e:
+            logger.debug('Mapping to unibins: {0}'.format(e))
+        new_data[np.nonzero(new_data < threshold)] = 0
         for i in range(0, self.MAXBINS):
             if not updated[i]:
                 j = i + 1
@@ -208,6 +118,60 @@ class OGrid(object):
                     if updated[j]:
                         break
                     j += 1
+
+                if j < self.MAXBINS:
+                    val = (float(new_data[j]) - new_data[i-1])/(j-1+1)
+                    for k in range(i, j):
+                        new_data[k] = val*(k-i+1) + new_data[i-1]
+                        updated[k] = True
+        new_data[np.nonzero(new_data < threshold)] = -self.OZero
+        new_data[np.nonzero(new_data > 0)] = 0.5 + self.OZero
+        bearing_diff = msg.bearing - self.last_bearing
+        beam_half = 27
+        if msg.chan2:
+            beam_half = 13
+        if math.fabs(bearing_diff) <= msg.step:
+            if bearing_diff > 0:
+                value_gain = (new_data.astype(float) - self.last_data)/bearing_diff
+                for n in range(self.last_bearing, msg.bearing+1):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] += new_data + (n-self.last_bearing)*value_gain
+                for n in range(msg.bearing+1, msg.bearing + beam_half):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] += new_data
+            else:
+                value_gain = (new_data.astype(float) - self.last_data)/(-bearing_diff)
+                for n in range(msg.bearing, self.last_bearing+1):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] += new_data + (n-msg.bearing)*value_gain
+                for n in range(msg.bearing- beam_half, msg.bearing):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] += new_data
+        else:
+            for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
+                for i in range(0, self.MAXCELLS):
+                    self.oLog.flat[self.map[n, :, i]] += new_data
+        self.last_bearing = msg.bearing
+        self.last_data = new_data
+
+    def update_raw(self, msg):
+        range_step = self.MAXBINS / msg.dbytes
+        new_data = np.zeros(self.MAXBINS, dtype=np.uint8)
+        updated = np.zeros(self.MAXBINS, dtype=np.bool)
+        try:
+            for i in range(0, msg.dbytes):
+                new_data[int(round(i*range_step))] = msg.data[i]
+                updated[int(round(i*range_step))] = True
+        except Exception as e:
+            logger.debug('Mapping to unibins: {0}'.format(e))
+        for i in range(0, self.MAXBINS):
+            if not updated[i]:
+                j = i + 1
+                while j < self.MAXBINS:
+                    if updated[j]:
+                        break
+                    j += 1
+
                 if j < self.MAXBINS:
                     val = (float(new_data[j]) - new_data[i-1])/(j-1+1)
                     for k in range(i, j):
@@ -239,6 +203,8 @@ class OGrid(object):
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAXCELLS):
                     self.oLog.flat[self.map[n, :, i]] = new_data
+        self.last_bearing = msg.bearing
+        self.last_data = new_data
 
 
     def clearGrid(self):
