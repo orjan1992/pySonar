@@ -25,9 +25,13 @@ class OGrid(object):
     MIN_ROT = 0.1*math.pi/180
     i_max = 1601
     j_max = 1601
+
+
+    last_bearing = 0
     MAXBINS = 800
     MAXCELLS = 4
     map = np.zeros((6400, MAXBINS, MAXCELLS), dtype=np.uint32)
+    last_data = np.zeros(MAXBINS, dtype=np.uint8)
 
     def __init__(self, halfgrid, p_m, binary_threshold=0.7):
 
@@ -203,12 +207,39 @@ class OGrid(object):
                 while j < self.MAXBINS:
                     if updated[j]:
                         break
-                val = (new_data[i] + new_data[j])/float(j - i)
-                for k in range(i, j):
-                    new_data[k] = val*(k+1) + new_data[i]
-                    updated[k] = True
-        for i in range(0, self.MAXCELLS):
-            self.oLog.flat[self.map[msg.bearing, :, i]] = new_data
+                    j += 1
+                if j < self.MAXBINS:
+                    val = (float(new_data[j]) - new_data[i-1])/(j-1+1)
+                    for k in range(i, j):
+                        new_data[k] = val*(k-i+1) + new_data[i-1]
+                        updated[k] = True
+
+        bearing_diff = msg.bearing - self.last_bearing
+        beam_half = 27
+        if msg.chan2:
+            beam_half = 13
+        if math.fabs(bearing_diff) <= msg.step:
+            if bearing_diff > 0:
+                value_gain = (new_data.astype(float) - self.last_data)/bearing_diff
+                for n in range(self.last_bearing, msg.bearing+1):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] = new_data + (n-self.last_bearing)*value_gain
+                for n in range(msg.bearing+1, msg.bearing + beam_half):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] = new_data
+            else:
+                value_gain = (new_data.astype(float) - self.last_data)/(-bearing_diff)
+                for n in range(msg.bearing, self.last_bearing+1):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] = new_data + (n-msg.bearing)*value_gain
+                for n in range(msg.bearing- beam_half, msg.bearing):
+                    for i in range(0, self.MAXCELLS):
+                        self.oLog.flat[self.map[n, :, i]] = new_data
+        else:
+            for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
+                for i in range(0, self.MAXCELLS):
+                    self.oLog.flat[self.map[n, :, i]] = new_data
+
 
     def clearGrid(self):
         self.oLog = np.ones((self.i_max, self.j_max)) * self.OZero
