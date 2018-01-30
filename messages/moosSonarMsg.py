@@ -8,6 +8,14 @@ class MoosSonarMsg(Sensor):
     sensor = 2
     bins = None
 
+    bearing = 0
+    step = 0
+    range_scale = 0
+    length = 0
+    dbytes = 0
+    data = 0
+    time = 0
+    adc8on = True
     # txNode = np.uint8(0)
     # rxNode = np.uint8(0)
     # type = np.uint8(0)

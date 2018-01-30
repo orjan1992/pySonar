@@ -1,10 +1,23 @@
-import json
+class Settings:
+    input_source = 1
+    raw_plot = True
 
-class Settings(object):
-    def __init__(self):
-        data = json.load(open('settings.json'))
-        self.input_source = data["input_source"]
-        self.grid_settings = data["grid_settings"]
-        self.plot_colors = data["plot_colors"]
-        self.threshold = data["threshold"]
-        self.connection_settings = data["connection_settings"]
+
+class GridSettings:
+        half_grid = 1
+        p_inital = 0.65
+        binary_threshold = 0.78
+        binary_grid = False
+
+
+class ConnectionSettings:
+        sonar_port = 5555
+
+
+class PlotSettings:
+        steps = [0, 0.33, 0.67, 1]
+        colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
+        max_val = 50.0
+        min_val = -50.0
+        threshold = 40
+

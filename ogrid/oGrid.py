@@ -77,6 +77,9 @@ class OGrid(object):
             logger.debug('Overflow when calculating probability')
         return P
 
+    def get_raw(self):
+        return self.oLog
+
     def get_binary_map(self):
         return (self.oLog > self.binary_threshold).astype(np.float)
 

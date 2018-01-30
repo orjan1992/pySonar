@@ -3,7 +3,7 @@ from pymoos import moos_msg
 import logging
 from struct import unpack, calcsize
 from math import pi
-import signal
+from blinker import signal
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.posMsg import PosMsg
@@ -32,22 +32,14 @@ class MoosMsgs(object):
         self.add_queues()
 
         self.cur_pos_msg = PosMsg()
-
-        self.new_pos_msg_func = self.dummy_func
-        self.new_sonar_msg_func = self.dummy_func
         self.new_msg_signal = signal('new_msg_sonar')
+        self.new_pos_msg_signal = signal('new_msg_pos')
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
 
     def close(self):
         self.comms.close(True)
-
-    def set_on_pos_msg_callback(self, cb):
-        self.new_pos_msg_func = cb
-
-    def set_on_sonar_msg_callback(self, cb):
-        self.new_sonar_msg_func = cb
 
     def bins_queue(self, msg):
         # TODO implement rangescale step osv
@@ -64,15 +56,18 @@ class MoosMsgs(object):
             self.logger_bins.debug('Unpacking complte')
             sonar_msg.bearing = round((tmp[0] + pi/2)*self.RAD2GRAD)
             sonar_msg.step = round(tmp[1]*self.RAD2GRAD)
-            sonar_msg.rangeScale = tmp[2]
+            sonar_msg.range_scale = tmp[2]
             sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
             sonar_msg.dbytes = tmp[3]  # TODO one variable to much, which is needed?
             sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
             sonar_msg.time = msg.time()
 
             sonar_msg.adc8on = True
-
-            self.new_msg_signal.send(self, msg=sonar_msg)
+            sonar_msg.chan2 = True
+            try:
+                self.new_msg_signal.send(self, msg=sonar_msg)
+            except Exception as err:
+                print("{0}".format(err))
             self.logger_bins.debug('Callback OK')
         return True
 
@@ -92,14 +87,13 @@ class MoosMsgs(object):
             self.pos_msg_flags[1] = True
         if msg.key() == 'currentNEDPos_rz':
             self.logger_pose.debug('NEDPos rz received')
-            self.cur_pos_msg.head = msg.double()
+            self.cur_pos_msg.psi = msg.double()
             self.pos_msg_flags[2] = True
         if all(self.pos_msg_flags):
-            self.logger_pose.debug('Complete message received')
-            if self.new_pos_msg_func(self.cur_pos_msg):
-                self.logger_pose.debug('Callback complete')
-
-            self.cur_pos_msg = PosMsg()
+            try:
+                self.new_pos_msg_signal.send(self, msg=self.cur_pos_msg)
+            except Exception as err:
+                print("{0}".format(err))
             self.pos_msg_flags = [False, False, False]
         return True
 
@@ -119,19 +113,4 @@ class MoosMsgs(object):
         self.comms.register('currentNEDPos_x', 0)
         self.comms.register('currentNEDPos_y', 0)
         self.comms.register('bins', 0)
-
-        # self.comms.register("cVelocity", 0)
-        # self.comms.register("cYawRate", 0)
-        # self.comms.register("cSteer", 0)
-        # self.comms.register("cThrottle", 0)
-        # self.comms.register("cBrake", 0)
         return True
-
-    def dummy_func(self, msg):
-        # inital function for callbacks
-        return True
-
-    # def send_speed(self, v=0, w=0):
-    #     self.comms.notify("cVelocity", v, pm.time())
-    #     self.comms.notify("cYawRate", w, pm.time())
-    #     self.comms.notify("cThrottle", 10, pm.time())

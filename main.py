@@ -7,10 +7,11 @@ from blinker import signal
 import threading
 
 from messages.sonarMsg import MtHeadData
-from settings import Settings
+from settings import *
 from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
+from messages.moosPosMsg import *
 
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -36,8 +37,12 @@ class MainWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
 
-        self.settings = Settings()
-        self.binary_plot_on = self.settings.grid_settings['binary_grid'] == 1
+        if Settings.input_source == 0:
+            # TODO: Do something
+            self.last_pos_msg = None
+        elif Settings.input_source == 1:
+            self.last_pos_msg = MoosPosMsg()
+            self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
 
         main_layout = QtGui.QHBoxLayout() # Main layout
         left_layout = QtGui.QVBoxLayout()
@@ -48,14 +53,10 @@ class MainWidget(QtGui.QWidget):
         self.plot_window = pg.PlotItem()
         graphics_view.addItem(self.plot_window)
         # IMAGE Window
-        self.img_item = pg.ImageItem(autoLevels=False, levels=(-50.0, 50.0))  # image item. the actual plot
-        # step = (len(self.settings.plot_colors["steps"]) - 1) / (self.settings.plot_colors["max_val"] - self.settings.plot_colors["min_val"])
-        # steps = np.arange(self.settings.plot_colors["min_val"], self.settings.plot_colors["max_val"], step)
-        # colors = np.zeros((len(steps), 3))
-        # for i in range(0, len(steps)):
-        #     colors[i, 1:3] = 0
-        colormap = pg.ColorMap(self.settings.plot_colors["steps"], np.array(
-            self.settings.plot_colors["colors"]))
+        self.img_item = pg.ImageItem(autoLevels=False)
+
+        colormap = pg.ColorMap(PlotSettings.steps, np.array(
+            PlotSettings.colors))
         self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         self.plot_window.addItem(self.img_item)
@@ -69,11 +70,15 @@ class MainWidget(QtGui.QWidget):
         self.threshold_box = QtGui.QSpinBox()
         self.threshold_box.setMinimum(0)
         self.threshold_box.setMaximum(255)
-        self.threshold_box.setValue(self.settings.threshold)
+        self.threshold_box.setValue(PlotSettings.threshold)
 
         # binary plot
         self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
         self.binary_plot_button.clicked.connect(self.binary_button_click)
+        if Settings.raw_plot:
+            self.binary_plot_on = False
+        else:
+            self.binary_plot_on = GridSettings.binary_grid
         if not self.binary_plot_on:
             self.binary_plot_button.text = "Set Binary mode"
 
@@ -98,15 +103,19 @@ class MainWidget(QtGui.QWidget):
         self.setLayout(main_layout)
 
         self.init_grid()
-        if self.settings.input_source == 0:
-            self.udp_client = UdpMessageClient(self.settings.connection_settings["sonar_port"])
+        if Settings.input_source == 0:
+            self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port)
             client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
             client_thread.start()
-        elif self.settings.input_source == 1:
+        elif Settings.input_source == 1:
             self.moos_msg_client = MoosMsgs()
             self.moos_msg_client.run()
+        else:
+            raise Exception('Uknown input source')
         new_msg_signal = signal('new_msg_sonar')
-        new_msg_signal.connect(self.new_msg)
+        new_msg_signal.connect(self.new_sonar_msg)
+        new_pos_msg_signal = signal('new_msg_pos')
+        new_pos_msg_signal.connect(self.new_pos_msg)
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
@@ -116,9 +125,9 @@ class MainWidget(QtGui.QWidget):
 
 
     def init_grid(self):
-        self.grid = OGrid(self.settings.grid_settings["half_grid"] == 1,
-                          self.settings.grid_settings["p_inital"],
-                          self.settings.grid_settings["binary_threshold"])
+        self.grid = OGrid(GridSettings.half_grid,
+                          GridSettings.p_inital,
+                          GridSettings.binary_threshold)
         self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
 
     def clear_grid(self):
@@ -126,12 +135,13 @@ class MainWidget(QtGui.QWidget):
         self.plot_updated = False
         self.update_plot()
 
-    def new_msg(self, sender, **kw):
+    def new_sonar_msg(self, sender, **kw):
         msg = kw["msg"]
-        # msg = MtHeadData(msg)
-        # msg.step *= 1.0/3200.0
-        # msg.bearing *= 1.0/3200.0
-        self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+
+        if Settings.raw_plot:
+            self.grid.update_raw(msg)
+        else:
+            self.grid.autoUpdateZhou(msg, self.threshold_box.value())
         self.plot_updated = True
         # if self.settings.grid_settings["half_grid"] == 1:
         #     self.img_item.setPos(-msg.range_scale/10.0, -msg.range_scale/5.0)
@@ -139,12 +149,29 @@ class MainWidget(QtGui.QWidget):
         #     self.img_item.setPos(-msg.range_scale / 10.0, -msg.range_scale / 10.0)
         # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
+    def new_pos_msg(self, sender, **kw):
+        msg = kw["msg"]
+        diff = (msg - self.last_pos_msg) + self.last_pos_diff
+        if diff.big_difference:
+            self.grid.translational_motion(diff.dx, diff.dy)
+            self.grid.rotate_grid(diff.dpsi)
+            self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
+            self.plot_updated = True
+        else:
+            self.last_pos_diff = diff
+        self.last_pos_msg = msg
+
+
+
     def update_plot(self):
         if self.plot_updated:
-            if self.binary_plot_on:
-                self.img_item.setImage(self.grid.get_binary_map().T, levels=(0, 1))
+            if Settings.raw_plot:
+                self.img_item.setImage(self.grid.get_raw().T, levels=(0.0, 255.0))
             else:
-                self.img_item.setImage(self.grid.get_p().T, levels=(-5.0, 5.0))
+                if self.binary_plot_on:
+                    self.img_item.setImage(self.grid.get_binary_map().T, levels=(0, 1))
+                else:
+                    self.img_item.setImage(self.grid.get_p().T, levels=(-5.0, 5.0))
             self.plot_updated = False
 
     def binary_button_click(self):
