@@ -33,8 +33,8 @@ class MainWindow(QtGui.QMainWindow):
 
 class MainWidget(QtGui.QWidget):
     binary_plot = True
-    ogrid_conditions = [0.1, 16, 8, 0.65, 0.78]
-    # ogrid_conditions = [0.3, 60, 30, 0.65, 0.78]
+    #ogrid_conditions = [0.1, 16, 8, 0.65, 0.78]
+    ogrid_conditions = [0.3, 60, 30, 0.65, 0.78]
     raw_res = 0.05
     old_pos_msg = 0
     grid = 0
@@ -264,9 +264,9 @@ class MainWidget(QtGui.QWidget):
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
             self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
-            self.raw_grid.autoUpdate(self.latest_sonar_msg_moose)
-            self.raw_img_item.setImage(self.raw_grid.grid.T)
-            self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
+            #self.raw_grid.autoUpdate(self.latest_sonar_msg_moose)
+            #self.raw_img_item.setImage(self.raw_grid.grid.T)
+            #self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
             updated = True
             self.latest_sonar_msg_moose = None
         if self.latest_pos_msg_moose:

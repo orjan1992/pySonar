@@ -3,6 +3,7 @@ from pymoos import moos_msg
 import logging
 from struct import unpack, calcsize
 from math import pi
+import signal
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.posMsg import PosMsg
@@ -11,6 +12,7 @@ from messages.posMsg import PosMsg
 class MoosMsgs(object):
     cur_pos_msg = None
     pos_msg_flags = [False, False, False]
+    RAD2GRAD = 3200/pi
 
     def __init__(self):
         """
@@ -33,6 +35,7 @@ class MoosMsgs(object):
 
         self.new_pos_msg_func = self.dummy_func
         self.new_sonar_msg_func = self.dummy_func
+        self.new_msg_signal = signal('new_msg_sonar')
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
@@ -59,14 +62,17 @@ class MoosMsgs(object):
             data = msg.binary_data().encode('latin-1')
             tmp = unpack('>dddH{:d}B'.format((len(data) - 26)), data)
             self.logger_bins.debug('Unpacking complte')
-            sonar_msg.bearing = tmp[0] - pi/2
-            sonar_msg.step = tmp[1]
+            sonar_msg.bearing = round((tmp[0] + pi/2)*self.RAD2GRAD)
+            sonar_msg.step = round(tmp[1]*self.RAD2GRAD)
             sonar_msg.rangeScale = tmp[2]
             sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
-            sonar_msg.dataBins = tmp[3]  # TODO one variable to much, which is needed?
+            sonar_msg.dbytes = tmp[3]  # TODO one variable to much, which is needed?
             sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
             sonar_msg.time = msg.time()
-            self.new_sonar_msg_func(sonar_msg)
+
+            sonar_msg.adc8on = True
+
+            self.new_msg_signal.send(self, msg=sonar_msg)
             self.logger_bins.debug('Callback OK')
         return True
 

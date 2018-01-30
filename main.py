@@ -10,6 +10,7 @@ from messages.sonarMsg import MtHeadData
 from settings import Settings
 from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
+from messages.moosMsgs import MoosMsgs
 
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -97,9 +98,13 @@ class MainWidget(QtGui.QWidget):
         self.setLayout(main_layout)
 
         self.init_grid()
-        self.udp_client = UdpMessageClient(self.settings.connection_settings["sonar_port"])
-        client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
-        client_thread.start()
+        if self.settings.input_source == 0:
+            self.udp_client = UdpMessageClient(self.settings.connection_settings["sonar_port"])
+            client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
+            client_thread.start()
+        elif self.settings.input_source == 1:
+            self.moos_msg_client = MoosMsgs()
+            self.moos_msg_client.run()
         new_msg_signal = signal('new_msg_sonar')
         new_msg_signal.connect(self.new_msg)
 
