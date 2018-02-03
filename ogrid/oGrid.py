@@ -5,6 +5,7 @@ import math
 from pathlib import Path
 import logging
 import os
+from scipy.interpolate import *
 
 
 logger = logging.getLogger('OGrid')
@@ -26,15 +27,15 @@ class OGrid(object):
     i_max = 1601
     j_max = 1601
 
-
     last_bearing = 0
-    MAXBINS = 800
-    MAXCELLS = 4
-    map = np.zeros((6400, MAXBINS, MAXCELLS), dtype=np.uint32)
-    last_data = np.zeros(MAXBINS, dtype=np.uint8)
+    MAX_BINS = 800
+    MAX_CELLS = 4
+    map = np.zeros((6400, MAX_BINS, MAX_CELLS), dtype=np.uint32)
+    last_data = np.zeros(MAX_BINS, dtype=np.uint8)
+    current_distance = 0
 
     def __init__(self, half_grid, p_m, binary_threshold=0.7):
-
+            # TODO: assignment and usage of static variables. OGrid.test_variable vs self.test_variable
             self.j_maxLimMeters = 10
             if half_grid:
                 self.i_maxLimMeters = 5
@@ -59,9 +60,9 @@ class OGrid(object):
     def loadMap(self):
         binary_file = open('OGrid_data/map_1601_new_no_stride.bin', "rb")
         for i in range(0, 6400):
-            for j in range(0, self.MAXBINS):
+            for j in range(0, self.MAX_BINS):
                 length = (struct.unpack('<B', binary_file.read(1)))[0]
-                if length > self.MAXCELLS:
+                if length > self.MAX_CELLS:
                     raise Exception('Map variable to small')
                 for k in range(0, length):
                     self.map[i, j, k] = (struct.unpack('<I', binary_file.read(4)))[0]
@@ -104,9 +105,9 @@ class OGrid(object):
         return cone[self.rLow.flat[cone] >= (rangeScale + self.deltaSurface)]
 
     def autoUpdateZhou(self, msg, threshold):
-        range_step = self.MAXBINS / msg.dbytes
-        new_data = np.zeros(self.MAXBINS, dtype=np.uint8)
-        updated = np.zeros(self.MAXBINS, dtype=np.bool)
+        range_step = self.MAX_BINS / msg.dbytes
+        new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
+        updated = np.zeros(self.MAX_BINS, dtype=np.bool)
         try:
             for i in range(0, msg.dbytes):
                 new_data[int(round(i*range_step))] = msg.data[i]
@@ -114,15 +115,15 @@ class OGrid(object):
         except Exception as e:
             logger.debug('Mapping to unibins: {0}'.format(e))
         new_data[np.nonzero(new_data < threshold)] = 0
-        for i in range(0, self.MAXBINS):
+        for i in range(0, self.MAX_BINS):
             if not updated[i]:
                 j = i + 1
-                while j < self.MAXBINS:
+                while j < self.MAX_BINS:
                     if updated[j]:
                         break
                     j += 1
 
-                if j < self.MAXBINS:
+                if j < self.MAX_BINS:
                     val = (float(new_data[j]) - new_data[i-1])/(j-1+1)
                     for k in range(i, j):
                         new_data[k] = val*(k-i+1) + new_data[i-1]
@@ -137,45 +138,45 @@ class OGrid(object):
             if bearing_diff > 0:
                 value_gain = (new_data.astype(float) - self.last_data)/bearing_diff
                 for n in range(self.last_bearing, msg.bearing+1):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] += new_data + (n-self.last_bearing)*value_gain
                 for n in range(msg.bearing+1, msg.bearing + beam_half):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] += new_data
             else:
                 value_gain = (new_data.astype(float) - self.last_data)/(-bearing_diff)
                 for n in range(msg.bearing, self.last_bearing+1):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] += new_data + (n-msg.bearing)*value_gain
                 for n in range(msg.bearing- beam_half, msg.bearing):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] += new_data
         else:
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
-                for i in range(0, self.MAXCELLS):
+                for i in range(0, self.MAX_CELLS):
                     self.oLog.flat[self.map[n, :, i]] += new_data
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
     def update_raw(self, msg):
-        range_step = self.MAXBINS / msg.dbytes
-        new_data = np.zeros(self.MAXBINS, dtype=np.uint8)
-        updated = np.zeros(self.MAXBINS, dtype=np.bool)
+        range_step = self.MAX_BINS / msg.dbytes
+        new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
+        updated = np.zeros(self.MAX_BINS, dtype=np.bool)
         try:
             for i in range(0, msg.dbytes):
                 new_data[int(round(i*range_step))] = msg.data[i]
                 updated[int(round(i*range_step))] = True
         except Exception as e:
             logger.debug('Mapping to unibins: {0}'.format(e))
-        for i in range(0, self.MAXBINS):
+        for i in range(0, self.MAX_BINS):
             if not updated[i]:
                 j = i + 1
-                while j < self.MAXBINS:
+                while j < self.MAX_BINS:
                     if updated[j]:
                         break
                     j += 1
 
-                if j < self.MAXBINS:
+                if j < self.MAX_BINS:
                     val = (float(new_data[j]) - new_data[i-1])/(j-1+1)
                     for k in range(i, j):
                         new_data[k] = val*(k-i+1) + new_data[i-1]
@@ -189,26 +190,44 @@ class OGrid(object):
             if bearing_diff > 0:
                 value_gain = (new_data.astype(float) - self.last_data)/bearing_diff
                 for n in range(self.last_bearing, msg.bearing+1):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] = new_data + (n-self.last_bearing)*value_gain
                 for n in range(msg.bearing+1, msg.bearing + beam_half):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] = new_data
             else:
                 value_gain = (new_data.astype(float) - self.last_data)/(-bearing_diff)
                 for n in range(msg.bearing, self.last_bearing+1):
-                    for i in range(0, self.MAXCELLS):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] = new_data + (n-msg.bearing)*value_gain
-                for n in range(msg.bearing- beam_half, msg.bearing):
-                    for i in range(0, self.MAXCELLS):
+                for n in range(msg.bearing - beam_half, msg.bearing):
+                    for i in range(0, self.MAX_CELLS):
                         self.oLog.flat[self.map[n, :, i]] = new_data
         else:
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
-                for i in range(0, self.MAXCELLS):
+                for i in range(0, self.MAX_CELLS):
                     self.oLog.flat[self.map[n, :, i]] = new_data
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
+    def update_distance(self, distance):
+        factor = distance / self.current_distance
+        if factor == 1:
+            return
+        new_grid = np.zeros(shape=np.shape(self.oLog), dtype=self.oLog_type)
+        if factor < 1:
+            # old distance > new distance
+            for i in range(0, self.iMax):
+                for j in range(0, self.jMax):
+                    new_grid[i, j] = self.oLog[round((i - self.origoI)*factor)+self.origoI,
+                                               round((j - self.origoJ)*factor)+self.origoJ]
+            # TODO: Finish this. Check Scipy interpolation, probably faster. scipy.interpolate.RectBivariateSpline
+
+        else:
+            # old distance < new distance
+            # TODO: Finish this
+            raise NotImplementedError
+        self.current_distance = distance
 
     def clearGrid(self):
         self.oLog = np.ones((self.i_max, self.j_max)) * self.OZero
