@@ -28,7 +28,7 @@ while file.messagesReturned < 50:
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
         break
-print('All equal before {}'.format(np.all(O.oLog == O2.oLog)))
+print('All equal before {}'.format(np.all(O.o_log == O2.o_log)))
 
 t0 = time.time()
 for i in range(0, 200):
@@ -38,5 +38,5 @@ t0 = time.time()
 for i in range(0, 200):
     O2.trans2(0.01, -0.01)
 print('Slow time {:.2f}'.format(time.time()-t0))
-test = O.oLog - O2.oLog
-print('All equal after {}'.format(np.all(O.oLog == O2.oLog)))
+test = O.o_log - O2.o_log
+print('All equal after {}'.format(np.all(O.o_log == O2.o_log)))

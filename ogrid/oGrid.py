@@ -36,8 +36,9 @@ class OGrid(object):
         self.origin_j = self.origin_i = (OGrid.RES - 1) / 2
         self.OZero = math.log(p_m / (1 - p_m))
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
-        self.oLog = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
-        [self.i_max, self.j_max] = np.shape(self.oLog)
+        self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
+        self.binary_grid = np.ones((self.i_max, self.j_max), dtype=bool)
+        [self.i_max, self.j_max] = np.shape(self.o_log)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
             with np.load('OGrid_data/map_1601.npz') as data:
@@ -72,19 +73,19 @@ class OGrid(object):
 
     def get_p(self):
         try:
-            p = 1 - 1 / (1 + np.exp(self.oLog))
+            p = 1 - 1 / (1 + np.exp(self.o_log))
         except RuntimeWarning:
-            self.oLog[np.nonzero(self.oLog > 50)] = 50
-            self.oLog[np.nonzero(self.oLog < -50)] = -50
-            p = 1 - 1 / (1 + np.exp(self.oLog))
+            self.o_log[np.nonzero(self.o_log > 50)] = 50
+            self.o_log[np.nonzero(self.o_log < -50)] = -50
+            p = 1 - 1 / (1 + np.exp(self.o_log))
             logger.debug('Overflow when calculating probability')
         return p
 
     def get_raw(self):
-        return self.oLog
+        return self.o_log
 
     def get_binary_map(self):
-        return (self.oLog > self.binary_threshold).astype(np.float)
+        return (self.o_log > self.binary_threshold).astype(np.float)
 
     def auto_update_zhou(self, msg, threshold):
         range_step = self.MAX_BINS / msg.dbytes
@@ -121,22 +122,22 @@ class OGrid(object):
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
                 for n in range(self.last_bearing, msg.bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] += new_data + (n - self.last_bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] += new_data + (n - self.last_bearing) * value_gain
                 for n in range(msg.bearing + 1, msg.bearing + beam_half):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] += new_data
+                        self.o_log.flat[OGrid.map[n, :, i]] += new_data
             else:
                 value_gain = (new_data.astype(float) - self.last_data) / (-bearing_diff)
                 for n in range(msg.bearing, self.last_bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] += new_data + (n - msg.bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] += new_data + (n - msg.bearing) * value_gain
                 for n in range(msg.bearing - beam_half, msg.bearing):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] += new_data
+                        self.o_log.flat[OGrid.map[n, :, i]] += new_data
         else:
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAX_CELLS):
-                    self.oLog.flat[OGrid.map[n, :, i]] += new_data
+                    self.o_log.flat[OGrid.map[n, :, i]] += new_data
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
@@ -173,22 +174,22 @@ class OGrid(object):
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
                 for n in range(self.last_bearing, msg.bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] = new_data + (n - self.last_bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] = new_data + (n - self.last_bearing) * value_gain
                 for n in range(msg.bearing + 1, msg.bearing + beam_half):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] = new_data
+                        self.o_log.flat[OGrid.map[n, :, i]] = new_data
             else:
                 value_gain = (new_data.astype(float) - self.last_data) / (-bearing_diff)
                 for n in range(msg.bearing, self.last_bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] = new_data + (n - msg.bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] = new_data + (n - msg.bearing) * value_gain
                 for n in range(msg.bearing - beam_half, msg.bearing):
                     for i in range(0, self.MAX_CELLS):
-                        self.oLog.flat[OGrid.map[n, :, i]] = new_data
+                        self.o_log.flat[OGrid.map[n, :, i]] = new_data
         else:
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAX_CELLS):
-                    self.oLog.flat[OGrid.map[n, :, i]] = new_data
+                    self.o_log.flat[OGrid.map[n, :, i]] = new_data
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
@@ -200,27 +201,27 @@ class OGrid(object):
             self.last_distance = distance
         if factor == 1:
             return
-        new_grid = np.ones(shape=np.shape(self.oLog), dtype=self.oLog_type) * self.OZero
+        new_grid = np.ones(shape=np.shape(self.o_log), dtype=self.oLog_type) * self.OZero
         if factor < 1:
             # old distance > new distance
-            new_grid = self.oLog[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
-                                                       factor + self.origin_j)).astype(dtype=int),
-                                             (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
+            new_grid = self.o_log[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
+                                                        factor + self.origin_j)).astype(dtype=int),
+                                              (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
                                                        factor + self.origin_i)).astype(dtype=int))]
         else:
             # old distance < new distance
             i_lim = int(round(0.5 * self.i_max / factor))
             j_lim = int(round(0.5 * self.j_max / factor))
-            new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.oLog[
+            new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.o_log[
                 np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
                                       factor + self.origin_j)).astype(dtype=int),
                             (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
                                       factor + self.origin_i)).astype(dtype=int))]
-        self.oLog = new_grid
+        self.o_log = new_grid
         self.last_distance = distance
 
     def clear_grid(self):
-        self.oLog = np.ones((self.i_max, self.j_max)) * self.OZero
+        self.o_log = np.ones((self.i_max, self.j_max)) * self.OZero
         logger.info('Grid cleared')
 
     def translational_motion(self, delta_x, delta_y):
@@ -259,63 +260,63 @@ class OGrid(object):
             self.translational_motion(new_delta_x, new_delta_y)
 
         # do transformation
-        new_grid = np.zeros(np.shape(self.oLog))
+        new_grid = np.zeros(np.shape(self.o_log))
         if delta_x >= 0:
             if delta_y >= 0:
                 w2 = (1 - delta_x) * delta_y
                 w3 = delta_x * delta_y
                 w5 = (1 - delta_x) * (1 - delta_y)
                 w6 = delta_x * (1 - delta_y)
-                new_grid[1:, :-1] = w2 * self.oLog[:-1, :-1] + w3 * self.oLog[:-1, 1:] + \
-                                    w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:]
+                new_grid[1:, :-1] = w2 * self.o_log[:-1, :-1] + w3 * self.o_log[:-1, 1:] + \
+                                    w5 * self.o_log[1:, :-1] + w6 * self.o_log[1:, 1:]
 
                 new_grid[0, :-1] = (w2 + w3) * self.OZero * np.ones(self.j_max - 1) + \
-                                   w5 * self.oLog[1, :-1] + w6 * self.oLog[1, 1:]
-                new_grid[1:, -1] = w2 * self.oLog[:-1, -2] + (w3 + w6) * self.OZero * np.ones(self.i_max - 1) + \
-                                   w5 * self.oLog[1:, -2]
-                new_grid[0, -1] = (w2 + w3 + w6) * self.OZero + w5 * self.oLog[1, -2]
+                                   w5 * self.o_log[1, :-1] + w6 * self.o_log[1, 1:]
+                new_grid[1:, -1] = w2 * self.o_log[:-1, -2] + (w3 + w6) * self.OZero * np.ones(self.i_max - 1) + \
+                                   w5 * self.o_log[1:, -2]
+                new_grid[0, -1] = (w2 + w3 + w6) * self.OZero + w5 * self.o_log[1, -2]
 
             else:
                 w5 = (1 - delta_x) * (1 + delta_y)
                 w6 = delta_x * (1 + delta_y)
                 w8 = (1 - delta_x) * (-delta_y)
                 w9 = delta_x * (-delta_y)
-                new_grid[:-1, :-1] = w5 * self.oLog[:-1, :-1] + w6 * self.oLog[:-1, 1:] + \
-                                     w8 * self.oLog[1:, :-1] + w9 * self.oLog[1:, 1:]
+                new_grid[:-1, :-1] = w5 * self.o_log[:-1, :-1] + w6 * self.o_log[:-1, 1:] + \
+                                     w8 * self.o_log[1:, :-1] + w9 * self.o_log[1:, 1:]
 
-                new_grid[-1, :-1] = w5 * self.oLog[-2, :-1] + w6 * self.oLog[-2, 1:] + \
+                new_grid[-1, :-1] = w5 * self.o_log[-2, :-1] + w6 * self.o_log[-2, 1:] + \
                                     (w8 + w9) * self.OZero * np.ones(self.j_max - 1)
-                new_grid[:-1, -1] = w5 * self.oLog[:-1, -2] + (w6 + w9) * self.OZero * np.ones(self.i_max - 1) + \
-                                    w8 * self.oLog[1:, -2]
-                new_grid[-1, -1] = w5 * self.oLog[-2, -2] + (w6 + w8 + w9) * self.OZero
+                new_grid[:-1, -1] = w5 * self.o_log[:-1, -2] + (w6 + w9) * self.OZero * np.ones(self.i_max - 1) + \
+                                    w8 * self.o_log[1:, -2]
+                new_grid[-1, -1] = w5 * self.o_log[-2, -2] + (w6 + w8 + w9) * self.OZero
         else:
             if delta_y >= 0:
                 w1 = -delta_x * delta_y
                 w2 = (1 + delta_x) * delta_y
                 w4 = -delta_x * (1 - delta_y)
                 w5 = (1 + delta_x) * (1 - delta_y)
-                new_grid[1:, 1:] = w1 * self.oLog[:-1, :-1] + w2 * self.oLog[:-1, 1:] + \
-                                   w4 * self.oLog[1:, :-1] + w5 * self.oLog[1:, 1:]
+                new_grid[1:, 1:] = w1 * self.o_log[:-1, :-1] + w2 * self.o_log[:-1, 1:] + \
+                                   w4 * self.o_log[1:, :-1] + w5 * self.o_log[1:, 1:]
 
                 new_grid[0, 1:] = (w1 + w2) * self.OZero * np.ones(self.j_max - 1) + \
-                                  w4 * self.oLog[0, :-1] + w5 * self.oLog[0, 1:]
-                new_grid[1:, 0] = (w1 + w4) * self.OZero * np.ones(self.i_max - 1) + w2 * self.oLog[:-1, 0] + \
-                                  w5 * self.oLog[1:, 0]
-                new_grid[0, 0] = (w1 + w2 + w4) * self.OZero + w5 * self.oLog[1, 1]
+                                  w4 * self.o_log[0, :-1] + w5 * self.o_log[0, 1:]
+                new_grid[1:, 0] = (w1 + w4) * self.OZero * np.ones(self.i_max - 1) + w2 * self.o_log[:-1, 0] + \
+                                  w5 * self.o_log[1:, 0]
+                new_grid[0, 0] = (w1 + w2 + w4) * self.OZero + w5 * self.o_log[1, 1]
             else:
                 w4 = (-delta_x) * (1 + delta_y)
                 w5 = (1 + delta_x) * (1 + delta_y)
                 w7 = (-delta_x) * (-delta_y)
                 w8 = (1 + delta_x) * (-delta_y)
-                new_grid[:-1, 1:] = w4 * self.oLog[:-1, :-1] + w5 * self.oLog[:-1, 1:] + \
-                                    w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:]
+                new_grid[:-1, 1:] = w4 * self.o_log[:-1, :-1] + w5 * self.o_log[:-1, 1:] + \
+                                    w7 * self.o_log[1:, :-1] + w8 * self.o_log[1:, 1:]
 
-                new_grid[-1, 1:] = w4 * self.oLog[-2, :-1] + w5 * self.oLog[-2, 1:] + \
+                new_grid[-1, 1:] = w4 * self.o_log[-2, :-1] + w5 * self.o_log[-2, 1:] + \
                                    (w7 + w8) * self.OZero * np.ones(self.j_max - 1)
-                new_grid[:-1, 0] = (w4 + w7) * self.OZero * np.ones(self.i_max - 1) + w5 * self.oLog[:-1, 1] + \
-                                   w8 * self.oLog[1:, 1]
-                new_grid[-1, 0] = (w4 + w7 + w8) * self.OZero + w5 * self.oLog[-2, 1]
-        self.oLog = new_grid
+                new_grid[:-1, 0] = (w4 + w7) * self.OZero * np.ones(self.i_max - 1) + w5 * self.o_log[:-1, 1] + \
+                                   w8 * self.o_log[1:, 1]
+                new_grid[-1, 0] = (w4 + w7 + w8) * self.OZero + w5 * self.o_log[-2, 1]
+        self.o_log = new_grid
 
     def cell_rotation(self, delta_psi):
         """
@@ -334,40 +335,40 @@ class OGrid(object):
         w = 0.25 * (1 / (y - 1) + 2) * y
         a = 1 - 4 * w
 
-        new_grid = np.zeros(np.shape(self.oLog))
+        new_grid = np.zeros(np.shape(self.o_log))
         # cells in the middle. A*self + w( up + down + left + right)
-        new_grid[1:-1, 1:-1] = a * self.oLog[1:-1, 1:-1] + \
-                               w * (self.oLog[:-2, 1:-1] + self.oLog[2:, 1:-1] +
-                                    self.oLog[1:-1, :-2] + self.oLog[1:-1, 2:])
+        new_grid[1:-1, 1:-1] = a * self.o_log[1:-1, 1:-1] + \
+                               w * (self.o_log[:-2, 1:-1] + self.o_log[2:, 1:-1] +
+                                    self.o_log[1:-1, :-2] + self.o_log[1:-1, 2:])
         # first row
-        new_grid[0, 1:-1] = a * self.oLog[0, 1:-1] + \
-                            w * (self.OZero + self.oLog[1, 1:-1] +
-                                 self.oLog[0, :-2] + self.oLog[0, 2:])
+        new_grid[0, 1:-1] = a * self.o_log[0, 1:-1] + \
+                            w * (self.OZero + self.o_log[1, 1:-1] +
+                                 self.o_log[0, :-2] + self.o_log[0, 2:])
         # last row
-        new_grid[-1, 1:-1] = a * self.oLog[-1, 1:-1] + \
-                             w * (self.oLog[-2, 1:-1] +
-                                  self.oLog[-1, :-2] + self.oLog[-1, 2:])
+        new_grid[-1, 1:-1] = a * self.o_log[-1, 1:-1] + \
+                             w * (self.o_log[-2, 1:-1] +
+                                  self.o_log[-1, :-2] + self.o_log[-1, 2:])
         # first column
-        new_grid[1:-1, 0] = a * self.oLog[1:-1, 0] + \
-                            w * (self.oLog[:-2, 0] + self.oLog[2:, 0] +
-                                 self.OZero + self.oLog[1:-1, 2])
+        new_grid[1:-1, 0] = a * self.o_log[1:-1, 0] + \
+                            w * (self.o_log[:-2, 0] + self.o_log[2:, 0] +
+                                 self.OZero + self.o_log[1:-1, 2])
         # last column
-        new_grid[1:-1, -1] = a * self.oLog[1:-1, -1] + \
-                             w * (self.oLog[:-2, -1] + self.oLog[2:, -1] +
-                                  self.oLog[1:-1, -2] + self.OZero)
+        new_grid[1:-1, -1] = a * self.o_log[1:-1, -1] + \
+                             w * (self.o_log[:-2, -1] + self.o_log[2:, -1] +
+                                  self.o_log[1:-1, -2] + self.OZero)
         # upper left
-        new_grid[0, 0] = a * self.oLog[0, 0] + \
-                         w * (2 * self.OZero + self.oLog[1, 0] + self.oLog[0, 1])
+        new_grid[0, 0] = a * self.o_log[0, 0] + \
+                         w * (2 * self.OZero + self.o_log[1, 0] + self.o_log[0, 1])
         # upper right
-        new_grid[0, -1] = a * self.oLog[0, -1] + \
-                          w * (2 * self.OZero + self.oLog[1, 0] + self.oLog[0, -1])
+        new_grid[0, -1] = a * self.o_log[0, -1] + \
+                          w * (2 * self.OZero + self.o_log[1, 0] + self.o_log[0, -1])
         # lower left
-        new_grid[-1, 0] = a * self.oLog[-1, 0] + \
-                          w * (self.oLog[-1, 0] + 2 * self.OZero + self.oLog[-1, 1])
+        new_grid[-1, 0] = a * self.o_log[-1, 0] + \
+                          w * (self.o_log[-1, 0] + 2 * self.OZero + self.o_log[-1, 1])
         # lower right
-        new_grid[-1, -1] = a * self.oLog[-1, -1] + \
-                           w * (self.oLog[-2, -1] + 2 * self.OZero + self.oLog[-1, -2])
-        self.oLog = new_grid
+        new_grid[-1, -1] = a * self.o_log[-1, -1] + \
+                           w * (self.o_log[-2, -1] + 2 * self.OZero + self.o_log[-1, -2])
+        self.o_log = new_grid
 
     def rotate_grid(self, delta_psi):
         # Check if movement is less than MIN_ROT => save for later
@@ -400,8 +401,8 @@ class OGrid(object):
         if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
             print_args(delta_x=delta_x, delta_y=delta_y)
             raise MyException('delta x or y to large')
-        new_left_grid = np.zeros(np.shape(self.oLog[:, :self.origin_j]), dtype=self.oLog_type)
-        new_right_grid = np.zeros(np.shape(self.oLog[:, self.origin_j:]), dtype=self.oLog_type)
+        new_left_grid = np.zeros(np.shape(self.o_log[:, :self.origin_j]), dtype=self.oLog_type)
+        new_right_grid = np.zeros(np.shape(self.o_log[:, self.origin_j:]), dtype=self.oLog_type)
         if delta_psi >= 0:
             # Left grid both positive. Right grid x_postive, y negative
             wl2 = (1 - delta_x[:, :self.origin_j + 1]) * delta_y[:, :self.origin_j + 1]
@@ -410,14 +411,14 @@ class OGrid(object):
             wl6 = delta_x[:, :self.origin_j + 1] * (1 - delta_y[:, :self.origin_j + 1])
             if np.any(np.abs(wl2 + wl3 + wl5 + wl6 - 1) > 0.00001):
                 logger.debug('Sum = {}!'.format(np.max(np.max(wl2 + wl3 + wl5 + wl6))))
-            new_left_grid[1:, :] = wl2[1:, :-1] * self.oLog[:-1, :self.origin_j] + \
-                                   wl3[1:, :-1] * self.oLog[:-1, 1:self.origin_j + 1] + \
-                                   wl5[1:, :-1] * self.oLog[1:, :self.origin_j] + \
-                                   wl6[1:, :-1] * self.oLog[1:, 1:self.origin_j + 1]
+            new_left_grid[1:, :] = wl2[1:, :-1] * self.o_log[:-1, :self.origin_j] + \
+                                   wl3[1:, :-1] * self.o_log[:-1, 1:self.origin_j + 1] + \
+                                   wl5[1:, :-1] * self.o_log[1:, :self.origin_j] + \
+                                   wl6[1:, :-1] * self.o_log[1:, 1:self.origin_j + 1]
 
             new_left_grid[0, :] = (wl2[0, :-1] + wl3[0, :-1]) * self.OZero * np.ones(np.shape(new_left_grid[0, :])) + \
-                                  wl5[0, :-1] * self.oLog[1, :self.origin_j] + \
-                                  wl6[0, :-1] * self.oLog[1, 1:self.origin_j + 1]
+                                  wl5[0, :-1] * self.o_log[1, :self.origin_j] + \
+                                  wl6[0, :-1] * self.o_log[1, 1:self.origin_j + 1]
 
             wr5 = (1 - delta_x[:, self.origin_j:]) * (1 + delta_y[:, self.origin_j:])
             wr6 = delta_x[:, self.origin_j:] * (1 + delta_y[:, self.origin_j:])
@@ -425,20 +426,20 @@ class OGrid(object):
             wr9 = delta_x[:, self.origin_j:] * (-delta_y[:, self.origin_j:])
             if np.any(np.abs(wr5 + wr6 + wr8 + wr9 - 1) > 0.00001):
                 logger.debug('Sum = {}!'.format(np.max(np.max(wr5 + wr6 + wr8 + wr9))))
-            new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.oLog[:-1, self.origin_j:-1] + \
-                                       wr6[:-1, :-1] * self.oLog[:-1, self.origin_j + 1:] + \
-                                       wr8[:-1, :-1] * self.oLog[1:, self.origin_j:-1] + \
-                                       wr9[:-1, :-1] * self.oLog[1:, self.origin_j + 1:]
+            new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.o_log[:-1, self.origin_j:-1] + \
+                                       wr6[:-1, :-1] * self.o_log[:-1, self.origin_j + 1:] + \
+                                       wr8[:-1, :-1] * self.o_log[1:, self.origin_j:-1] + \
+                                       wr9[:-1, :-1] * self.o_log[1:, self.origin_j + 1:]
 
-            new_right_grid[-1, :-1] = wr5[-1, :-1] * self.oLog[-1, self.origin_j:-1] + \
-                                      wr6[-1, :-1] * self.oLog[-1, self.origin_j + 1:] + \
+            new_right_grid[-1, :-1] = wr5[-1, :-1] * self.o_log[-1, self.origin_j:-1] + \
+                                      wr6[-1, :-1] * self.o_log[-1, self.origin_j + 1:] + \
                                       (wr8[-1, :-1] + wr9[-1, :-1]) * self.OZero * np.ones(
                 np.shape(new_right_grid[-1, :-1]))
-            new_right_grid[:-1, -1] = wr5[:-1, -1] * self.oLog[:-1, -1] + \
-                                      wr8[:-1, -1] * self.oLog[1:, -1] + \
+            new_right_grid[:-1, -1] = wr5[:-1, -1] * self.o_log[:-1, -1] + \
+                                      wr8[:-1, -1] * self.o_log[1:, -1] + \
                                       (wr6[:-1, -1] + wr9[:-1, -1]) * self.OZero * np.ones(
                 np.shape(new_right_grid[:-1, -1]))
-            new_right_grid[-1, -1] = wr5[-1, -1] * self.oLog[-1, -1] + \
+            new_right_grid[-1, -1] = wr5[-1, -1] * self.o_log[-1, -1] + \
                                      (wr6[-1, -1] + wr8[-1, -1] + wr9[-1, -1]) * self.OZero
         else:
             # Left grid: both neg, right grid: x neg, y pos
@@ -448,19 +449,19 @@ class OGrid(object):
             wl8 = (1 + delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
             if np.any(np.abs(wl4 + wl5 + wl7 + wl8 - 1) > 0.00001):
                 logger.debug('Sum = {}!'.format(np.max(np.max(wl4 + wl5 + wl7 + wl8))))
-            new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.oLog[:-1, :self.origin_j - 1] + \
-                                     wl5[1:, :-1] * self.oLog[:-1, 1:self.origin_j] + \
-                                     wl7[1:, :-1] * self.oLog[1:, :self.origin_j - 1] + \
-                                     wl8[1:, :-1] * self.oLog[1:, 1:self.origin_j]
+            new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.o_log[:-1, :self.origin_j - 1] + \
+                                     wl5[1:, :-1] * self.o_log[:-1, 1:self.origin_j] + \
+                                     wl7[1:, :-1] * self.o_log[1:, :self.origin_j - 1] + \
+                                     wl8[1:, :-1] * self.o_log[1:, 1:self.origin_j]
 
-            new_left_grid[-1, :-1] = wl4[-1, :-1] * self.oLog[-1, :self.origin_j - 1] + \
-                                     wl5[-1, :-1] * self.oLog[-1, 1:self.origin_j] + \
+            new_left_grid[-1, :-1] = wl4[-1, :-1] * self.o_log[-1, :self.origin_j - 1] + \
+                                     wl5[-1, :-1] * self.o_log[-1, 1:self.origin_j] + \
                                      (wl7[-1, :-1] + wl8[-1, :-1]) * self.OZero * np.ones(
                 np.shape(new_left_grid[-1, :-1]))
-            new_left_grid[1:, 0] = wl5[1:, 0] * self.oLog[:-1, 1] + \
+            new_left_grid[1:, 0] = wl5[1:, 0] * self.o_log[:-1, 1] + \
                                    (wl4[1:, 0] + wl7[1:, 0]) * self.OZero * np.ones(np.shape(new_left_grid[1:, 0])) + \
-                                   wl8[1:, 0] * self.oLog[1:, 1]
-            new_left_grid[-1, 0] = wl5[-1, 0] * self.oLog[-1, 0] + \
+                                   wl8[1:, 0] * self.o_log[1:, 1]
+            new_left_grid[-1, 0] = wl5[-1, 0] * self.o_log[-1, 0] + \
                                    (wl4[-1, 0] + wl7[-1, 0] + wl8[-1, 0]) * self.OZero
 
             wr1 = -delta_x[:, self.origin_j - 1:] * delta_y[:, self.origin_j - 1:]
@@ -469,45 +470,78 @@ class OGrid(object):
             wr5 = (1 + delta_x[:, self.origin_j - 1:]) * (1 - delta_y[:, self.origin_j - 1:])
             if np.any(np.abs(wr1 + wr2 + wr4 + wr5 - 1) > 0.00001):
                 logger.debug('Sum = {}!'.format(np.max(np.max(wr1 + wr2 + wr4 + wr5))))
-            new_right_grid[1:, :] = wr1[:-1, :-1] * self.oLog[:-1, self.origin_j - 1:-1] + \
-                                    wr2[:-1, :-1] * self.oLog[:-1, self.origin_j:] + \
-                                    wr4[:-1, :-1] * self.oLog[1:, self.origin_j - 1:-1] + \
-                                    wr5[:-1, :-1] * self.oLog[1:, self.origin_j:]
+            new_right_grid[1:, :] = wr1[:-1, :-1] * self.o_log[:-1, self.origin_j - 1:-1] + \
+                                    wr2[:-1, :-1] * self.o_log[:-1, self.origin_j:] + \
+                                    wr4[:-1, :-1] * self.o_log[1:, self.origin_j - 1:-1] + \
+                                    wr5[:-1, :-1] * self.o_log[1:, self.origin_j:]
             new_right_grid[0, :] = (wr1[0, 1:] + wr2[0, 1:]) * self.OZero * np.ones(np.shape(new_right_grid[0, :])) + \
-                                   wr4[0, 1:] * self.oLog[0, self.origin_j - 1:-1] + \
-                                   wr5[0, 1:] * self.oLog[0, self.origin_j:]
-        self.oLog[:, :self.origin_j] = new_left_grid
-        self.oLog[:, self.origin_j:] = new_right_grid
+                                   wr4[0, 1:] * self.o_log[0, self.origin_j - 1:-1] + \
+                                   wr5[0, 1:] * self.o_log[0, self.origin_j:]
+        self.o_log[:, :self.origin_j] = new_left_grid
+        self.o_log[:, self.origin_j:] = new_right_grid
         # self.cell_rotation(delta_psi)
 
     def get_obstacles(self):
-        binary_grid = self.get_binary_map()
-        labels = np.zeros((self.i_max, self.j_max), dtype=np.uint32)
-        label_counter = 0
-        for i in range(0, self.i_max):
-            for j in range(0, self.j_max):
-                if binary_grid[i, j]:
-                    labeled = False
-                    if i != 0:
-                        if binary_grid[i-1, j]:
-                            labels[i, j] = labels[i-1, j]
-                            labeled = True
-                    if j != 0:
-                        if binary_grid[i, j-1]:
-                            if labeled and labels[i, j] != labels[i, j-1]:
-                                raise Exception('Connected labels are wrong')
-                            labels[i, j] = labels[i, j-1]
-                            labeled = True
-                    if i != 0 and j != 0:
-                        if binary_grid[i-1, j-1]:
-                            if labeled and labels[i, j] != labels[i-1, j-1]:
-                                raise Exception('Connected labels are wrong')
-                            labels[i, j] = labels[i-1, j-1]
-                            labeled = True
-                    if not labeled:
-                        label_counter += 1
-                        labels[i, j] = label_counter
-        return labels
+        return GetObstacles(self.get_binary_map()).get_labeled_grid()
+
+
+class GetObstacles:
+    def __init__(self, binary_grid):
+        self.binary_grid = binary_grid
+        i_max, j_max = np.shape(binary_grid)
+        self.labels = np.zeros((i_max, j_max), dtype=np.uint32)
+        label_counter = 1
+        for i in range(0, i_max):
+            for j in range(0, j_max):
+                if self.check_pixel(i, j, label_counter):
+                    label_counter += 1
+
+    def get_labeled_grid(self):
+        return self.labels
+
+    def check_pixel(self, i, j, m):
+        if self.binary_grid[i, j]:
+            if self.labels[i, j] == 0:
+                self.labels[i, j] = m
+                try:
+                    self.check_pixel(i-1, j-1, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i, j-1, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i+1, j-1, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i-1, j, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i+1, j, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i-1, j+1, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i, j+1, m)
+                except IndexError:
+                    pass
+                try:
+                    self.check_pixel(i+1, j+1, m)
+                except IndexError:
+                    pass
+                return True
+        else:
+            return False
+
+
+
+
 
 
 # Exception class for making understandable exception
