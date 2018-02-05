@@ -8,12 +8,7 @@ logger = logging.getLogger('OGrid')
 
 class OGrid(object):
     cur_step = 0
-    GRAD2RAD = math.pi / (16 * 200)
-    RAD2GRAD = (16 * 200) / math.pi
     PI2 = math.pi / 2
-    PI4 = math.pi / 4
-    DEG1_5 = 1.5 * math.pi / 180
-    DEG7_5 = DEG1_5 / 2
     oLog_type = np.float32
     old_delta_x = 0
     old_delta_y = 0
@@ -28,22 +23,20 @@ class OGrid(object):
     RES = 1601
     r_unit = np.zeros((RES, RES))
     theta = np.zeros((RES, RES))
-    xy_unit = np.zeros(RES)
     x_mesh_unit = np.zeros((RES, RES))
     y_mesh_unit = np.zeros((RES, RES))
     map = np.zeros((6400, MAX_BINS, MAX_CELLS), dtype=np.uint32)
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = 0
 
-    def __init__(self, half_grid, p_m, binary_threshold=0.7):
+    def __init__(self, half_grid, p_m, binary_threshold=0.7, cellsize=0):
         if half_grid:
             self.i_max = int((OGrid.RES / 2) * (1 + math.tan(math.pi / 90.0)))
-
+        self.cell_size = cellsize
         self.origin_j = self.origin_i = (OGrid.RES - 1) / 2
         self.OZero = math.log(p_m / (1 - p_m))
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
         self.oLog = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
-        self.O_logic = np.zeros((self.i_max, self.j_max), dtype=bool)
         [self.i_max, self.j_max] = np.shape(self.oLog)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
@@ -56,16 +49,15 @@ class OGrid(object):
                 with np.load('OGrid_data/rad_1601.npz') as data:
                     OGrid.x_mesh_unit = data['x_mesh']
                     OGrid.y_mesh_unit = data['y_mesh']
-                    OGrid.xy_unit = data['xy']
                     OGrid.r_unit = data['r_unit']
                     OGrid.theta = data['theta']
             except:
-                OGrid.xy_unit = np.linspace(-(OGrid.RES - 1) / 2, (OGrid.RES - 1) / 2, OGrid.RES, True) / OGrid.RES
-                OGrid.x_mesh_unit, OGrid.y_mesh_unit = np.meshgrid(OGrid.xy_unit, OGrid.xy_unit)
+                xy_unit = np.linspace(-(OGrid.RES - 1) / 2, (OGrid.RES - 1) / 2, OGrid.RES, True) / OGrid.RES
+                OGrid.x_mesh_unit, OGrid.y_mesh_unit = np.meshgrid(xy_unit, xy_unit)
                 OGrid.r_unit = np.sqrt(np.power(OGrid.x_mesh_unit, 2) + np.power(OGrid.x_mesh_unit, 2))
                 OGrid.theta = np.arctan2(OGrid.y_mesh_unit, OGrid.x_mesh_unit)
                 np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
-                         y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, xy=OGrid.xy_unit, theta=OGrid.theta)
+                         y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, theta=OGrid.theta)
 
     # def loadMap(self):
     #     binary_file = open('OGrid_data/map_1601_new_no_stride.bin', "rb")
@@ -229,7 +221,6 @@ class OGrid(object):
 
     def clear_grid(self):
         self.oLog = np.ones((self.i_max, self.j_max)) * self.OZero
-        self.O_logic = np.zeros((self.i_max, self.j_max), dtype=bool)
         logger.info('Grid cleared')
 
     def translational_motion(self, delta_x, delta_y):
@@ -489,7 +480,36 @@ class OGrid(object):
         self.oLog[:, self.origin_j:] = new_right_grid
         # self.cell_rotation(delta_psi)
 
+    def get_obstacles(self):
+        binary_grid = self.get_binary_map()
+        labels = np.zeros((self.i_max, self.j_max), dtype=np.uint32)
+        label_counter = 0
+        for i in range(0, self.i_max):
+            for j in range(0, self.j_max):
+                if binary_grid[i, j]:
+                    labeled = False
+                    if i != 0:
+                        if binary_grid[i-1, j]:
+                            labels[i, j] = labels[i-1, j]
+                            labeled = True
+                    if j != 0:
+                        if binary_grid[i, j-1]:
+                            if labeled and labels[i, j] != labels[i, j-1]:
+                                raise Exception('Connected labels are wrong')
+                            labels[i, j] = labels[i, j-1]
+                            labeled = True
+                    if i != 0 and j != 0:
+                        if binary_grid[i-1, j-1]:
+                            if labeled and labels[i, j] != labels[i-1, j-1]:
+                                raise Exception('Connected labels are wrong')
+                            labels[i, j] = labels[i-1, j-1]
+                            labeled = True
+                    if not labeled:
+                        label_counter += 1
+                        labels[i, j] = label_counter
+        return labels
 
-# Exeption class for makin understanable exception
+
+# Exception class for making understandable exception
 class MyException(Exception):
     pass
