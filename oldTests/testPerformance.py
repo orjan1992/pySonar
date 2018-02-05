@@ -23,8 +23,8 @@ theta = np.zeros(1)
 while file.messagesReturned < 50:
     msg = file.read_next_msg()
     if type(msg) is SonarMsg and msg.type == 2:
-        O.autoUpdateZhou(msg, Threshold)
-        O2.autoUpdateZhou(msg, Threshold)
+        O.auto_update_zhou(msg, Threshold)
+        O2.auto_update_zhou(msg, Threshold)
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
         break

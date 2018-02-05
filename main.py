@@ -141,7 +141,7 @@ class MainWidget(QtGui.QWidget):
         if Settings.raw_plot:
             self.grid.update_raw(msg)
         else:
-            self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+            self.grid.auto_update_zhou(msg, self.threshold_box.value())
         self.plot_updated = True
         # if self.settings.grid_settings["half_grid"] == 1:
         #     self.img_item.setPos(-msg.range_scale/10.0, -msg.range_scale/5.0)

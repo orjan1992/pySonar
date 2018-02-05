@@ -12,7 +12,7 @@ def on_connect():
 
 
 def main():
-    # my code h e r e
+    # my code h e r_unit e
     print('test')
     comms.set_on_connect_callback(on_connect)
     comms.run('localhost', 9000, 'pymoos')

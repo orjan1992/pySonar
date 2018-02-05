@@ -263,7 +263,7 @@ class MainWidget(QtGui.QWidget):
         updated = False
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:
-            self.grid.autoUpdateZhou(self.latest_sonar_msg_moose, self.threshold_box.value())
+            self.grid.auto_update_zhou(self.latest_sonar_msg_moose, self.threshold_box.value())
             #self.raw_grid.autoUpdate(self.latest_sonar_msg_moose)
             #self.raw_img_item.setImage(self.raw_grid.grid.T)
             #self.scan_line.setData(np.arange(len(self.latest_sonar_msg_moose.data)), self.latest_sonar_msg_moose.data)
@@ -374,7 +374,7 @@ class MainWidget(QtGui.QWidget):
             if msg.sensor == 2:
                 while msg.type != 2:
                     msg = self.file.read_next_msg()
-                self.grid.autoUpdateZhou(msg, self.threshold_box.value())
+                self.grid.auto_update_zhou(msg, self.threshold_box.value())
                 self.raw_grid.autoUpdate(msg)
                 self.raw_img_item.setImage(self.raw_grid.grid.T)
                 updated = True

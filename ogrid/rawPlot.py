@@ -48,7 +48,7 @@ class RawPlot(object):
                 fStr = 'OGrid_data/angleRad_X=%i_Y=%i_size=%i.npz' % (self.X, self.Y, int(cellSize * 100))
                 try:
                     tmp = np.load(fStr)
-                    self.r = tmp['r']
+                    self.r = tmp['r_unit']
                     self.rHigh = tmp['rHigh']
                     self.rLow = tmp['rLow']
                     self.theta = tmp['theta']
@@ -66,7 +66,7 @@ class RawPlot(object):
                     self.thetaLow = np.zeros((self.Y, self.X))
                     self.cell_x_value = np.zeros((self.Y, self.X))
                     self.cell_y_value = np.zeros((self.Y, self.X))
-                    # x = np.arrange((-self.origoJ * self.cellSize), (self.origoJ * self.cellSize), self.cellSize)
+                    # x = np.arrange((-self.origin_j * self.cellSize), (self.origin_j * self.cellSize), self.cellSize)
                     # y =
                     for i in range(0, self.Y):
                         for j in range(0, self.X):

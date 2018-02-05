@@ -2,7 +2,7 @@ import pymoos
 import time
 #s i m p l e example which u s e s an a c t i v e queue t o h a n d l e r e c e i v e d m e s s a g e s
 #you can send any number o f m e s s a g e s t o any number o f a c t i v e q ueues
-#h e r e we send b i n a r y data j u s t t o show we can
+#h e r_unit e we send b i n a r_unit y data j u s t t o show we can
 
 comms = pymoos.comms()
 
