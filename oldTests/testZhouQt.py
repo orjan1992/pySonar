@@ -200,7 +200,7 @@ class MainWidget(QtGui.QWidget):
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
             self.first_run = False
         else:
-            self.grid.clearGrid()
+            self.grid.clear_grid()
             self.raw_grid.clearGrid()
         if self.morse_running:
             self.moos_client.close()
@@ -404,7 +404,7 @@ class MainWidget(QtGui.QWidget):
     def clear_img(self):
         self.img_item.setImage(np.zeros(np.shape(self.img_item.image)))
         if self.grid:
-            self.grid.clearGrid()
+            self.grid.clear_grid()
             self.raw_grid.clearGrid()
 
     def getFile(self):
@@ -412,7 +412,7 @@ class MainWidget(QtGui.QWidget):
         self.fname = QtGui.QFileDialog.getOpenFileName(self.parent(), 'Open log file', 'logs/', "Log files (*.csv *.V4LOG)")
         self.first_run = True
         if self.grid:
-            self.grid.clearGrid()
+            self.grid.clear_grid()
             self.clear_img()
 
     def stop_plot(self):

@@ -1,13 +1,13 @@
 class Settings:
     input_source = 1
-    raw_plot = True
+    raw_plot = False
 
 
 class GridSettings:
         half_grid = True
         p_inital = 0.65
         binary_threshold = 0.78
-        binary_grid = True
+        binary_grid = False
 
 
 class ConnectionSettings:

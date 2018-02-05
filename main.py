@@ -19,8 +19,9 @@ logging.basicConfig(filename=LOG_FILENAME,
                     level=logging.DEBUG,
                     filemode='w',)
 logger = logging.getLogger('main')
-WINDOWS = True
-
+logging.getLogger('messages.MoosMsgs.pose').disabled = True
+logging.getLogger('messages.MoosMsgs.bins').disabled = True
+logging.getLogger('messages.MoosMsgs.pose').disabled = True
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
@@ -63,6 +64,7 @@ class MainWidget(QtGui.QWidget):
         self.plot_window.addItem(self.img_item)
         self.plot_window.getAxis('left').setGrid(200)
         self.img_item.getViewBox().invertY(True)
+        self.img_item.getViewBox().setAspectLocked(True)
         self.img_item.setOpts(axisOrder='row-major')
 
         # Button
@@ -130,10 +132,9 @@ class MainWidget(QtGui.QWidget):
         self.grid = OGrid(GridSettings.half_grid,
                           GridSettings.p_inital,
                           GridSettings.binary_threshold)
-        self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
 
     def clear_grid(self):
-        self.grid.clearGrid()
+        self.grid.clear_grid()
         self.plot_updated = False
         self.update_plot()
 
