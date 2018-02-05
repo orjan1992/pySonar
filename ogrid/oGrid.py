@@ -37,7 +37,6 @@ class OGrid(object):
         self.OZero = math.log(p_m / (1 - p_m))
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
         self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
-        self.binary_grid = np.ones((self.i_max, self.j_max), dtype=bool)
         [self.i_max, self.j_max] = np.shape(self.o_log)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
@@ -400,7 +399,7 @@ class OGrid(object):
         delta_y = self.r_unit * np.cos(delta_psi + OGrid.theta) - self.y_mesh_unit
         if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
             print_args(delta_x=delta_x, delta_y=delta_y)
-            raise MyException('delta x or y to large')
+            raise Exception('delta x or y to large')
         new_left_grid = np.zeros(np.shape(self.o_log[:, :self.origin_j]), dtype=self.oLog_type)
         new_right_grid = np.zeros(np.shape(self.o_log[:, self.origin_j:]), dtype=self.oLog_type)
         if delta_psi >= 0:
@@ -481,69 +480,29 @@ class OGrid(object):
         self.o_log[:, self.origin_j:] = new_right_grid
         # self.cell_rotation(delta_psi)
 
-    def get_obstacles(self):
-        return GetObstacles(self.get_binary_map()).get_labeled_grid()
-
-
-class GetObstacles:
-    def __init__(self, binary_grid):
-        self.binary_grid = binary_grid
-        i_max, j_max = np.shape(binary_grid)
-        self.labels = np.zeros((i_max, j_max), dtype=np.uint32)
-        label_counter = 1
-        for i in range(0, i_max):
-            for j in range(0, j_max):
-                if self.check_pixel(i, j, label_counter):
+    def get_obstacles(self, threshold):
+        binary_grid = self.o_log > threshold
+        labels = np.zeros((self.i_max, self.j_max), dtype=np.uint32)
+        label_counter = 0
+        for i in range(0, self.i_max):
+            for j in range(0, self.j_max):
+                if binary_grid[i, j]:
                     label_counter += 1
-
-    def get_labeled_grid(self):
-        return self.labels
-
-    def check_pixel(self, i, j, m):
-        if self.binary_grid[i, j]:
-            if self.labels[i, j] == 0:
-                self.labels[i, j] = m
-                try:
-                    self.check_pixel(i-1, j-1, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i, j-1, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i+1, j-1, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i-1, j, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i+1, j, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i-1, j+1, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i, j+1, m)
-                except IndexError:
-                    pass
-                try:
-                    self.check_pixel(i+1, j+1, m)
-                except IndexError:
-                    pass
-                return True
-        else:
-            return False
-
-
-
-
-
-
-# Exception class for making understandable exception
-class MyException(Exception):
-    pass
+                    labels[i, j] = label_counter
+                    neighbours = np.zeros(8)
+                    for n in range(0, 2):
+                        for m in range(0, 2):
+                            try:
+                                if binary_grid[i+n-1, j+m-1] and labels[i+n-1, j+m-1]:
+                                    neighbours[n*2+m] = labels[i+n-1, j+m-1]
+                            except IndexError:
+                                pass
+                    min_label = np.min(neighbours[np.nonzero(neighbours)])
+                    for n in range(0, 1):
+                        for m in range(0, 1):
+                            try:
+                                if binary_grid[i+n-1, j+m-1]:
+                                    labels[i+n-1, j+m-1] = min_label
+                            except IndexError:
+                                pass
+        return labels

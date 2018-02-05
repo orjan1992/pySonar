@@ -79,10 +79,11 @@ class MainWidget(QtGui.QWidget):
         # binary plot
         self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
         self.binary_plot_button.clicked.connect(self.binary_button_click)
-        if Settings.raw_plot:
-            self.binary_plot_on = False
-        else:
-            self.binary_plot_on = GridSettings.binary_grid
+        # if Settings.raw_plot:
+        #     self.binary_plot_on = False
+        # else:
+        #     self.binary_plot_on = GridSettings.binary_grid
+        self.binary_plot_on = GridSettings.binary_grid
         if not self.binary_plot_on:
             self.binary_plot_button.text = "Set Binary mode"
 
@@ -123,7 +124,10 @@ class MainWidget(QtGui.QWidget):
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
-        self.timer.start(1.0/24.0)
+        if Settings.plot_type == 2:
+            self.timer.start(1.0)
+        else:
+            self.timer.start(1.0/24.0)
 
 
 
@@ -141,10 +145,12 @@ class MainWidget(QtGui.QWidget):
     def new_sonar_msg(self, sender, **kw):
         msg = kw["msg"]
         self.grid.update_distance(msg.range_scale)
-        if Settings.raw_plot:
+        if Settings.update_type == 0:
             self.grid.update_raw(msg)
-        else:
+        elif Settings.update_type == 1:
             self.grid.auto_update_zhou(msg, self.threshold_box.value())
+        else:
+            raise Exception('Invalid update type')
         self.plot_updated = True
         # if self.settings.grid_settings["half_grid"] == 1:
         #     self.img_item.setPos(-msg.range_scale/10.0, -msg.range_scale/5.0)
@@ -168,13 +174,17 @@ class MainWidget(QtGui.QWidget):
 
     def update_plot(self):
         if self.plot_updated:
-            if Settings.raw_plot:
+            if Settings.plot_type == 0:
                 self.img_item.setImage(self.grid.get_raw(), levels=(0.0, 255.0))
-            else:
+            elif Settings.plot_type == 1:
                 if self.binary_plot_on:
                     self.img_item.setImage(self.grid.get_binary_map(), levels=(0, 1))
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0))
+            elif Settings.plot_type == 2:
+                self.img_item.setImage(self.grid.get_obstacles(self.threshold_box.value()))
+            else:
+                raise Exception('Invalid plot type')
             self.img_item.setPos(-self.grid.last_distance, -self.grid.last_distance/2 if GridSettings.half_grid else -self.grid.last_distance)
             # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
             self.plot_updated = False

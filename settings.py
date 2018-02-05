@@ -1,6 +1,9 @@
 class Settings:
     input_source = 1
-    raw_plot = False
+    # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
+    plot_type = 2
+    # 0 == raw update, 1 == zhou update
+    update_type = 0
 
 
 class GridSettings:
