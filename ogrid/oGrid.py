@@ -53,24 +53,28 @@ class OGrid(object):
             self.binary_threshold = math.log(binary_threshold/(1-binary_threshold))
             self.oLog = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
             self.O_logic = np.zeros((self.i_max, self.j_max), dtype=bool)
-            [self.iMax, self.jMax] = np.shape(self.oLog)
+            [self.i_max, self.j_max] = np.shape(self.oLog)
             if not np.any(OGrid.map != 0):
                 # self.loadMap()
                 with np.load('OGrid_data/map_1601.npz') as data:
                     OGrid.map = data['map']
-            if not np.any(OGrid.r_unit != 0):
-                try:
-                    with np.load('OGrid_data/rad_1601.npz') as data:
-                        OGrid.x_mesh_unit = data['x_mesh']
-                        OGrid.y_mesh_unit = data['y_mesh']
-                        OGrid.xy_unit = data['xy']
-                        OGrid.r_unit = data['r_unit']
-                except:
-                    OGrid.xy_unit = np.linspace(-(OGrid.RES - 1) / 2, (OGrid.RES - 1) / 2, OGrid.RES, True)/OGrid.RES
-                    OGrid.x_mesh_unit, OGrid.y_mesh_unit = np.meshgrid(OGrid.xy_unit, OGrid.xy_unit)
-                    OGrid.r_unit = np.sqrt(np.power(OGrid.x_mesh_unit, 2) + np.power(OGrid.x_mesh_unit, 2))
-                    np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
-                             y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, xy=OGrid.xy_unit)
+            self.MAX_ROT = np.min(
+                np.abs(np.arcsin((self.cellSize + self.cell_x_value[0, 0]) / self.r[0, 0]) - self.theta[0, 0]),
+                np.abs(np.arccos((self.cellSize + self.cell_y_value[0, -1]) / self.r[0, -1]) - self.theta[0, -1]))
+            self.MAX_ROT_BEFORE_RESET = 30 * self.MAX_ROT
+            # if not np.any(OGrid.r_unit != 0):
+            #     try:
+            #         with np.load('OGrid_data/rad_1601.npz') as data:
+            #             OGrid.x_mesh_unit = data['x_mesh']
+            #             OGrid.y_mesh_unit = data['y_mesh']
+            #             OGrid.xy_unit = data['xy']
+            #             OGrid.r_unit = data['r_unit']
+            #     except:
+            #         OGrid.xy_unit = np.linspace(-(OGrid.RES - 1) / 2, (OGrid.RES - 1) / 2, OGrid.RES, True)/OGrid.RES
+            #         OGrid.x_mesh_unit, OGrid.y_mesh_unit = np.meshgrid(OGrid.xy_unit, OGrid.xy_unit)
+            #         OGrid.r_unit = np.sqrt(np.power(OGrid.x_mesh_unit, 2) + np.power(OGrid.x_mesh_unit, 2))
+            #         np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
+            #                  y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, xy=OGrid.xy_unit)
 
 
 
@@ -208,7 +212,11 @@ class OGrid(object):
         self.last_data = new_data
 
     def update_distance(self, distance):
-        factor = distance / self.last_distance
+        try:
+            factor = distance / self.last_distance
+        except:
+            factor = 1
+            self.last_distance = distance
         if factor == 1:
             return
         new_grid = np.ones(shape=np.shape(self.oLog), dtype=self.oLog_type)*self.OZero
@@ -280,9 +288,9 @@ class OGrid(object):
                 new_grid[1:, :-1] = w2 * self.oLog[:-1, :-1] + w3 * self.oLog[:-1, 1:] + \
                                     w5 * self.oLog[1:, :-1] + w6 * self.oLog[1:, 1:]
 
-                new_grid[0, :-1] = (w2+w3) * self.OZero*np.ones(self.jMax-1) + \
+                new_grid[0, :-1] = (w2+w3) * self.OZero*np.ones(self.j_max-1) + \
                                     w5 * self.oLog[1, :-1] + w6 * self.oLog[1, 1:]
-                new_grid[1:, -1] = w2 * self.oLog[:-1, -2] + (w3+w6) * self.OZero*np.ones(self.iMax-1) + \
+                new_grid[1:, -1] = w2 * self.oLog[:-1, -2] + (w3+w6) * self.OZero*np.ones(self.i_max-1) + \
                                     w5 * self.oLog[1:, -2]
                 new_grid[0, -1] = (w2+w3+w6)*self.OZero + w5*self.oLog[1, -2]
 
@@ -295,8 +303,8 @@ class OGrid(object):
                                      w8 * self.oLog[1:, :-1] + w9 * self.oLog[1:, 1:]
 
                 new_grid[-1, :-1] = w5 * self.oLog[-2, :-1] + w6 * self.oLog[-2, 1:] + \
-                                  (w8 + w9) * self.OZero*np.ones(self.jMax-1)
-                new_grid[:-1, -1] = w5 * self.oLog[:-1, -2] + (w6 + w9) * self.OZero*np.ones(self.iMax-1) + \
+                                  (w8 + w9) * self.OZero*np.ones(self.j_max-1)
+                new_grid[:-1, -1] = w5 * self.oLog[:-1, -2] + (w6 + w9) * self.OZero*np.ones(self.i_max-1) + \
                                      w8 * self.oLog[1:, -2]
                 new_grid[-1, -1] = w5 * self.oLog[-2, -2] + (w6+w8+w9) * self.OZero
         else:
@@ -308,9 +316,9 @@ class OGrid(object):
                 new_grid[1:, 1:] = w1 * self.oLog[:-1, :-1] + w2 * self.oLog[:-1, 1:] + \
                                    w4 * self.oLog[1:, :-1] + w5 * self.oLog[1:, 1:]
 
-                new_grid[0, 1:] = (w1 + w2) * self.OZero*np.ones(self.jMax-1) + \
+                new_grid[0, 1:] = (w1 + w2) * self.OZero*np.ones(self.j_max-1) + \
                                    w4 * self.oLog[0, :-1] + w5 * self.oLog[0, 1:]
-                new_grid[1:, 0] = (w1 + w4) * self.OZero*np.ones(self.iMax-1) + w2 * self.oLog[:-1, 0] + \
+                new_grid[1:, 0] = (w1 + w4) * self.OZero*np.ones(self.i_max-1) + w2 * self.oLog[:-1, 0] + \
                                    w5 * self.oLog[1:, 0]
                 new_grid[0, 0] = (w1 + w2 + w4) * self.OZero + w5 * self.oLog[1, 1]
             else:
@@ -322,8 +330,8 @@ class OGrid(object):
                                     w7 * self.oLog[1:, :-1] + w8 * self.oLog[1:, 1:]
 
                 new_grid[-1, 1:] = w4 * self.oLog[-2, :-1] + w5 * self.oLog[-2, 1:] + \
-                                   (w7 + w8) * self.OZero*np.ones(self.jMax-1)
-                new_grid[:-1, 0] = (w4+w7)*self.OZero*np.ones(self.iMax-1) + w5 * self.oLog[:-1, 1] + \
+                                   (w7 + w8) * self.OZero*np.ones(self.j_max-1)
+                new_grid[:-1, 0] = (w4+w7)*self.OZero*np.ones(self.i_max-1) + w5 * self.oLog[:-1, 1] + \
                                     w8 * self.oLog[1:, 1]
                 new_grid[-1, 0] = (w4+w7+w8)*self.OZero + w5 * self.oLog[-2, 1]
         self.oLog = new_grid

@@ -2,9 +2,10 @@ import logging
 
 import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtGui
+from PyQt5 import QtCore, QtGui, QtWidgets
 from blinker import signal
 import threading
+import sys
 
 from messages.sonarMsg import MtHeadData
 from settings import *
@@ -62,6 +63,7 @@ class MainWidget(QtGui.QWidget):
         self.plot_window.addItem(self.img_item)
         self.plot_window.getAxis('left').setGrid(200)
         self.img_item.getViewBox().invertY(True)
+        self.img_item.setOpts(axisOrder='row-major')
 
         # Button
         self.start_plotting_button = QtGui.QPushButton('Start Plotting')
@@ -137,7 +139,7 @@ class MainWidget(QtGui.QWidget):
 
     def new_sonar_msg(self, sender, **kw):
         msg = kw["msg"]
-
+        self.grid.update_distance(msg.range_scale)
         if Settings.raw_plot:
             self.grid.update_raw(msg)
         else:
@@ -166,12 +168,14 @@ class MainWidget(QtGui.QWidget):
     def update_plot(self):
         if self.plot_updated:
             if Settings.raw_plot:
-                self.img_item.setImage(self.grid.get_raw().T, levels=(0.0, 255.0))
+                self.img_item.setImage(self.grid.get_raw(), levels=(0.0, 255.0))
             else:
                 if self.binary_plot_on:
-                    self.img_item.setImage(self.grid.get_binary_map().T, levels=(0, 1))
+                    self.img_item.setImage(self.grid.get_binary_map(), levels=(0, 1))
                 else:
-                    self.img_item.setImage(self.grid.get_p().T, levels=(-5.0, 5.0))
+                    self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0))
+            self.img_item.setPos(-self.grid.last_distance, -self.grid.last_distance/2 if GridSettings.half_grid else -self.grid.last_distance)
+            # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
             self.plot_updated = False
 
     def binary_button_click(self):

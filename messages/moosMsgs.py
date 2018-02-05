@@ -6,7 +6,7 @@ from math import pi
 from blinker import signal
 
 from messages.moosSonarMsg import MoosSonarMsg
-from messages.posMsg import PosMsg
+from messages.moosPosMsg import MoosPosMsg
 
 
 class MoosMsgs(object):
@@ -31,7 +31,7 @@ class MoosMsgs(object):
         self.comms.set_on_connect_callback(self.on_connect)
         self.add_queues()
 
-        self.cur_pos_msg = PosMsg()
+        self.cur_pos_msg = MoosPosMsg()
         self.new_msg_signal = signal('new_msg_sonar')
         self.new_pos_msg_signal = signal('new_msg_pos')
 

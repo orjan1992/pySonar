@@ -4,10 +4,10 @@ class Settings:
 
 
 class GridSettings:
-        half_grid = 1
+        half_grid = True
         p_inital = 0.65
         binary_threshold = 0.78
-        binary_grid = False
+        binary_grid = True
 
 
 class ConnectionSettings:
@@ -19,5 +19,5 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 40
+        threshold = 0
 
