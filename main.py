@@ -125,9 +125,9 @@ class MainWidget(QtGui.QWidget):
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
         if Settings.plot_type == 2:
-            self.timer.start(1.0)
+            self.timer.start(500.0)
         else:
-            self.timer.start(1.0/24.0)
+            self.timer.start(1000.0/24.0)
 
 
 
@@ -182,7 +182,8 @@ class MainWidget(QtGui.QWidget):
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0))
             elif Settings.plot_type == 2:
-                self.img_item.setImage(self.grid.get_obstacles(self.threshold_box.value()))
+                # self.img_item.setImage(self.grid.get_obstacles_fast(self.threshold_box.value()))
+                self.img_item.setImage(self.grid.get_obstacles_blob())
             else:
                 raise Exception('Invalid plot type')
             self.img_item.setPos(-self.grid.last_distance, -self.grid.last_distance/2 if GridSettings.half_grid else -self.grid.last_distance)
@@ -197,7 +198,7 @@ class MainWidget(QtGui.QWidget):
         self.binary_plot_on = not self.binary_plot_on
 
     def detect_blobs_click(self):
-        keypoints, im = self.grid.get_obstacles(100)
+        keypoints, im = self.grid.get_obstacles_fast(100)
         im_with_keypoints = cv2.drawKeypoints(im, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
         blob_window = BlobWindow(im_with_keypoints, self)
         blob_window.show()
