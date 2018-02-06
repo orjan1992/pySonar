@@ -488,10 +488,9 @@ class OGrid(object):
         # self.cell_rotation(delta_psi)
 
     def get_obstacles_fast(self, threshold):
-        # self.fast_detector.setThreshold(threshold)
-        ret, thresh = cv2.threshold(self.o_log.astype(np.uint8), threshold, 255, cv2.THRESH_BINARY)
-        return cv2.cvtColor(cv2.drawKeypoints(thresh,
-                                              self.fast_detector.detect(thresh),
+        self.fast_detector.setThreshold(threshold)
+        return cv2.cvtColor(cv2.drawKeypoints(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_WINTER),
+                                              self.fast_detector.detect(self.o_log.astype(np.uint8)),
                                               np.array([]), (0, 0, 255),
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
                             cv2.COLOR_BGR2RGB)
