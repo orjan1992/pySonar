@@ -2,6 +2,7 @@ import numpy as np
 import math
 import logging
 from help import *
+import cv2
 
 logger = logging.getLogger('OGrid')
 
@@ -28,6 +29,7 @@ class OGrid(object):
     map = np.zeros((6400, MAX_BINS, MAX_CELLS), dtype=np.uint32)
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = 0
+    blob_detector = cv2.FastFeatureDetector_create()
 
     def __init__(self, half_grid, p_m, binary_threshold=0.7, cellsize=0):
         if half_grid:
@@ -481,28 +483,31 @@ class OGrid(object):
         # self.cell_rotation(delta_psi)
 
     def get_obstacles(self, threshold):
-        binary_grid = self.o_log > threshold
-        labels = np.zeros((self.i_max, self.j_max), dtype=np.uint32)
-        label_counter = 0
-        for i in range(0, self.i_max):
-            for j in range(0, self.j_max):
-                if binary_grid[i, j]:
-                    label_counter += 1
-                    labels[i, j] = label_counter
-                    neighbours = np.zeros(8)
-                    for n in range(0, 2):
-                        for m in range(0, 2):
-                            try:
-                                if binary_grid[i+n-1, j+m-1] and labels[i+n-1, j+m-1]:
-                                    neighbours[n*2+m] = labels[i+n-1, j+m-1]
-                            except IndexError:
-                                pass
-                    min_label = np.min(neighbours[np.nonzero(neighbours)])
-                    for n in range(0, 1):
-                        for m in range(0, 1):
-                            try:
-                                if binary_grid[i+n-1, j+m-1]:
-                                    labels[i+n-1, j+m-1] = min_label
-                            except IndexError:
-                                pass
-        return labels
+        self.blob_detector.setThreshold(threshold)
+        keypoints = self.blob_detector.detect(self.o_log.astype(np.uint8))
+        # labels = np.zeros((self.i_max, self.j_max), dtype=np.uint32)
+        # label_counter = 0
+        # for i in range(0, self.i_max):
+        #     for j in range(0, self.j_max):
+        #         if binary_grid[i, j]:
+        #             label_counter += 1
+        #             labels[i, j] = label_counter
+        #             neighbours = np.zeros(8)
+        #             for n in range(0, 2):
+        #                 for m in range(0, 2):
+        #                     try:
+        #                         if binary_grid[i+n-1, j+m-1] and labels[i+n-1, j+m-1]:
+        #                             neighbours[n*2+m] = labels[i+n-1, j+m-1]
+        #                     except IndexError:
+        #                         pass
+        #             min_label = np.min(neighbours[np.nonzero(neighbours)])
+        #             for n in range(0, 1):
+        #                 for m in range(0, 1):
+        #                     try:
+        #                         if binary_grid[i+n-1, j+m-1]:
+        #                             labels[i+n-1, j+m-1] = min_label
+        #                     except IndexError:
+        #                         pass
+        return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8), keypoints, np.array([]), (0, 0, 255),
+                                              cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
+                            cv2.COLOR_BGR2RGB)

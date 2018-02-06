@@ -13,6 +13,7 @@ from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
+import cv2
 
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -57,9 +58,10 @@ class MainWidget(QtGui.QWidget):
         # IMAGE Window
         self.img_item = pg.ImageItem(autoLevels=False)
 
-        colormap = pg.ColorMap(PlotSettings.steps, np.array(
-            PlotSettings.colors))
-        self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
+        if Settings.plot_type != 2:
+            colormap = pg.ColorMap(PlotSettings.steps, np.array(
+                PlotSettings.colors))
+            self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
         self.plot_window.addItem(self.img_item)
         self.plot_window.getAxis('left').setGrid(200)
@@ -67,8 +69,9 @@ class MainWidget(QtGui.QWidget):
         self.img_item.getViewBox().setAspectLocked(True)
         self.img_item.setOpts(axisOrder='row-major')
 
-        # Button
-        self.start_plotting_button = QtGui.QPushButton('Start Plotting')
+        # Detect blobs Button
+        self.detect_blobs = QtGui.QPushButton('Detect blobs')
+        self.detect_blobs.clicked.connect(self.detect_blobs_click)
 
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
@@ -91,12 +94,9 @@ class MainWidget(QtGui.QWidget):
         self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
         self.clear_grid_button.clicked.connect(self.clear_grid)
 
-
-
-
         # Adding items
         left_layout.addWidget(self.threshold_box)
-        left_layout.addWidget(self.start_plotting_button)
+        left_layout.addWidget(self.detect_blobs)
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
@@ -196,8 +196,23 @@ class MainWidget(QtGui.QWidget):
             self.binary_plot_button.text = "Set Binary mode"
         self.binary_plot_on = not self.binary_plot_on
 
+    def detect_blobs_click(self):
+        keypoints, im = self.grid.get_obstacles(100)
+        im_with_keypoints = cv2.drawKeypoints(im, keypoints, np.array([]), (0,0,255), cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+        blob_window = BlobWindow(im_with_keypoints, self)
+        blob_window.show()
 
 
+class BlobWindow(QtGui.QMainWindow):
+    def __init__(self, im_with_keypoints, parent=None):
+        super(BlobWindow, self).__init__(parent)
+        height, width, channel = im_with_keypoints.shape
+        bytesPerLine = 3 * width
+        qImg = QtGui.QImage(im_with_keypoints, width, height, bytesPerLine, QtGui.QImage.Format_RGB888)
+        pixmap = QtGui.QPixmap(qImg)
+        label = QtWidgets.QLabel(self)
+        label.setPixmap(pixmap)
+        self.resize(pixmap.width(), pixmap.height())
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])
