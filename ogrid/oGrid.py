@@ -180,7 +180,7 @@ class OGrid(object):
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
                 for n in range(self.last_bearing, msg.bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.o_log.flat[OGrid.map[n, :, i]] = new_data + (n - self.last_bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] = self.last_data + (n - self.last_bearing) * value_gain
                 for n in range(msg.bearing + 1, msg.bearing + beam_half):
                     for i in range(0, self.MAX_CELLS):
                         self.o_log.flat[OGrid.map[n, :, i]] = new_data
@@ -188,7 +188,7 @@ class OGrid(object):
                 value_gain = (new_data.astype(float) - self.last_data) / (-bearing_diff)
                 for n in range(msg.bearing, self.last_bearing + 1):
                     for i in range(0, self.MAX_CELLS):
-                        self.o_log.flat[OGrid.map[n, :, i]] = new_data + (n - msg.bearing) * value_gain
+                        self.o_log.flat[OGrid.map[n, :, i]] = self.last_data + (n - msg.bearing) * value_gain
                 for n in range(msg.bearing - beam_half, msg.bearing):
                     for i in range(0, self.MAX_CELLS):
                         self.o_log.flat[OGrid.map[n, :, i]] = new_data
@@ -488,17 +488,19 @@ class OGrid(object):
         # self.cell_rotation(delta_psi)
 
     def get_obstacles_fast(self, threshold):
-        self.fast_detector.setThreshold(threshold)
-        return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8),
-                                              self.fast_detector.detect(self.o_log.astype(np.uint8)),
+        # self.fast_detector.setThreshold(threshold)
+        ret, thresh = cv2.threshold(self.o_log.astype(np.uint8), threshold, 255, cv2.THRESH_BINARY)
+        return cv2.cvtColor(cv2.drawKeypoints(thresh,
+                                              self.fast_detector.detect(thresh),
                                               np.array([]), (0, 0, 255),
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
                             cv2.COLOR_BGR2RGB)
 
 
-    def get_obstacles_blob(self):
+    def get_obstacles_blob(self, threshold):
+        ret, thresh = cv2.threshold(self.o_log.astype(np.uint8), threshold, 255, cv2.THRESH_BINARY)
         return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8),
-                                              self.blob_detector.detect(self.o_log.astype(np.uint8)),
+                                              self.blob_detector.detect(thresh),
                                               np.array([]), (0, 0, 255),
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
                             cv2.COLOR_BGR2RGB)
