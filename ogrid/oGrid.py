@@ -489,9 +489,9 @@ class OGrid(object):
 
     def get_obstacles_fast(self, threshold):
         self.fast_detector.setThreshold(threshold)
-        return cv2.cvtColor(cv2.drawKeypoints(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_WINTER),
+        return cv2.cvtColor(cv2.drawKeypoints(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),
                                               self.fast_detector.detect(self.o_log.astype(np.uint8)),
-                                              np.array([]), (0, 0, 255),
+                                              np.array([]), (255, 0, 0),
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
                             cv2.COLOR_BGR2RGB)
 
@@ -503,3 +503,29 @@ class OGrid(object):
                                               np.array([]), (0, 0, 255),
                                               cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
                             cv2.COLOR_BGR2RGB)
+
+    def get_obstacles_fast_separation(self, lim):
+        keypoints = self.fast_detector.detect(self.o_log.astype(np.uint8))
+        if len(keypoints) > 1:
+            obj_list = list()
+            obj = list()
+            obj.append(keypoints[0])
+            for i in range(1, len(keypoints)):
+                if np.sqrt((obj[-1].pt[0] - keypoints[i].pt[0]) ** 2 + (obj[-1].pt[1] - keypoints[i].pt[1]) ** 2) < lim:
+                    obj.append(keypoints[i])
+                else:
+                    obj_list.append(obj)
+                    obj = list()
+                    obj.append(keypoints[i])
+
+            im_with_keypoints = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
+            for i in range(0, len(obj_list)):
+                if len(obj_list[i]) > 1:
+                    R = np.random.randint(0, 255)
+                    G = np.random.randint(0, 255)
+                    B = np.random.randint(0, 255)
+                    im_with_keypoints = cv2.drawKeypoints(im_with_keypoints, obj_list[i], np.array([]), (R, G, B),
+                                                          cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+            return cv2.cvtColor(im_with_keypoints,cv2.COLOR_BGR2RGB)
+        else:
+            return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)

@@ -182,7 +182,8 @@ class MainWidget(QtGui.QWidget):
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0))
             elif Settings.plot_type == 2:
-                self.img_item.setImage(self.grid.get_obstacles_fast(self.threshold_box.value()))
+                # self.img_item.setImage(self.grid.get_obstacles_fast(self.threshold_box.value()))
+                self.img_item.setImage(self.grid.get_obstacles_fast_separation(self.threshold_box.value()))
                 # self.img_item.setImage(self.grid.get_obstacles_blob(self.threshold_box.value()))
             else:
                 raise Exception('Invalid plot type')
