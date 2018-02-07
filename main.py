@@ -135,6 +135,7 @@ class MainWidget(QtGui.QWidget):
             self.timer.start(1000.0/24.0)
 
         self.new_position_msg = None
+        self.last_pos_msg = None
         self.postimer = QtCore.QTimer()
         self.postimer.timeout.connect(self.pos_msg)
         self.postimer.start(0)
@@ -177,7 +178,11 @@ class MainWidget(QtGui.QWidget):
         diff = (self.new_position_msg - self.last_pos_msg)
         self.last_pos_msg = deepcopy(self.new_position_msg)
         trans = self.grid.translational_motion(diff.dy, diff.dx, True)
-        rot = self.grid.rotate_grid(diff.dpsi)
+        if abs(diff.dpsi) > 0:
+            rot = self.grid.rot(diff.dpsi)
+            print(diff)
+        else:
+            rot = False
         if trans or rot:
             self.plot_updated = True
 

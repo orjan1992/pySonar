@@ -36,8 +36,11 @@ class OGrid(object):
         if half_grid:
             self.i_max = int((OGrid.RES / 2) * (1 + math.tan(math.pi / 90.0)))
         self.cell_size = cellsize
-        self.origin_j = self.origin_i = (OGrid.RES - 1) / 2
-        self.OZero = math.log(p_m / (1 - p_m))
+        self.origin_j = self.origin_i = np.round((OGrid.RES - 1) / 2).astype(int)
+        try:
+            self.OZero = math.log(p_m / (1 - p_m))
+        except:
+            self.OZero = 0
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
         self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
         [self.i_max, self.j_max] = np.shape(self.o_log)
@@ -384,12 +387,17 @@ class OGrid(object):
         return True
 
     def rotate_grid(self, delta_psi):
+        if abs(delta_psi) == 0:
+            return
+
+        if abs(delta_psi) > 0.17:
+            raise Exception('delta psi to large')
         # Check if movement is less than MIN_ROT => save for later
-        delta_psi += self.old_delta_psi
-        self.old_delta_psi = 0
-        if abs(delta_psi) < self.MIN_ROT:
-            self.old_delta_psi = delta_psi
-            return False
+        # delta_psi += self.old_delta_psi
+        # self.old_delta_psi = 0
+        # if abs(delta_psi) < self.MIN_ROT:
+        #     self.old_delta_psi = delta_psi
+        #     return False
 
         # # Check if movement is to big to rotate fast enough
         # if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
@@ -409,15 +417,16 @@ class OGrid(object):
         #         self.rotate_grid(max_rot_signed)
         # if abs(delta_psi) > self.MAX_ROT:
         #     logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
-        delta_x = self.r_unit * np.sin(delta_psi + OGrid.theta) - self.x_mesh_unit
-        delta_y = self.r_unit * np.cos(delta_psi + OGrid.theta) - self.y_mesh_unit
-        if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
-            new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
-            print_args(delta_x=delta_x, delta_y=delta_y)
-            raise Exception('delta x or y to large')
-        else:
-            new_left_grid = np.zeros(np.shape(self.o_log[:, :self.origin_j]), dtype=self.oLog_type)
-            new_right_grid = np.zeros(np.shape(self.o_log[:, self.origin_j:]), dtype=self.oLog_type)
+        delta_x = self.r_unit[:self.i_max, :self.j_max] * np.sin(delta_psi + OGrid.theta[:self.i_max, :self.j_max]) - self.x_mesh_unit[:self.i_max, :self.j_max]
+        delta_y = self.r_unit[:self.i_max, :self.j_max] * np.cos(delta_psi + OGrid.theta[:self.i_max, :self.j_max]) - self.y_mesh_unit[:self.i_max, :self.j_max]
+        # if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
+        #     new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
+        #     print_args(delta_x=delta_x, delta_y=delta_y)
+        #     raise Exception('delta x or y to large')
+        # else:
+        if True:
+            new_left_grid = np.zeros((self.i_max, self.origin_j), dtype=self.oLog_type)
+            new_right_grid = np.zeros((self.i_max, self.origin_j+1), dtype=self.oLog_type)
             if delta_psi >= 0:
                 # Left grid both positive. Right grid x_postive, y negative
                 wl2 = (1 - delta_x[:, :self.origin_j + 1]) * delta_y[:, :self.origin_j + 1]
@@ -552,54 +561,42 @@ class OGrid(object):
         else:
             return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)
 
-    def rot(self, dpsi):
-        # TODO: Simplify
-        sign = np.sign(dpsi)
-        dpsi = np.abs(dpsi)
-        new_grid = np.zeros((self.i_max, self.j_max), dtype=bool)
-        a = self.MAX_BINS*np.tan(dpsi)
-        b = self.MAX_BINS*np.sin(dpsi)
-        c = self.MAX_BINS*np.cos(dpsi)
-        p = (self.MAX_BINS - c) / np.tan(dpsi)
-        d = p + (self.MAX_BINS - c) / np.tan(np.pi/2 - dpsi)
-        f = self.MAX_BINS - a + d
-        g = f*np.tan(dpsi)
-        h = self.j_max - g
-        q = f - p
-        r = q / np.cos(dpsi)
-        t = (self.MAX_BINS - r)/np.sin(dpsi)
-        u = self.j_max - g - t
-        v = u * np.tan(dpsi)
 
-        slope1 = f/g
-        p1 = -slope1*h
-        slope2 = -b/c
-        p2 = self.origin_i-slope2*self.origin_j
-        slope3 = -v/u
-        p3 = -slope3*u
-        mid = np.round(q).astype(int)
-        if sign > 0:
-            for i in range(self.i_max):
-                new_grid[i, :np.round((i - p1)/-slope1).astype(int)] = True
+    def rot(self, dspi):
 
-            for i in range(self.i_max):
-                new_grid[i, :np.round((i - p2) / -slope2).astype(int)] = True
-            for i in range(np.round(v).astype(int)):
-                new_grid[i, np.round((i - p3) / -slope3).astype(int):] = True
+        dpsi_grad = dspi*3200/np.pi + self.old_delta_psi
+
+        if abs(dpsi_grad) < 1:
+            self.old_delta_psi = dpsi_grad
+            return
         else:
-            for i in range(self.i_max):
-                new_grid[i, np.round((i - p1)/slope1).astype(int):] = True
-
-            for i in range(self.i_max):
-                new_grid[i, np.round((i - p2) / slope2).astype(int):] = True
-            for i in range(np.round(v).astype(int)):
-                new_grid[i, :np.round((i - p3) / slope3).astype(int)] = True
-        return new_grid
+            self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
+        dpsi_grad = np.round(dpsi_grad).astype(int)
+        new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
+        if dpsi_grad < 0:
+            for n in range(1600, 1600-dpsi_grad):
+                for i in range(0, self.MAX_CELLS):
+                    new_grid.flat[OGrid.map[n, :, i]] = self.OZero
+            for n in range(1600-dpsi_grad, 4800):
+                new_grid.flat[OGrid.map[n, :, :]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, :]]
+        else:
+            for n in range(1600, 4800-dpsi_grad):
+                    new_grid.flat[OGrid.map[n, :, :]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, :]]
+            for n in range(4800-dpsi_grad, 4800):
+                for i in range(0, self.MAX_CELLS):
+                    new_grid.flat[OGrid.map[n, :, i]] = self.OZero
+        self.o_log = new_grid
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    grid = OGrid(True, 0.7)
-    a = grid.rot(10*np.pi/180.0)
-    plt.imshow(a)
-    plt.show()
+    grid = OGrid(True, 0.65)
+    grid.o_log = np.load('test.npz')['olog']
+    grid.o_log[grid.o_log==grid.OZero] = 0
+    # plt.subplot(121)
+    # plt.imshow(grid.o_log, vmin=0, vmax=255)
+    for i in range(1, 20):
+        grid.rot(-1*np.pi/3200)
+        # plt.subplot(122)
+        plt.imshow(grid.o_log, vmin=0, vmax=255)
+        plt.show()

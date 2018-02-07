@@ -12,7 +12,7 @@ class Settings:
 
 class GridSettings:
         half_grid = True
-        p_inital = 0.65
+        p_inital = 0
         binary_threshold = 0.78
         binary_grid = False
 

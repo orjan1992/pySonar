@@ -12,7 +12,7 @@ from messages.moosPosMsg import MoosPosMsg
 class MoosMsgs(object):
     cur_pos_msg = None
     pos_msg_flags = [False, False, False]
-    RAD2GRAD = 3200/pi
+    RAD2GRAD = 3200.0/pi
 
     def __init__(self):
         """
