@@ -53,8 +53,8 @@ class MoosPosMsg(Sensor):
         dy = sin(alpha - self.psi)*dist
         return MoosPosMsgDiff(dx, dy, dpsi)
 
-    def __eq__(self, other):
-        return (self.lat == other.lat and self.long == other.long and self.psi == other.psi)
+    # def __eq__(self, other):
+    #     return (self.lat == other.lat and self.long == other.long and self.psi == other.psi)
 
     def __str__(self):
         return 'lat: {},\tlong: {}\t, psi: {}'.format(self.lat, self.long, self.psi*180/pi)

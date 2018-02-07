@@ -134,9 +134,9 @@ class MainWidget(QtGui.QWidget):
         else:
             self.timer.start(1000.0/24.0)
 
+        self.new_position_msg = None
         self.postimer = QtCore.QTimer()
         self.postimer.timeout.connect(self.pos_msg)
-        self.new_position_msg = MoosPosMsg()
         self.postimer.start(0)
 
 
@@ -170,9 +170,15 @@ class MainWidget(QtGui.QWidget):
         self.new_position_msg = kw["msg"]
 
     def pos_msg(self):
+        if self.new_position_msg is None:
+            return
+        if self.last_pos_msg is None:
+            self.last_pos_msg = deepcopy(self.new_position_msg)
         diff = (self.new_position_msg - self.last_pos_msg)
         self.last_pos_msg = deepcopy(self.new_position_msg)
-        if self.grid.translational_motion(diff.dy, diff.dx, True):  # or self.grid.rotate_grid(diff.dpsi):
+        trans = self.grid.translational_motion(diff.dy, diff.dx, True)
+        rot = self.grid.rotate_grid(diff.dpsi)
+        if trans or rot:
             self.plot_updated = True
 
     def update_plot(self):

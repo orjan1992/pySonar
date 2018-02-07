@@ -243,7 +243,6 @@ class OGrid(object):
         if first:
             delta_x *= OGrid.MAX_BINS/self.range_scale
             delta_y *= OGrid.MAX_BINS/self.range_scale
-        logger.debug('delta_x{}\tdelta_y:{}'.format(delta_x, delta_y))
         # Check if movement is less than 1/4 of cell size => save for later
         delta_x += self.old_delta_x
         delta_y += self.old_delta_y
@@ -392,108 +391,110 @@ class OGrid(object):
             self.old_delta_psi = delta_psi
             return False
 
-        # Check if movement is to big to rotate fast enough
-        if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
-            self.clear_grid()
-            logger.warning('Reset grid because requested rotation was: {:.2f} deg'.format(delta_psi * 180 / math.pi))
-            return False
-        # Check if rotation is to great
-        if abs(delta_psi) > self.MAX_ROT:
-            n = int(math.floor(abs(delta_psi) / self.MAX_ROT))
-            if n > 8:
-                logger.error(
-                    'Stacked rotation is big. n = {}\tDelta_psi_orig={:.2f} deg'.format(n, delta_psi * 180 / math.pi))
-
-            max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
-            delta_psi += -max_rot_signed * n
-            for i in range(n):
-                self.rotate_grid(max_rot_signed)
-        if abs(delta_psi) > self.MAX_ROT:
-            logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
+        # # Check if movement is to big to rotate fast enough
+        # if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
+        #     self.clear_grid()
+        #     logger.warning('Reset grid because requested rotation was: {:.2f} deg'.format(delta_psi * 180 / math.pi))
+        #     return False
+        # # Check if rotation is to great
+        # if abs(delta_psi) > self.MAX_ROT:
+        #     n = int(math.floor(abs(delta_psi) / self.MAX_ROT))
+        #     if n > 8:
+        #         logger.error(
+        #             'Stacked rotation is big. n = {}\tDelta_psi_orig={:.2f} deg'.format(n, delta_psi * 180 / math.pi))
+        #
+        #     max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
+        #     delta_psi += -max_rot_signed * n
+        #     for i in range(n):
+        #         self.rotate_grid(max_rot_signed)
+        # if abs(delta_psi) > self.MAX_ROT:
+        #     logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
         delta_x = self.r_unit * np.sin(delta_psi + OGrid.theta) - self.x_mesh_unit
         delta_y = self.r_unit * np.cos(delta_psi + OGrid.theta) - self.y_mesh_unit
         if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
+            new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
             print_args(delta_x=delta_x, delta_y=delta_y)
             raise Exception('delta x or y to large')
-        new_left_grid = np.zeros(np.shape(self.o_log[:, :self.origin_j]), dtype=self.oLog_type)
-        new_right_grid = np.zeros(np.shape(self.o_log[:, self.origin_j:]), dtype=self.oLog_type)
-        if delta_psi >= 0:
-            # Left grid both positive. Right grid x_postive, y negative
-            wl2 = (1 - delta_x[:, :self.origin_j + 1]) * delta_y[:, :self.origin_j + 1]
-            wl3 = delta_x[:, :self.origin_j + 1] * delta_y[:, :self.origin_j + 1]
-            wl5 = (1 - delta_x[:, :self.origin_j + 1]) * (1 - delta_y[:, :self.origin_j + 1])
-            wl6 = delta_x[:, :self.origin_j + 1] * (1 - delta_y[:, :self.origin_j + 1])
-            if np.any(np.abs(wl2 + wl3 + wl5 + wl6 - 1) > 0.00001):
-                logger.debug('Sum = {}!'.format(np.max(np.max(wl2 + wl3 + wl5 + wl6))))
-            new_left_grid[1:, :] = wl2[1:, :-1] * self.o_log[:-1, :self.origin_j] + \
-                                   wl3[1:, :-1] * self.o_log[:-1, 1:self.origin_j + 1] + \
-                                   wl5[1:, :-1] * self.o_log[1:, :self.origin_j] + \
-                                   wl6[1:, :-1] * self.o_log[1:, 1:self.origin_j + 1]
-
-            new_left_grid[0, :] = (wl2[0, :-1] + wl3[0, :-1]) * self.OZero * np.ones(np.shape(new_left_grid[0, :])) + \
-                                  wl5[0, :-1] * self.o_log[1, :self.origin_j] + \
-                                  wl6[0, :-1] * self.o_log[1, 1:self.origin_j + 1]
-
-            wr5 = (1 - delta_x[:, self.origin_j:]) * (1 + delta_y[:, self.origin_j:])
-            wr6 = delta_x[:, self.origin_j:] * (1 + delta_y[:, self.origin_j:])
-            wr8 = (1 - delta_x[:, self.origin_j:]) * (-delta_y[:, self.origin_j:])
-            wr9 = delta_x[:, self.origin_j:] * (-delta_y[:, self.origin_j:])
-            if np.any(np.abs(wr5 + wr6 + wr8 + wr9 - 1) > 0.00001):
-                logger.debug('Sum = {}!'.format(np.max(np.max(wr5 + wr6 + wr8 + wr9))))
-            new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.o_log[:-1, self.origin_j:-1] + \
-                                       wr6[:-1, :-1] * self.o_log[:-1, self.origin_j + 1:] + \
-                                       wr8[:-1, :-1] * self.o_log[1:, self.origin_j:-1] + \
-                                       wr9[:-1, :-1] * self.o_log[1:, self.origin_j + 1:]
-
-            new_right_grid[-1, :-1] = wr5[-1, :-1] * self.o_log[-1, self.origin_j:-1] + \
-                                      wr6[-1, :-1] * self.o_log[-1, self.origin_j + 1:] + \
-                                      (wr8[-1, :-1] + wr9[-1, :-1]) * self.OZero * np.ones(
-                np.shape(new_right_grid[-1, :-1]))
-            new_right_grid[:-1, -1] = wr5[:-1, -1] * self.o_log[:-1, -1] + \
-                                      wr8[:-1, -1] * self.o_log[1:, -1] + \
-                                      (wr6[:-1, -1] + wr9[:-1, -1]) * self.OZero * np.ones(
-                np.shape(new_right_grid[:-1, -1]))
-            new_right_grid[-1, -1] = wr5[-1, -1] * self.o_log[-1, -1] + \
-                                     (wr6[-1, -1] + wr8[-1, -1] + wr9[-1, -1]) * self.OZero
         else:
-            # Left grid: both neg, right grid: x neg, y pos
-            wl4 = (-delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
-            wl5 = (1 + delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
-            wl7 = (-delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
-            wl8 = (1 + delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
-            if np.any(np.abs(wl4 + wl5 + wl7 + wl8 - 1) > 0.00001):
-                logger.debug('Sum = {}!'.format(np.max(np.max(wl4 + wl5 + wl7 + wl8))))
-            new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.o_log[:-1, :self.origin_j - 1] + \
-                                     wl5[1:, :-1] * self.o_log[:-1, 1:self.origin_j] + \
-                                     wl7[1:, :-1] * self.o_log[1:, :self.origin_j - 1] + \
-                                     wl8[1:, :-1] * self.o_log[1:, 1:self.origin_j]
+            new_left_grid = np.zeros(np.shape(self.o_log[:, :self.origin_j]), dtype=self.oLog_type)
+            new_right_grid = np.zeros(np.shape(self.o_log[:, self.origin_j:]), dtype=self.oLog_type)
+            if delta_psi >= 0:
+                # Left grid both positive. Right grid x_postive, y negative
+                wl2 = (1 - delta_x[:, :self.origin_j + 1]) * delta_y[:, :self.origin_j + 1]
+                wl3 = delta_x[:, :self.origin_j + 1] * delta_y[:, :self.origin_j + 1]
+                wl5 = (1 - delta_x[:, :self.origin_j + 1]) * (1 - delta_y[:, :self.origin_j + 1])
+                wl6 = delta_x[:, :self.origin_j + 1] * (1 - delta_y[:, :self.origin_j + 1])
+                if np.any(np.abs(wl2 + wl3 + wl5 + wl6 - 1) > 0.00001):
+                    logger.debug('Sum = {}!'.format(np.max(np.max(wl2 + wl3 + wl5 + wl6))))
+                new_left_grid[1:, :] = wl2[1:, :-1] * self.o_log[:-1, :self.origin_j] + \
+                                       wl3[1:, :-1] * self.o_log[:-1, 1:self.origin_j + 1] + \
+                                       wl5[1:, :-1] * self.o_log[1:, :self.origin_j] + \
+                                       wl6[1:, :-1] * self.o_log[1:, 1:self.origin_j + 1]
 
-            new_left_grid[-1, :-1] = wl4[-1, :-1] * self.o_log[-1, :self.origin_j - 1] + \
-                                     wl5[-1, :-1] * self.o_log[-1, 1:self.origin_j] + \
-                                     (wl7[-1, :-1] + wl8[-1, :-1]) * self.OZero * np.ones(
-                np.shape(new_left_grid[-1, :-1]))
-            new_left_grid[1:, 0] = wl5[1:, 0] * self.o_log[:-1, 1] + \
-                                   (wl4[1:, 0] + wl7[1:, 0]) * self.OZero * np.ones(np.shape(new_left_grid[1:, 0])) + \
-                                   wl8[1:, 0] * self.o_log[1:, 1]
-            new_left_grid[-1, 0] = wl5[-1, 0] * self.o_log[-1, 0] + \
-                                   (wl4[-1, 0] + wl7[-1, 0] + wl8[-1, 0]) * self.OZero
+                new_left_grid[0, :] = (wl2[0, :-1] + wl3[0, :-1]) * self.OZero * np.ones(np.shape(new_left_grid[0, :])) + \
+                                      wl5[0, :-1] * self.o_log[1, :self.origin_j] + \
+                                      wl6[0, :-1] * self.o_log[1, 1:self.origin_j + 1]
 
-            wr1 = -delta_x[:, self.origin_j - 1:] * delta_y[:, self.origin_j - 1:]
-            wr2 = (1 + delta_x[:, self.origin_j - 1:]) * delta_y[:, self.origin_j - 1:]
-            wr4 = -delta_x[:, self.origin_j - 1:] * (1 - delta_y[:, self.origin_j - 1:])
-            wr5 = (1 + delta_x[:, self.origin_j - 1:]) * (1 - delta_y[:, self.origin_j - 1:])
-            if np.any(np.abs(wr1 + wr2 + wr4 + wr5 - 1) > 0.00001):
-                logger.debug('Sum = {}!'.format(np.max(np.max(wr1 + wr2 + wr4 + wr5))))
-            new_right_grid[1:, :] = wr1[:-1, :-1] * self.o_log[:-1, self.origin_j - 1:-1] + \
-                                    wr2[:-1, :-1] * self.o_log[:-1, self.origin_j:] + \
-                                    wr4[:-1, :-1] * self.o_log[1:, self.origin_j - 1:-1] + \
-                                    wr5[:-1, :-1] * self.o_log[1:, self.origin_j:]
-            new_right_grid[0, :] = (wr1[0, 1:] + wr2[0, 1:]) * self.OZero * np.ones(np.shape(new_right_grid[0, :])) + \
-                                   wr4[0, 1:] * self.o_log[0, self.origin_j - 1:-1] + \
-                                   wr5[0, 1:] * self.o_log[0, self.origin_j:]
-        self.o_log[:, :self.origin_j] = new_left_grid
-        self.o_log[:, self.origin_j:] = new_right_grid
-        # self.cell_rotation(delta_psi)
+                wr5 = (1 - delta_x[:, self.origin_j:]) * (1 + delta_y[:, self.origin_j:])
+                wr6 = delta_x[:, self.origin_j:] * (1 + delta_y[:, self.origin_j:])
+                wr8 = (1 - delta_x[:, self.origin_j:]) * (-delta_y[:, self.origin_j:])
+                wr9 = delta_x[:, self.origin_j:] * (-delta_y[:, self.origin_j:])
+                if np.any(np.abs(wr5 + wr6 + wr8 + wr9 - 1) > 0.00001):
+                    logger.debug('Sum = {}!'.format(np.max(np.max(wr5 + wr6 + wr8 + wr9))))
+                new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.o_log[:-1, self.origin_j:-1] + \
+                                           wr6[:-1, :-1] * self.o_log[:-1, self.origin_j + 1:] + \
+                                           wr8[:-1, :-1] * self.o_log[1:, self.origin_j:-1] + \
+                                           wr9[:-1, :-1] * self.o_log[1:, self.origin_j + 1:]
+
+                new_right_grid[-1, :-1] = wr5[-1, :-1] * self.o_log[-1, self.origin_j:-1] + \
+                                          wr6[-1, :-1] * self.o_log[-1, self.origin_j + 1:] + \
+                                          (wr8[-1, :-1] + wr9[-1, :-1]) * self.OZero * np.ones(
+                    np.shape(new_right_grid[-1, :-1]))
+                new_right_grid[:-1, -1] = wr5[:-1, -1] * self.o_log[:-1, -1] + \
+                                          wr8[:-1, -1] * self.o_log[1:, -1] + \
+                                          (wr6[:-1, -1] + wr9[:-1, -1]) * self.OZero * np.ones(
+                    np.shape(new_right_grid[:-1, -1]))
+                new_right_grid[-1, -1] = wr5[-1, -1] * self.o_log[-1, -1] + \
+                                         (wr6[-1, -1] + wr8[-1, -1] + wr9[-1, -1]) * self.OZero
+            else:
+                # Left grid: both neg, right grid: x neg, y pos
+                wl4 = (-delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
+                wl5 = (1 + delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
+                wl7 = (-delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
+                wl8 = (1 + delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
+                if np.any(np.abs(wl4 + wl5 + wl7 + wl8 - 1) > 0.00001):
+                    logger.debug('Sum = {}!'.format(np.max(np.max(wl4 + wl5 + wl7 + wl8))))
+                new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.o_log[:-1, :self.origin_j - 1] + \
+                                         wl5[1:, :-1] * self.o_log[:-1, 1:self.origin_j] + \
+                                         wl7[1:, :-1] * self.o_log[1:, :self.origin_j - 1] + \
+                                         wl8[1:, :-1] * self.o_log[1:, 1:self.origin_j]
+
+                new_left_grid[-1, :-1] = wl4[-1, :-1] * self.o_log[-1, :self.origin_j - 1] + \
+                                         wl5[-1, :-1] * self.o_log[-1, 1:self.origin_j] + \
+                                         (wl7[-1, :-1] + wl8[-1, :-1]) * self.OZero * np.ones(
+                    np.shape(new_left_grid[-1, :-1]))
+                new_left_grid[1:, 0] = wl5[1:, 0] * self.o_log[:-1, 1] + \
+                                       (wl4[1:, 0] + wl7[1:, 0]) * self.OZero * np.ones(np.shape(new_left_grid[1:, 0])) + \
+                                       wl8[1:, 0] * self.o_log[1:, 1]
+                new_left_grid[-1, 0] = wl5[-1, 0] * self.o_log[-1, 0] + \
+                                       (wl4[-1, 0] + wl7[-1, 0] + wl8[-1, 0]) * self.OZero
+
+                wr1 = -delta_x[:, self.origin_j - 1:] * delta_y[:, self.origin_j - 1:]
+                wr2 = (1 + delta_x[:, self.origin_j - 1:]) * delta_y[:, self.origin_j - 1:]
+                wr4 = -delta_x[:, self.origin_j - 1:] * (1 - delta_y[:, self.origin_j - 1:])
+                wr5 = (1 + delta_x[:, self.origin_j - 1:]) * (1 - delta_y[:, self.origin_j - 1:])
+                if np.any(np.abs(wr1 + wr2 + wr4 + wr5 - 1) > 0.00001):
+                    logger.debug('Sum = {}!'.format(np.max(np.max(wr1 + wr2 + wr4 + wr5))))
+                new_right_grid[1:, :] = wr1[:-1, :-1] * self.o_log[:-1, self.origin_j - 1:-1] + \
+                                        wr2[:-1, :-1] * self.o_log[:-1, self.origin_j:] + \
+                                        wr4[:-1, :-1] * self.o_log[1:, self.origin_j - 1:-1] + \
+                                        wr5[:-1, :-1] * self.o_log[1:, self.origin_j:]
+                new_right_grid[0, :] = (wr1[0, 1:] + wr2[0, 1:]) * self.OZero * np.ones(np.shape(new_right_grid[0, :])) + \
+                                       wr4[0, 1:] * self.o_log[0, self.origin_j - 1:-1] + \
+                                       wr5[0, 1:] * self.o_log[0, self.origin_j:]
+            self.o_log[:, :self.origin_j] = new_left_grid
+            self.o_log[:, self.origin_j:] = new_right_grid
+            # self.cell_rotation(delta_psi)
         return True
 
     def get_obstacles_fast(self, threshold):
@@ -551,11 +552,54 @@ class OGrid(object):
         else:
             return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)
 
+    def rot(self, dpsi):
+        # TODO: Simplify
+        sign = np.sign(dpsi)
+        dpsi = np.abs(dpsi)
+        new_grid = np.zeros((self.i_max, self.j_max), dtype=bool)
+        a = self.MAX_BINS*np.tan(dpsi)
+        b = self.MAX_BINS*np.sin(dpsi)
+        c = self.MAX_BINS*np.cos(dpsi)
+        p = (self.MAX_BINS - c) / np.tan(dpsi)
+        d = p + (self.MAX_BINS - c) / np.tan(np.pi/2 - dpsi)
+        f = self.MAX_BINS - a + d
+        g = f*np.tan(dpsi)
+        h = self.j_max - g
+        q = f - p
+        r = q / np.cos(dpsi)
+        t = (self.MAX_BINS - r)/np.sin(dpsi)
+        u = self.j_max - g - t
+        v = u * np.tan(dpsi)
+
+        slope1 = f/g
+        p1 = -slope1*h
+        slope2 = -b/c
+        p2 = self.origin_i-slope2*self.origin_j
+        slope3 = -v/u
+        p3 = -slope3*u
+        mid = np.round(q).astype(int)
+        if sign > 0:
+            for i in range(self.i_max):
+                new_grid[i, :np.round((i - p1)/-slope1).astype(int)] = True
+
+            for i in range(self.i_max):
+                new_grid[i, :np.round((i - p2) / -slope2).astype(int)] = True
+            for i in range(np.round(v).astype(int)):
+                new_grid[i, np.round((i - p3) / -slope3).astype(int):] = True
+        else:
+            for i in range(self.i_max):
+                new_grid[i, np.round((i - p1)/slope1).astype(int):] = True
+
+            for i in range(self.i_max):
+                new_grid[i, np.round((i - p2) / slope2).astype(int):] = True
+            for i in range(np.round(v).astype(int)):
+                new_grid[i, :np.round((i - p3) / slope3).astype(int)] = True
+        return new_grid
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     grid = OGrid(True, 0.7)
-    grid.o_log = np.load('test.npz')['olog']
-    plt.imshow(grid.o_log)
+    a = grid.rot(10*np.pi/180.0)
+    plt.imshow(a)
     plt.show()
-    grid.translational_motion(0, 10, 30)
