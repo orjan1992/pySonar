@@ -45,9 +45,7 @@ for i in range(0, L):
         map[i] = counter
         counter += 1
 
-labels = list()
-for i in range(0, np.argmax(map)):
-    labels.append(list())
+labels = [[] for i in range(np.argmax(map))]
 
 for i in range(0, L):
     labels[map[i]].append(keypoints[i])
