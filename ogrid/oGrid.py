@@ -572,31 +572,49 @@ class OGrid(object):
         else:
             self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
         dpsi_grad = np.round(dpsi_grad).astype(int)
-        new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
+        new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.OZero
         if dpsi_grad < 0:
-            for n in range(1600, 1600-dpsi_grad):
+            dpsi_grad = abs(dpsi_grad)
+            # new_grid.flat[OGrid.map[1600:1600-dpsi_grad, :, :]] = self.OZero
+            # new_grid.flat[OGrid.map[1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[1600:4801-dpsi_grad, :, :]]
+            for n in range(1600+dpsi_grad, 4801):
                 for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.OZero
-            for n in range(1600-dpsi_grad, 4800):
-                new_grid.flat[OGrid.map[n, :, :]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, :]]
+                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n-dpsi_grad, :, 0]]
         else:
-            for n in range(1600, 4800-dpsi_grad):
-                    new_grid.flat[OGrid.map[n, :, :]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, :]]
-            for n in range(4800-dpsi_grad, 4800):
+            dpsi_grad = abs(dpsi_grad)
+            # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600-dpsi_grad:4801, :, :]]
+            # new_grid.flat[OGrid.map[4801-dpsi_grad:4801, :, :]] = self.OZero
+            for n in range(1600, 4801-dpsi_grad):
                 for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.OZero
+                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+
+
         self.o_log = new_grid
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    grid = OGrid(True, 0.65)
-    grid.o_log = np.load('test.npz')['olog']
-    grid.o_log[grid.o_log==grid.OZero] = 0
+    from messages.moosSonarMsg import *
+    grid = OGrid(True, 0)
+    # grid.o_log = np.load('test.npz')['olog']
+    # grid.o_log[grid.o_log==grid.OZero] = 0
     # plt.subplot(121)
     # plt.imshow(grid.o_log, vmin=0, vmax=255)
-    for i in range(1, 20):
-        grid.rot(-1*np.pi/3200)
+    # for i in range(1, 20):
+
+    msg = MoosSonarMsg()
+    msg.range_scale = 30
+    msg.data = np.array([0, 255]).astype(np.uint8)
+    msg.bearing = 1600
+    msg.dbytes = msg.bins = 2
+    msg.adc8on = True
+    msg.step = 32
+    grid.update_raw(msg)
+    plt.imshow(grid.o_log, vmin=0, vmax=255)
+    plt.show()
+
+    for i in range(1000):
+        grid.rot(1*np.pi/3200)
         # plt.subplot(122)
         plt.imshow(grid.o_log, vmin=0, vmax=255)
         plt.show()
