@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 # Read image
 im = np.load('test.npz')['olog'].astype(np.uint8)
 
-im = cv2.blur(im, (5,5))
+im = cv2.blur(im, (3,3))
 tmp = cv2.applyColorMap(im, cv2.COLORMAP_HOT)
 
 
@@ -21,7 +21,7 @@ tmp = cv2.applyColorMap(im, cv2.COLORMAP_HOT)
 # params.minInertiaRatio = 0.01
 # detector = cv2.SimpleBlobDetector_create(params)
 # keypoints = detector.detect(im)
-lim = 100
+lim = 50
 
 detector = cv2.FastFeatureDetector_create()
 detector.setType(cv2.FAST_FEATURE_DETECTOR_TYPE_7_12)
@@ -35,15 +35,14 @@ for i in range(0, L):
     x[i] = keypoints[i].pt[1]
     y[i] = keypoints[i].pt[0]
 for i in range(0, L):
-    x2 = np.power((x[i] - x[np.r_[:i, i+1:L]]), 2)
-    y2 = np.power((y[i] - y[np.r_[:i, i+1:L]]), 2)
-    r = np.sqrt(x2 + y2)
-    j = np.argmin(r)
-    if r[j] < lim and map[j] != 0:
-        map[i] = map[j]
+    x2 = np.power((x[i] - x), 2)
+    y2 = np.power((y[i] - y), 2)
+    r = np.sqrt(x2 + y2) < lim
+    if map[i] != 0:
+        map[r] = map[i]
     else:
-        map[i] = counter
         counter += 1
+        map[r] = counter
 
 labels = [[] for i in range(np.argmax(map))]
 
