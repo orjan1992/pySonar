@@ -134,11 +134,11 @@ class MainWidget(QtGui.QWidget):
         else:
             self.timer.start(1000.0/24.0)
 
-        self.new_position_msg = None
+        # self.new_position_msg = None
         self.last_pos_msg = None
-        self.postimer = QtCore.QTimer()
-        self.postimer.timeout.connect(self.pos_msg)
-        self.postimer.start(0)
+        # self.postimer = QtCore.QTimer()
+        # self.postimer.timeout.connect(self.pos_msg)
+        # self.postimer.start(0)
 
 
     def init_grid(self):
@@ -168,23 +168,33 @@ class MainWidget(QtGui.QWidget):
         # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
     def new_pos_msg(self, sender, **kw):
-        self.new_position_msg = kw["msg"]
-
-    def pos_msg(self):
-        if self.new_position_msg is None:
-            return
+        msg = kw["msg"]
         if self.last_pos_msg is None:
-            self.last_pos_msg = deepcopy(self.new_position_msg)
-        diff = (self.new_position_msg - self.last_pos_msg)
-        self.last_pos_msg = deepcopy(self.new_position_msg)
+            self.last_pos_msg = deepcopy(msg)
+        diff = (msg - self.last_pos_msg)
+        self.last_pos_msg = deepcopy(msg)
         trans = self.grid.translational_motion(diff.dy, diff.dx, True)
         if abs(diff.dpsi) > 0:
             rot = self.grid.rot(diff.dpsi)
-            print(diff)
         else:
             rot = False
         if trans or rot:
             self.plot_updated = True
+
+    # def pos_msg(self):
+    #     if self.new_position_msg is None:
+    #         return
+    #     if self.last_pos_msg is None:
+    #         self.last_pos_msg = deepcopy(self.new_position_msg)
+    #     diff = (self.new_position_msg - self.last_pos_msg)
+    #     self.last_pos_msg = deepcopy(self.new_position_msg)
+    #     trans = self.grid.translational_motion(diff.dy, diff.dx, True)
+    #     if abs(diff.dpsi) > 0:
+    #         rot = self.grid.rot(diff.dpsi)
+    #     else:
+    #         rot = False
+    #     if trans or rot:
+    #         self.plot_updated = True
 
     def update_plot(self):
         if self.plot_updated:
