@@ -1,23 +1,24 @@
-from math import atan2, sqrt, cos, sin
-
+from math import atan2, sqrt, cos, sin, pi
+import logging
 from messages.sensor import Sensor
 
+logger = logging.getLogger('moosPosMsg')
 
 class MoosPosMsgDiff:
     def __init__(self, dx, dy, dpsi):
         self.dx = dx
         self.dy = dy
         self.dpsi = dpsi
-        if dx > 0.01 or dy > 0.01 or dpsi > 0.000981748:
-            self.big_difference = True
-        else:
-            self.big_difference = False
 
     def __add__(self, other):
-        dx = self.dx + other.dx
-        dy = self.dy + other.dy
-        dpsi = self.dpsi + other.dpsi
-        return MoosPosMsgDiff(dx, dy, dpsi)
+        _dx = self.dx + other.dx
+        _dy = self.dy + other.dy
+        _dpsi = self.dpsi + other.dpsi
+        logger.debug('self={}, other={}, sum={}'.format(self.dx, other.dx, _dx))
+        return MoosPosMsgDiff(_dx, _dy, _dpsi)
+
+    def __str__(self):
+        return 'dx: {},\tdy: {}\t, dpsi: {}'.format(self.dx, self.dy, self.dpsi*180/pi)
 
 
 class MoosPosMsg(Sensor):
@@ -42,6 +43,7 @@ class MoosPosMsg(Sensor):
 
     def __sub__(self, other):
         lat_diff = self.lat - other.lat
+        # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))
         long_diff = self.long - other.long
         alpha = atan2(long_diff, lat_diff)
         dist = sqrt(lat_diff**2 + long_diff**2)
@@ -51,18 +53,27 @@ class MoosPosMsg(Sensor):
         dy = sin(alpha - self.psi)*dist
         return MoosPosMsgDiff(dx, dy, dpsi)
 
+    def __eq__(self, other):
+        return (self.lat == other.lat and self.long == other.long and self.psi == other.psi)
+
+    def __str__(self):
+        return 'lat: {},\tlong: {}\t, psi: {}'.format(self.lat, self.long, self.psi*180/pi)
+
 
 if __name__ == '__main__':
     from math import pi
     new_msg = MoosPosMsg()
-    new_msg.lat = 2
-    new_msg.long = 2
-    new_msg.psi = pi/4
+    new_msg.lat = -2
+    new_msg.long = -2
+    new_msg.psi = 0
 
     old_msg = MoosPosMsg()
     old_msg.lat = 0
     old_msg.long = 0
-    old_msg.psi = 0
+    old_msg.psi = pi
 
     res = new_msg - old_msg
     print('dx: {}\tdy: {}\tdpsi: {}'.format(res.dx, res.dy, res.dpsi*180/pi))
+    diff_msg = MoosPosMsgDiff(1, 1, 0)
+    print(res+diff_msg)
+

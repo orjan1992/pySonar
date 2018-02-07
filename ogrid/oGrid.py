@@ -30,6 +30,7 @@ class OGrid(object):
     map = np.zeros((6400, MAX_BINS, MAX_CELLS), dtype=np.uint32)
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = 0
+    range_scale = 1.0
 
     def __init__(self, half_grid, p_m, binary_threshold=0.7, cellsize=0):
         if half_grid:
@@ -94,6 +95,7 @@ class OGrid(object):
         return (self.o_log > self.binary_threshold).astype(np.float)
 
     def auto_update_zhou(self, msg, threshold):
+        self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
         updated = np.zeros(self.MAX_BINS, dtype=np.bool)
@@ -148,6 +150,7 @@ class OGrid(object):
         self.last_data = new_data
 
     def update_raw(self, msg):
+        self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
         updated = np.zeros(self.MAX_BINS, dtype=np.bool)
@@ -230,13 +233,16 @@ class OGrid(object):
         self.o_log = np.ones((self.i_max, self.j_max)) * self.OZero
         logger.info('Grid cleared')
 
-    def translational_motion(self, delta_x, delta_y):
+    def translational_motion(self, delta_x, delta_y, first):
         """
         transform grid for deterministic translational motion
         :param delta_x: Change in positive grid direction [m] (sway)
         :param delta_y: Change in positive grid direction [m] (surge)
         :return: Nothing
         """
+        if first:
+            delta_x *= OGrid.MAX_BINS/self.range_scale
+            delta_y *= OGrid.MAX_BINS/self.range_scale
         logger.debug('delta_x{}\tdelta_y:{}'.format(delta_x, delta_y))
         # Check if movement is less than 1/4 of cell size => save for later
         delta_x += self.old_delta_x
@@ -248,7 +254,7 @@ class OGrid(object):
             self.old_delta_y = delta_y
             delta_y = 0
         if delta_y == delta_x == 0:
-            return
+            return False
 
         # Check if movement is > cell size => new itteration
         new_iteration_needed = False
@@ -263,7 +269,7 @@ class OGrid(object):
             delta_x = np.sign(delta_x)
             new_iteration_needed = True
         if new_iteration_needed:
-            self.translational_motion(new_delta_x, new_delta_y)
+            self.translational_motion(new_delta_x, new_delta_y, False)
 
         # do transformation
         new_grid = np.zeros(np.shape(self.o_log))
@@ -323,6 +329,7 @@ class OGrid(object):
                                    w8 * self.o_log[1:, 1]
                 new_grid[-1, 0] = (w4 + w7 + w8) * self.OZero + w5 * self.o_log[-2, 1]
         self.o_log = new_grid
+        return True
 
     def cell_rotation(self, delta_psi):
         """
@@ -331,7 +338,7 @@ class OGrid(object):
         :return: Nothing
         """
         if delta_psi == 0:
-            return
+            return False
         if abs(delta_psi) > self.PI2:
             new_delta_psi = (abs(delta_psi) - self.PI2) * np.sign(delta_psi)
             delta_psi = self.PI2 * np.sign(delta_psi)
@@ -375,6 +382,7 @@ class OGrid(object):
         new_grid[-1, -1] = a * self.o_log[-1, -1] + \
                            w * (self.o_log[-2, -1] + 2 * self.OZero + self.o_log[-1, -2])
         self.o_log = new_grid
+        return True
 
     def rotate_grid(self, delta_psi):
         # Check if movement is less than MIN_ROT => save for later
@@ -382,13 +390,13 @@ class OGrid(object):
         self.old_delta_psi = 0
         if abs(delta_psi) < self.MIN_ROT:
             self.old_delta_psi = delta_psi
-            return 0
+            return False
 
         # Check if movement is to big to rotate fast enough
         if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
             self.clear_grid()
             logger.warning('Reset grid because requested rotation was: {:.2f} deg'.format(delta_psi * 180 / math.pi))
-            return 0
+            return False
         # Check if rotation is to great
         if abs(delta_psi) > self.MAX_ROT:
             n = int(math.floor(abs(delta_psi) / self.MAX_ROT))
@@ -486,6 +494,7 @@ class OGrid(object):
         self.o_log[:, :self.origin_j] = new_left_grid
         self.o_log[:, self.origin_j:] = new_right_grid
         # self.cell_rotation(delta_psi)
+        return True
 
     def get_obstacles_fast(self, threshold):
         self.fast_detector.setThreshold(threshold)
@@ -507,25 +516,46 @@ class OGrid(object):
     def get_obstacles_fast_separation(self, lim):
         keypoints = self.fast_detector.detect(self.o_log.astype(np.uint8))
         if len(keypoints) > 1:
-            obj_list = list()
-            obj = list()
-            obj.append(keypoints[0])
-            for i in range(1, len(keypoints)):
-                if np.sqrt((obj[-1].pt[0] - keypoints[i].pt[0]) ** 2 + (obj[-1].pt[1] - keypoints[i].pt[1]) ** 2) < lim:
-                    obj.append(keypoints[i])
+            L = len(keypoints)
+            x = np.zeros(L)
+            y = np.zeros(L)
+            counter = 0
+            map = np.zeros(L, dtype=np.uint8)
+            for i in range(0, L):
+                x[i] = keypoints[i].pt[1]
+                y[i] = keypoints[i].pt[0]
+            for i in range(0, L):
+                x2 = np.power((x[i] - x), 2)
+                y2 = np.power((y[i] - y), 2)
+                r = np.sqrt(x2 + y2) < lim
+                if map[i] != 0:
+                    map[r] = map[i]
                 else:
-                    obj_list.append(obj)
-                    obj = list()
-                    obj.append(keypoints[i])
+                    counter += 1
+                    map[r] = counter
+
+            labels = [[] for i in range(np.argmax(map))]
+
+            for i in range(0, L):
+                labels[map[i]].append(keypoints[i])
 
             im_with_keypoints = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
-            for i in range(0, len(obj_list)):
-                if len(obj_list[i]) > 1:
+            for keypoints in labels:
+                if len(keypoints) > 1:
                     R = np.random.randint(0, 255)
                     G = np.random.randint(0, 255)
                     B = np.random.randint(0, 255)
-                    im_with_keypoints = cv2.drawKeypoints(im_with_keypoints, obj_list[i], np.array([]), (R, G, B),
+                    im_with_keypoints = cv2.drawKeypoints(im_with_keypoints, keypoints, np.array([]), (R, G, B),
                                                           cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
             return cv2.cvtColor(im_with_keypoints,cv2.COLOR_BGR2RGB)
         else:
             return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    grid = OGrid(True, 0.7)
+    grid.o_log = np.load('test.npz')['olog']
+    plt.imshow(grid.o_log)
+    plt.show()
+    grid.translational_motion(0, 10, 30)

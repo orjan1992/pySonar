@@ -5,7 +5,7 @@ class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 1
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
-    plot_type = 2
+    plot_type = 0
     # 0 == raw update, 1 == zhou update
     update_type = 0
 

@@ -5,15 +5,13 @@ import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui, QtWidgets
 from blinker import signal
 import threading
-import sys
+from copy import deepcopy
 
-from messages.sonarMsg import MtHeadData
 from settings import *
 from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
-import cv2
 
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -23,6 +21,7 @@ logger = logging.getLogger('main')
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
+logging.getLogger('moosPosMsg').disabled = True
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
@@ -33,6 +32,7 @@ class MainWindow(QtGui.QMainWindow):
         self.setCentralWidget(self.central_widget)
 
 
+# noinspection PyUnresolvedReferences
 class MainWidget(QtGui.QWidget):
     plot_updated = False
     grid = None
@@ -47,12 +47,12 @@ class MainWidget(QtGui.QWidget):
             self.last_pos_msg = MoosPosMsg()
             self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
 
-        main_layout = QtGui.QHBoxLayout() # Main layout
+        main_layout = QtGui.QHBoxLayout()  # Main layout
         left_layout = QtGui.QVBoxLayout()
         right_layout = QtGui.QGridLayout()
         bottom_right_layout = QtGui.QGridLayout()
 
-        graphics_view = pg.GraphicsLayoutWidget() # layout for holding graphics object
+        graphics_view = pg.GraphicsLayoutWidget()  # layout for holding graphics object
         self.plot_window = pg.PlotItem()
         graphics_view.addItem(self.plot_window)
         # IMAGE Window
@@ -122,6 +122,11 @@ class MainWidget(QtGui.QWidget):
         new_pos_msg_signal = signal('new_msg_pos')
         new_pos_msg_signal.connect(self.new_pos_msg)
 
+        self.last_pos_msg = MoosPosMsg()
+        self.last_pos_msg.long = 0
+        self.last_pos_msg.lat = 0
+        self.last_pos_msg.psi = 0
+
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
         if Settings.plot_type == 2:
@@ -129,7 +134,10 @@ class MainWidget(QtGui.QWidget):
         else:
             self.timer.start(1000.0/24.0)
 
-
+        self.postimer = QtCore.QTimer()
+        self.postimer.timeout.connect(self.pos_msg)
+        self.new_position_msg = MoosPosMsg()
+        self.postimer.start(0)
 
 
     def init_grid(self):
@@ -159,18 +167,13 @@ class MainWidget(QtGui.QWidget):
         # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
     def new_pos_msg(self, sender, **kw):
-        msg = kw["msg"]
-        diff = (msg - self.last_pos_msg) + self.last_pos_diff
-        if diff.big_difference:
-            self.grid.translational_motion(diff.dx, diff.dy)
-            self.grid.rotate_grid(diff.dpsi)
-            self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
+        self.new_position_msg = kw["msg"]
+
+    def pos_msg(self):
+        diff = (self.new_position_msg - self.last_pos_msg)
+        self.last_pos_msg = deepcopy(self.new_position_msg)
+        if self.grid.translational_motion(diff.dy, diff.dx, True):  # or self.grid.rotate_grid(diff.dpsi):
             self.plot_updated = True
-        else:
-            self.last_pos_diff = diff
-        self.last_pos_msg = msg
-
-
 
     def update_plot(self):
         if self.plot_updated:
@@ -187,7 +190,8 @@ class MainWidget(QtGui.QWidget):
                 # self.img_item.setImage(self.grid.get_obstacles_blob(self.threshold_box.value()))
             else:
                 raise Exception('Invalid plot type')
-            self.img_item.setPos(-self.grid.last_distance, -self.grid.last_distance/2 if GridSettings.half_grid else -self.grid.last_distance)
+            self.img_item.setPos(-self.grid.last_distance,
+                                 -self.grid.last_distance/2 if GridSettings.half_grid else - self.grid.last_distance)
             # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
             self.plot_updated = False
 
@@ -206,12 +210,13 @@ class BlobWindow(QtGui.QMainWindow):
     def __init__(self, im_with_keypoints, parent=None):
         super(BlobWindow, self).__init__(parent)
         height, width, channel = im_with_keypoints.shape
-        bytesPerLine = 3 * width
-        qImg = QtGui.QImage(im_with_keypoints, width, height, bytesPerLine, QtGui.QImage.Format_RGB888)
-        pixmap = QtGui.QPixmap(qImg)
+        bytes_per_line = 3 * width
+        q_img = QtGui.QImage(im_with_keypoints, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
+        pixmap = QtGui.QPixmap(q_img)
         label = QtWidgets.QLabel(self)
         label.setPixmap(pixmap)
         self.resize(pixmap.width(), pixmap.height())
+
 
 if __name__ == '__main__':
     app = QtGui.QApplication([])

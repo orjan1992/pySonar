@@ -49,17 +49,6 @@ labels = [[] for i in range(np.argmax(map))]
 for i in range(0, L):
     labels[map[i]].append(keypoints[i])
 
-# obj_list = list()
-# obj = list()
-# obj.append(keypoints[0])
-# for i in range(1, len(keypoints)):
-#     if np.sqrt((obj[-1].pt[0] - keypoints[i].pt[0])**2 + (obj[-1].pt[1] - keypoints[i].pt[1])**2)<lim:
-#         obj.append(keypoints[i])
-#     else:
-#         obj_list.append(obj)
-#         obj = list()
-#         obj.append(keypoints[i])
-
 im_with_keypoints = tmp
 counter = 0
 for keypoints in labels:
