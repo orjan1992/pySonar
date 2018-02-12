@@ -1,7 +1,6 @@
 import numpy as np
 import math
 import logging
-from help import *
 import cv2
 from settings import BlobDetectorSettings
 
@@ -31,6 +30,8 @@ class OGrid(object):
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = 0
     range_scale = 1.0
+    last_dx = 0
+    last_dy = 0
 
     def __init__(self, half_grid, p_m, binary_threshold=0.7, cellsize=0):
         if half_grid:
@@ -38,11 +39,11 @@ class OGrid(object):
         self.cell_size = cellsize
         self.origin_j = self.origin_i = np.round((OGrid.RES - 1) / 2).astype(int)
         try:
-            self.OZero = math.log(p_m / (1 - p_m))
+            self.o_zero = math.log(p_m / (1 - p_m))
         except:
-            self.OZero = 0
+            self.o_zero = 0
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
-        self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.OZero
+        self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.o_zero
         [self.i_max, self.j_max] = np.shape(self.o_log)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
@@ -64,6 +65,15 @@ class OGrid(object):
                 OGrid.theta = np.arctan2(OGrid.y_mesh_unit, OGrid.x_mesh_unit)
                 np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
                          y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, theta=OGrid.theta)
+        tmp = list()
+        # for i in range(6400):
+        #     tmp.append(list())
+        #     for j in range(self.MAX_BINS):
+        #         tmp[i].append(list())
+        #         for k in range(self.MAX_CELLS):
+        #             if self.map[i, j, k] != 0:
+        #                 tmp[i][j].append(self.map[i, j, k])
+        # np.savez('OGrid_data/list.npz', map=tmp)
 
         # detection
         self.fast_detector = cv2.FastFeatureDetector_create()
@@ -122,8 +132,8 @@ class OGrid(object):
                     for k in range(i, j):
                         new_data[k] = val * (k - i + 1) + new_data[i - 1]
                         updated[k] = True
-        new_data[np.nonzero(new_data < threshold)] = -self.OZero
-        new_data[np.nonzero(new_data > 0)] = 0.5 + self.OZero
+        new_data[np.nonzero(new_data < threshold)] = -self.o_zero
+        new_data[np.nonzero(new_data > 0)] = 0.5 + self.o_zero
         bearing_diff = msg.bearing - self.last_bearing
         beam_half = 27
         if msg.chan2:
@@ -213,7 +223,7 @@ class OGrid(object):
             self.last_distance = distance
         if factor == 1:
             return
-        new_grid = np.ones(shape=np.shape(self.o_log), dtype=self.oLog_type) * self.OZero
+        new_grid = np.ones(shape=np.shape(self.o_log), dtype=self.oLog_type) * self.o_zero
         if factor < 1:
             # old distance > new distance
             new_grid = self.o_log[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
@@ -233,278 +243,9 @@ class OGrid(object):
         self.last_distance = distance
 
     def clear_grid(self):
-        self.o_log = np.ones((self.i_max, self.j_max)) * self.OZero
+        self.o_log = np.ones((self.i_max, self.j_max)) * self.o_zero
         logger.info('Grid cleared')
 
-    def translational_motion(self, delta_x, delta_y, first):
-        """
-        transform grid for deterministic translational motion
-        :param delta_x: Change in positive grid direction [m] (sway)
-        :param delta_y: Change in positive grid direction [m] (surge)
-        :return: Nothing
-        """
-        if first:
-            delta_x *= OGrid.MAX_BINS/self.range_scale
-            delta_y *= OGrid.MAX_BINS/self.range_scale
-        # Check if movement is less than 1/4 of cell size => save for later
-        delta_x += self.old_delta_x
-        delta_y += self.old_delta_y
-        if abs(delta_x) < .01:  # self.fourth_cell_size:
-            self.old_delta_x = delta_x
-            delta_x = 0
-        if abs(delta_y) < .01:  # self.fourth_cell_size:
-            self.old_delta_y = delta_y
-            delta_y = 0
-        if delta_y == delta_x == 0:
-            return False
-
-        # Check if movement is > cell size => new itteration
-        new_iteration_needed = False
-        new_delta_y = 0
-        new_delta_x = 0
-        if abs(delta_y) > 1:
-            new_delta_y = (abs(delta_y) - 1) * np.sign(delta_y)
-            delta_y = np.sign(delta_y)
-            new_iteration_needed = True
-        if abs(delta_x) > 1:
-            new_delta_x = (abs(delta_x) - 1) * np.sign(delta_x)
-            delta_x = np.sign(delta_x)
-            new_iteration_needed = True
-        if new_iteration_needed:
-            self.translational_motion(new_delta_x, new_delta_y, False)
-
-        # do transformation
-        new_grid = np.zeros(np.shape(self.o_log))
-        if delta_x >= 0:
-            if delta_y >= 0:
-                w2 = (1 - delta_x) * delta_y
-                w3 = delta_x * delta_y
-                w5 = (1 - delta_x) * (1 - delta_y)
-                w6 = delta_x * (1 - delta_y)
-                new_grid[1:, :-1] = w2 * self.o_log[:-1, :-1] + w3 * self.o_log[:-1, 1:] + \
-                                    w5 * self.o_log[1:, :-1] + w6 * self.o_log[1:, 1:]
-
-                new_grid[0, :-1] = (w2 + w3) * self.OZero * np.ones(self.j_max - 1) + \
-                                   w5 * self.o_log[1, :-1] + w6 * self.o_log[1, 1:]
-                new_grid[1:, -1] = w2 * self.o_log[:-1, -2] + (w3 + w6) * self.OZero * np.ones(self.i_max - 1) + \
-                                   w5 * self.o_log[1:, -2]
-                new_grid[0, -1] = (w2 + w3 + w6) * self.OZero + w5 * self.o_log[1, -2]
-
-            else:
-                w5 = (1 - delta_x) * (1 + delta_y)
-                w6 = delta_x * (1 + delta_y)
-                w8 = (1 - delta_x) * (-delta_y)
-                w9 = delta_x * (-delta_y)
-                new_grid[:-1, :-1] = w5 * self.o_log[:-1, :-1] + w6 * self.o_log[:-1, 1:] + \
-                                     w8 * self.o_log[1:, :-1] + w9 * self.o_log[1:, 1:]
-
-                new_grid[-1, :-1] = w5 * self.o_log[-2, :-1] + w6 * self.o_log[-2, 1:] + \
-                                    (w8 + w9) * self.OZero * np.ones(self.j_max - 1)
-                new_grid[:-1, -1] = w5 * self.o_log[:-1, -2] + (w6 + w9) * self.OZero * np.ones(self.i_max - 1) + \
-                                    w8 * self.o_log[1:, -2]
-                new_grid[-1, -1] = w5 * self.o_log[-2, -2] + (w6 + w8 + w9) * self.OZero
-        else:
-            if delta_y >= 0:
-                w1 = -delta_x * delta_y
-                w2 = (1 + delta_x) * delta_y
-                w4 = -delta_x * (1 - delta_y)
-                w5 = (1 + delta_x) * (1 - delta_y)
-                new_grid[1:, 1:] = w1 * self.o_log[:-1, :-1] + w2 * self.o_log[:-1, 1:] + \
-                                   w4 * self.o_log[1:, :-1] + w5 * self.o_log[1:, 1:]
-
-                new_grid[0, 1:] = (w1 + w2) * self.OZero * np.ones(self.j_max - 1) + \
-                                  w4 * self.o_log[0, :-1] + w5 * self.o_log[0, 1:]
-                new_grid[1:, 0] = (w1 + w4) * self.OZero * np.ones(self.i_max - 1) + w2 * self.o_log[:-1, 0] + \
-                                  w5 * self.o_log[1:, 0]
-                new_grid[0, 0] = (w1 + w2 + w4) * self.OZero + w5 * self.o_log[1, 1]
-            else:
-                w4 = (-delta_x) * (1 + delta_y)
-                w5 = (1 + delta_x) * (1 + delta_y)
-                w7 = (-delta_x) * (-delta_y)
-                w8 = (1 + delta_x) * (-delta_y)
-                new_grid[:-1, 1:] = w4 * self.o_log[:-1, :-1] + w5 * self.o_log[:-1, 1:] + \
-                                    w7 * self.o_log[1:, :-1] + w8 * self.o_log[1:, 1:]
-
-                new_grid[-1, 1:] = w4 * self.o_log[-2, :-1] + w5 * self.o_log[-2, 1:] + \
-                                   (w7 + w8) * self.OZero * np.ones(self.j_max - 1)
-                new_grid[:-1, 0] = (w4 + w7) * self.OZero * np.ones(self.i_max - 1) + w5 * self.o_log[:-1, 1] + \
-                                   w8 * self.o_log[1:, 1]
-                new_grid[-1, 0] = (w4 + w7 + w8) * self.OZero + w5 * self.o_log[-2, 1]
-        self.o_log = new_grid
-        return True
-
-    def cell_rotation(self, delta_psi):
-        """
-        Rotates the grid
-        :param delta_psi: change in heading
-        :return: Nothing
-        """
-        if delta_psi == 0:
-            return False
-        if abs(delta_psi) > self.PI2:
-            new_delta_psi = (abs(delta_psi) - self.PI2) * np.sign(delta_psi)
-            delta_psi = self.PI2 * np.sign(delta_psi)
-            self.cell_rotation(new_delta_psi)
-
-        y = .5 * (1 - math.tan(delta_psi / 2))
-        w = 0.25 * (1 / (y - 1) + 2) * y
-        a = 1 - 4 * w
-
-        new_grid = np.zeros(np.shape(self.o_log))
-        # cells in the middle. A*self + w( up + down + left + right)
-        new_grid[1:-1, 1:-1] = a * self.o_log[1:-1, 1:-1] + \
-                               w * (self.o_log[:-2, 1:-1] + self.o_log[2:, 1:-1] +
-                                    self.o_log[1:-1, :-2] + self.o_log[1:-1, 2:])
-        # first row
-        new_grid[0, 1:-1] = a * self.o_log[0, 1:-1] + \
-                            w * (self.OZero + self.o_log[1, 1:-1] +
-                                 self.o_log[0, :-2] + self.o_log[0, 2:])
-        # last row
-        new_grid[-1, 1:-1] = a * self.o_log[-1, 1:-1] + \
-                             w * (self.o_log[-2, 1:-1] +
-                                  self.o_log[-1, :-2] + self.o_log[-1, 2:])
-        # first column
-        new_grid[1:-1, 0] = a * self.o_log[1:-1, 0] + \
-                            w * (self.o_log[:-2, 0] + self.o_log[2:, 0] +
-                                 self.OZero + self.o_log[1:-1, 2])
-        # last column
-        new_grid[1:-1, -1] = a * self.o_log[1:-1, -1] + \
-                             w * (self.o_log[:-2, -1] + self.o_log[2:, -1] +
-                                  self.o_log[1:-1, -2] + self.OZero)
-        # upper left
-        new_grid[0, 0] = a * self.o_log[0, 0] + \
-                         w * (2 * self.OZero + self.o_log[1, 0] + self.o_log[0, 1])
-        # upper right
-        new_grid[0, -1] = a * self.o_log[0, -1] + \
-                          w * (2 * self.OZero + self.o_log[1, 0] + self.o_log[0, -1])
-        # lower left
-        new_grid[-1, 0] = a * self.o_log[-1, 0] + \
-                          w * (self.o_log[-1, 0] + 2 * self.OZero + self.o_log[-1, 1])
-        # lower right
-        new_grid[-1, -1] = a * self.o_log[-1, -1] + \
-                           w * (self.o_log[-2, -1] + 2 * self.OZero + self.o_log[-1, -2])
-        self.o_log = new_grid
-        return True
-
-    def rotate_grid(self, delta_psi):
-        if abs(delta_psi) == 0:
-            return
-
-        if abs(delta_psi) > 0.17:
-            raise Exception('delta psi to large')
-        # Check if movement is less than MIN_ROT => save for later
-        # delta_psi += self.old_delta_psi
-        # self.old_delta_psi = 0
-        # if abs(delta_psi) < self.MIN_ROT:
-        #     self.old_delta_psi = delta_psi
-        #     return False
-
-        # # Check if movement is to big to rotate fast enough
-        # if abs(delta_psi) > self.MAX_ROT_BEFORE_RESET:
-        #     self.clear_grid()
-        #     logger.warning('Reset grid because requested rotation was: {:.2f} deg'.format(delta_psi * 180 / math.pi))
-        #     return False
-        # # Check if rotation is to great
-        # if abs(delta_psi) > self.MAX_ROT:
-        #     n = int(math.floor(abs(delta_psi) / self.MAX_ROT))
-        #     if n > 8:
-        #         logger.error(
-        #             'Stacked rotation is big. n = {}\tDelta_psi_orig={:.2f} deg'.format(n, delta_psi * 180 / math.pi))
-        #
-        #     max_rot_signed = self.MAX_ROT * np.sign(delta_psi)
-        #     delta_psi += -max_rot_signed * n
-        #     for i in range(n):
-        #         self.rotate_grid(max_rot_signed)
-        # if abs(delta_psi) > self.MAX_ROT:
-        #     logger.error('delta psi > max rot'.format(delta_psi * 180 / math.pi))
-        delta_x = self.r_unit[:self.i_max, :self.j_max] * np.sin(delta_psi + OGrid.theta[:self.i_max, :self.j_max]) - self.x_mesh_unit[:self.i_max, :self.j_max]
-        delta_y = self.r_unit[:self.i_max, :self.j_max] * np.cos(delta_psi + OGrid.theta[:self.i_max, :self.j_max]) - self.y_mesh_unit[:self.i_max, :self.j_max]
-        # if np.any(np.abs(delta_x) > 1) or np.any(np.abs(delta_y) > 1):
-        #     new_grid = np.zeros((self.i_max, self.j_max), dtype=self.oLog_type)
-        #     print_args(delta_x=delta_x, delta_y=delta_y)
-        #     raise Exception('delta x or y to large')
-        # else:
-        if True:
-            new_left_grid = np.zeros((self.i_max, self.origin_j), dtype=self.oLog_type)
-            new_right_grid = np.zeros((self.i_max, self.origin_j+1), dtype=self.oLog_type)
-            if delta_psi >= 0:
-                # Left grid both positive. Right grid x_postive, y negative
-                wl2 = (1 - delta_x[:, :self.origin_j + 1]) * delta_y[:, :self.origin_j + 1]
-                wl3 = delta_x[:, :self.origin_j + 1] * delta_y[:, :self.origin_j + 1]
-                wl5 = (1 - delta_x[:, :self.origin_j + 1]) * (1 - delta_y[:, :self.origin_j + 1])
-                wl6 = delta_x[:, :self.origin_j + 1] * (1 - delta_y[:, :self.origin_j + 1])
-                if np.any(np.abs(wl2 + wl3 + wl5 + wl6 - 1) > 0.00001):
-                    logger.debug('Sum = {}!'.format(np.max(np.max(wl2 + wl3 + wl5 + wl6))))
-                new_left_grid[1:, :] = wl2[1:, :-1] * self.o_log[:-1, :self.origin_j] + \
-                                       wl3[1:, :-1] * self.o_log[:-1, 1:self.origin_j + 1] + \
-                                       wl5[1:, :-1] * self.o_log[1:, :self.origin_j] + \
-                                       wl6[1:, :-1] * self.o_log[1:, 1:self.origin_j + 1]
-
-                new_left_grid[0, :] = (wl2[0, :-1] + wl3[0, :-1]) * self.OZero * np.ones(np.shape(new_left_grid[0, :])) + \
-                                      wl5[0, :-1] * self.o_log[1, :self.origin_j] + \
-                                      wl6[0, :-1] * self.o_log[1, 1:self.origin_j + 1]
-
-                wr5 = (1 - delta_x[:, self.origin_j:]) * (1 + delta_y[:, self.origin_j:])
-                wr6 = delta_x[:, self.origin_j:] * (1 + delta_y[:, self.origin_j:])
-                wr8 = (1 - delta_x[:, self.origin_j:]) * (-delta_y[:, self.origin_j:])
-                wr9 = delta_x[:, self.origin_j:] * (-delta_y[:, self.origin_j:])
-                if np.any(np.abs(wr5 + wr6 + wr8 + wr9 - 1) > 0.00001):
-                    logger.debug('Sum = {}!'.format(np.max(np.max(wr5 + wr6 + wr8 + wr9))))
-                new_right_grid[:-1, :-1] = wr5[:-1, :-1] * self.o_log[:-1, self.origin_j:-1] + \
-                                           wr6[:-1, :-1] * self.o_log[:-1, self.origin_j + 1:] + \
-                                           wr8[:-1, :-1] * self.o_log[1:, self.origin_j:-1] + \
-                                           wr9[:-1, :-1] * self.o_log[1:, self.origin_j + 1:]
-
-                new_right_grid[-1, :-1] = wr5[-1, :-1] * self.o_log[-1, self.origin_j:-1] + \
-                                          wr6[-1, :-1] * self.o_log[-1, self.origin_j + 1:] + \
-                                          (wr8[-1, :-1] + wr9[-1, :-1]) * self.OZero * np.ones(
-                    np.shape(new_right_grid[-1, :-1]))
-                new_right_grid[:-1, -1] = wr5[:-1, -1] * self.o_log[:-1, -1] + \
-                                          wr8[:-1, -1] * self.o_log[1:, -1] + \
-                                          (wr6[:-1, -1] + wr9[:-1, -1]) * self.OZero * np.ones(
-                    np.shape(new_right_grid[:-1, -1]))
-                new_right_grid[-1, -1] = wr5[-1, -1] * self.o_log[-1, -1] + \
-                                         (wr6[-1, -1] + wr8[-1, -1] + wr9[-1, -1]) * self.OZero
-            else:
-                # Left grid: both neg, right grid: x neg, y pos
-                wl4 = (-delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
-                wl5 = (1 + delta_x[:, :self.origin_j]) * (1 + delta_y[:, :self.origin_j])
-                wl7 = (-delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
-                wl8 = (1 + delta_x[:, :self.origin_j]) * (-delta_y[:, :self.origin_j])
-                if np.any(np.abs(wl4 + wl5 + wl7 + wl8 - 1) > 0.00001):
-                    logger.debug('Sum = {}!'.format(np.max(np.max(wl4 + wl5 + wl7 + wl8))))
-                new_left_grid[:-1, 1:] = wl4[1:, :-1] * self.o_log[:-1, :self.origin_j - 1] + \
-                                         wl5[1:, :-1] * self.o_log[:-1, 1:self.origin_j] + \
-                                         wl7[1:, :-1] * self.o_log[1:, :self.origin_j - 1] + \
-                                         wl8[1:, :-1] * self.o_log[1:, 1:self.origin_j]
-
-                new_left_grid[-1, :-1] = wl4[-1, :-1] * self.o_log[-1, :self.origin_j - 1] + \
-                                         wl5[-1, :-1] * self.o_log[-1, 1:self.origin_j] + \
-                                         (wl7[-1, :-1] + wl8[-1, :-1]) * self.OZero * np.ones(
-                    np.shape(new_left_grid[-1, :-1]))
-                new_left_grid[1:, 0] = wl5[1:, 0] * self.o_log[:-1, 1] + \
-                                       (wl4[1:, 0] + wl7[1:, 0]) * self.OZero * np.ones(np.shape(new_left_grid[1:, 0])) + \
-                                       wl8[1:, 0] * self.o_log[1:, 1]
-                new_left_grid[-1, 0] = wl5[-1, 0] * self.o_log[-1, 0] + \
-                                       (wl4[-1, 0] + wl7[-1, 0] + wl8[-1, 0]) * self.OZero
-
-                wr1 = -delta_x[:, self.origin_j - 1:] * delta_y[:, self.origin_j - 1:]
-                wr2 = (1 + delta_x[:, self.origin_j - 1:]) * delta_y[:, self.origin_j - 1:]
-                wr4 = -delta_x[:, self.origin_j - 1:] * (1 - delta_y[:, self.origin_j - 1:])
-                wr5 = (1 + delta_x[:, self.origin_j - 1:]) * (1 - delta_y[:, self.origin_j - 1:])
-                if np.any(np.abs(wr1 + wr2 + wr4 + wr5 - 1) > 0.00001):
-                    logger.debug('Sum = {}!'.format(np.max(np.max(wr1 + wr2 + wr4 + wr5))))
-                new_right_grid[1:, :] = wr1[:-1, :-1] * self.o_log[:-1, self.origin_j - 1:-1] + \
-                                        wr2[:-1, :-1] * self.o_log[:-1, self.origin_j:] + \
-                                        wr4[:-1, :-1] * self.o_log[1:, self.origin_j - 1:-1] + \
-                                        wr5[:-1, :-1] * self.o_log[1:, self.origin_j:]
-                new_right_grid[0, :] = (wr1[0, 1:] + wr2[0, 1:]) * self.OZero * np.ones(np.shape(new_right_grid[0, :])) + \
-                                       wr4[0, 1:] * self.o_log[0, self.origin_j - 1:-1] + \
-                                       wr5[0, 1:] * self.o_log[0, self.origin_j:]
-            self.o_log[:, :self.origin_j] = new_left_grid
-            self.o_log[:, self.origin_j:] = new_right_grid
-            # self.cell_rotation(delta_psi)
-        return True
 
     def get_obstacles_fast(self, threshold):
         self.fast_detector.setThreshold(threshold)
@@ -568,53 +309,121 @@ class OGrid(object):
 
         if abs(dpsi_grad) < 1:
             self.old_delta_psi = dpsi_grad
-            return
+            return False
         else:
             self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
         dpsi_grad = np.round(dpsi_grad).astype(int)
-        new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.OZero
+        new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.o_zero
         if dpsi_grad < 0:
-            dpsi_grad = abs(dpsi_grad)
-            # new_grid.flat[OGrid.map[1600:1600-dpsi_grad, :, :]] = self.OZero
-            # new_grid.flat[OGrid.map[1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[1600:4801-dpsi_grad, :, :]]
-            for n in range(1600+dpsi_grad, 4801):
+            # new_grid.flat[OGrid.map[1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[1600:4801+dpsi_grad, :, 0]]
+            for n in range(1600-dpsi_grad, 4801):
                 for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n-dpsi_grad, :, 0]]
+                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
         else:
-            dpsi_grad = abs(dpsi_grad)
-            # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600-dpsi_grad:4801, :, :]]
-            # new_grid.flat[OGrid.map[4801-dpsi_grad:4801, :, :]] = self.OZero
+            # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600+dpsi_grad:4801, :, 0]]
             for n in range(1600, 4801-dpsi_grad):
                 for i in range(0, self.MAX_CELLS):
                     new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
-
-
         self.o_log = new_grid
+        return True
+
+    def trans(self, dx, dy):
+        """
+        :param dx: surge change
+        :param dy: sway change
+        :return:
+        """
+        # Transform to grid cordinates
+        dx = dx*OGrid.MAX_BINS / self.range_scale + self.last_dx
+        dy = dy*OGrid.MAX_BINS / self.range_scale + self.last_dy
+        dx_int = np.round(dx).astype(int)
+        dy_int = np.round(dy).astype(int)
+        self.last_dx = dx - dx_int
+        self.last_dy = dy - dy_int
+        if dx_int == dy_int == 0:
+            return False
+
+        # move
+        # new_grid = np.ones((self.i_max, self.j_max))*self.o_zero
+        if dx_int > 0:
+            if dy_int > 0:
+                try:
+                    self.o_log[dx_int:, :-dy_int] = self.o_log[:-dx_int, dy_int:]
+                except Exception as e:
+                    logger.debug('a\tself.o_log[{}:, :{}] = o_log[:{}, {}:]\n{}'.format(dx_int, -dy_int, -dx_int, dy_int, e))
+                    return False
+            elif dy_int < 0:
+                try:
+                    self.o_log[dx_int:, -dy_int:] = self.o_log[:-dx_int, :dy_int]
+                except Exception as e:
+                    logger.debug('b\tself.o_log[{}:, {}:] = o_log[:{}, :{}]\n{}'.format(dx_int, -dy_int, -dx_int, -dy_int, e))
+                    return False
+            else:
+                try:
+                    self.o_log[dx_int:, :] = self.o_log[:-dx_int, :]
+                except Exception as e:
+                    logger.debug('e\tself.o_log[{}:, :] = o_log[:{}, :]\n{}'.format(dx_int, -dx_int, e))
+                    return False
+        elif dx_int < 0:
+            if dy_int > 0:
+                try:
+                    self.o_log[:-dx_int, :-dy_int] = self.o_log[dx_int:, dy_int:]
+                except Exception as e:
+                    logger.debug('c\tself.o_log[:{}, :{}] = o_log[{}:, {}:]\n{}'.format(-dx_int, -dy_int, dx_int, dy_int, e))
+                    return False
+            elif dy_int < 0:
+                try:
+                    self.o_log[:-dx_int, -dy_int:] = self.o_log[dx_int:, :dy_int]
+                except Exception as e:
+                    logger.debug('d\tself.o_log[:{}, {}:] = o_log[{}:, :{}]\n{}'.format(-dx_int, -dy_int, dx_int, dy_int, e))
+                    return False
+            else:
+                try:
+                    self.o_log[:-dx_int, :] = self.o_log[dx_int:, :]
+                except Exception as e:
+                    logger.debug('f\tself.o_log[:{}, :] = o_log[{}:, :]\n{}'.format(-dx_int, dx_int, e))
+                    return False
+        else:
+            if dy_int > 0:
+                try:
+                    self.o_log[:, :-dy_int] = self.o_log[:, dy_int:]
+                except Exception as e:
+                    logger.debug('c\tself.o_log[:, :{}] = o_log[:, {}:]\n{}'.format(-dy_int, dy_int, e))
+                    return False
+            elif dy_int < 0:
+                try:
+                    self.o_log[:, -dy_int:] = self.o_log[:, :dy_int]
+                except Exception as e:
+                    logger.debug('d\tself.o_log[:, {}:] = o_log[:, :{}]\n{}'.format(-dy_int, dy_int, e))
+                    return False
+            else:
+                return False
+        # self.o_log = new_grid
+        return True
 
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     from messages.moosSonarMsg import *
     grid = OGrid(True, 0)
-    # grid.o_log = np.load('test.npz')['olog']
-    # grid.o_log[grid.o_log==grid.OZero] = 0
-    # plt.subplot(121)
-    # plt.imshow(grid.o_log, vmin=0, vmax=255)
-    # for i in range(1, 20):
+    grid.range_scale = 10
+    grid.o_log = np.load('test.npz')['olog']
+    grid.o_log[grid.o_log == grid.o_zero] = 0
+    plt.subplot(211)
+    plt.imshow(grid.o_log, vmin=0, vmax=255)
 
-    msg = MoosSonarMsg()
-    msg.range_scale = 30
-    msg.data = np.array([0, 255]).astype(np.uint8)
-    msg.bearing = 1600
-    msg.dbytes = msg.bins = 2
-    msg.adc8on = True
-    msg.step = 32
-    grid.update_raw(msg)
+    with np.load('dxdy.npz') as data:
+        dx = data['dx']
+        dy = data['dy']
+
+    grid.trans(dx, dy)
+
+    plt.subplot(212)
     plt.imshow(grid.o_log, vmin=0, vmax=255)
     plt.show()
 
-    for i in range(1000):
-        grid.rot(1*np.pi/3200)
-        # plt.subplot(122)
-        plt.imshow(grid.o_log, vmin=0, vmax=255)
-        plt.show()
+    # a = np.intersect1d(grid.map[2000, :, :], grid.map[2010, :, :])
+    # print(len(a))
+    # grid.o_log.flat[a] = 1
+    # plt.imshow(grid.o_log)
+    # plt.show()

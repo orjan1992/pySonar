@@ -57,7 +57,7 @@ class MoosPosMsg(Sensor):
     #     return (self.lat == other.lat and self.long == other.long and self.psi == other.psi)
 
     def __str__(self):
-        return 'lat: {},\tlong: {}\t, psi: {}'.format(self.lat, self.long, self.psi*180/pi)
+        return 'lat: {:5d},\tlong: {:5d}\t, psi: {:5d}'.format(self.lat, self.long, self.psi*180/pi)
 
 
 if __name__ == '__main__':

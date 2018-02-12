@@ -122,10 +122,8 @@ class MainWidget(QtGui.QWidget):
         new_pos_msg_signal = signal('new_msg_pos')
         new_pos_msg_signal.connect(self.new_pos_msg)
 
-        self.last_pos_msg = MoosPosMsg()
-        self.last_pos_msg.long = 0
-        self.last_pos_msg.lat = 0
-        self.last_pos_msg.psi = 0
+        self.last_pos_msg = None
+        self.processing_pos_msg = False
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
@@ -133,12 +131,6 @@ class MainWidget(QtGui.QWidget):
             self.timer.start(500.0)
         else:
             self.timer.start(1000.0/24.0)
-
-        # self.new_position_msg = None
-        self.last_pos_msg = None
-        # self.postimer = QtCore.QTimer()
-        # self.postimer.timeout.connect(self.pos_msg)
-        # self.postimer.start(0)
 
 
     def init_grid(self):
@@ -168,33 +160,23 @@ class MainWidget(QtGui.QWidget):
         # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
     def new_pos_msg(self, sender, **kw):
+        # self.new_pos_msg = kw['msg']
         msg = kw["msg"]
+        if not self.processing_pos_msg:
+            self.process_pos_msg(msg)
+
+    def process_pos_msg(self, msg):
+        self.processing_pos_msg = True
         if self.last_pos_msg is None:
             self.last_pos_msg = deepcopy(msg)
         diff = (msg - self.last_pos_msg)
         self.last_pos_msg = deepcopy(msg)
-        trans = self.grid.translational_motion(diff.dy, diff.dx, True)
-        if abs(diff.dpsi) > 0:
-            rot = self.grid.rot(diff.dpsi)
-        else:
-            rot = False
+        trans = self.grid.trans(diff.dx, diff.dy)
+        rot = self.grid.rot(diff.dpsi)
+
         if trans or rot:
             self.plot_updated = True
-
-    # def pos_msg(self):
-    #     if self.new_position_msg is None:
-    #         return
-    #     if self.last_pos_msg is None:
-    #         self.last_pos_msg = deepcopy(self.new_position_msg)
-    #     diff = (self.new_position_msg - self.last_pos_msg)
-    #     self.last_pos_msg = deepcopy(self.new_position_msg)
-    #     trans = self.grid.translational_motion(diff.dy, diff.dx, True)
-    #     if abs(diff.dpsi) > 0:
-    #         rot = self.grid.rot(diff.dpsi)
-    #     else:
-    #         rot = False
-    #     if trans or rot:
-    #         self.plot_updated = True
+        self.processing_pos_msg = False
 
     def update_plot(self):
         if self.plot_updated:
