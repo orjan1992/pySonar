@@ -307,7 +307,7 @@ class OGrid(object):
 
         dpsi_grad = dspi*3200/np.pi + self.old_delta_psi
 
-        if abs(dpsi_grad) < 1:
+        if abs(dpsi_grad) < 8:
             self.old_delta_psi = dpsi_grad
             return False
         else:

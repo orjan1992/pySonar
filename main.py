@@ -181,12 +181,12 @@ class MainWidget(QtGui.QWidget):
     def update_plot(self):
         if self.plot_updated:
             if Settings.plot_type == 0:
-                self.img_item.setImage(self.grid.get_raw(), levels=(0.0, 255.0))
+                self.img_item.setImage(self.grid.get_raw(), levels=(0.0, 255.0), autoLevels=False)
             elif Settings.plot_type == 1:
                 if self.binary_plot_on:
-                    self.img_item.setImage(self.grid.get_binary_map(), levels=(0, 1))
+                    self.img_item.setImage(self.grid.get_binary_map(), levels=(0, 1), autoLevels=False)
                 else:
-                    self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0))
+                    self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0), autoLevels=False)
             elif Settings.plot_type == 2:
                 # self.img_item.setImage(self.grid.get_obstacles_fast(self.threshold_box.value()))
                 self.img_item.setImage(self.grid.get_obstacles_fast_separation(self.threshold_box.value()))
