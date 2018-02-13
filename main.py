@@ -172,7 +172,7 @@ class MainWidget(QtGui.QWidget):
         diff = (msg - self.last_pos_msg)
         self.last_pos_msg = deepcopy(msg)
         trans = self.grid.trans(diff.dx, diff.dy)
-        rot = self.grid.rot(diff.dpsi)
+        # rot = self.grid.rot(diff.dpsi)
 
         if trans or rot:
             self.plot_updated = True

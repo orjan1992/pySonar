@@ -20,7 +20,7 @@ class OGrid(object):
 
     last_bearing = 0
     MAX_BINS = 800
-    MAX_CELLS = 4
+    MAX_CELLS = 3
     RES = 1601
     r_unit = np.zeros((RES, RES))
     theta = np.zeros((RES, RES))
@@ -44,11 +44,14 @@ class OGrid(object):
             self.o_zero = 0
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
         self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.o_zero
+        self.raw_polar_grid = np.zeros((3200, OGrid.MAX_BINS), dtype=np.uint8)
         [self.i_max, self.j_max] = np.shape(self.o_log)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
-            with np.load('OGrid_data/map_1601.npz') as data:
-                OGrid.map = data['map']
+            with np.load('OGrid_data/reduced_map.npz') as data:
+                OGrid.map[1600:4800, :, :] = data['map']
+            # with np.load('OGrid_data/map_1601.npz') as data:
+            #     OGrid.map = data['map']
         self.MAX_ROT = math.asin(801/(math.sqrt(2*(800**2))))-math.pi/4
         self.MAX_ROT_BEFORE_RESET = 30 * self.MAX_ROT
         if not np.any(OGrid.r_unit != 0):
@@ -65,15 +68,7 @@ class OGrid(object):
                 OGrid.theta = np.arctan2(OGrid.y_mesh_unit, OGrid.x_mesh_unit)
                 np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
                          y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, theta=OGrid.theta)
-        tmp = list()
-        # for i in range(6400):
-        #     tmp.append(list())
-        #     for j in range(self.MAX_BINS):
-        #         tmp[i].append(list())
-        #         for k in range(self.MAX_CELLS):
-        #             if self.map[i, j, k] != 0:
-        #                 tmp[i][j].append(self.map[i, j, k])
-        # np.savez('OGrid_data/list.npz', map=tmp)
+
 
         # detection
         self.fast_detector = cv2.FastFeatureDetector_create()
@@ -317,8 +312,10 @@ class OGrid(object):
         if dpsi_grad < 0:
             # new_grid.flat[OGrid.map[1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[1600:4801+dpsi_grad, :, 0]]
             for n in range(1600-dpsi_grad, 4801):
-                for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+                for i in range(0, self.MAX_BINS):
+                    if self.o_log.flat[OGrid.map[n+dpsi_grad, i, 0]] != 0:
+                        new_grid.flat[OGrid.map[n, i, :]] = self.o_log.flat[OGrid.map[n + dpsi_grad, i, 0]]
+
         else:
             # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600+dpsi_grad:4801, :, 0]]
             for n in range(1600, 4801-dpsi_grad):
