@@ -8,6 +8,7 @@ class Settings:
     plot_type = 0
     # 0 == raw update, 1 == zhou update
     update_type = 0
+    pos_update = 1000.0/60.0
 
 
 class GridSettings:

@@ -69,10 +69,6 @@ class MainWidget(QtGui.QWidget):
         self.img_item.getViewBox().setAspectLocked(True)
         self.img_item.setOpts(axisOrder='row-major')
 
-        # Detect blobs Button
-        self.detect_blobs = QtGui.QPushButton('Detect blobs')
-        self.detect_blobs.clicked.connect(self.detect_blobs_click)
-
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
         self.threshold_box.setMinimum(0)
@@ -96,7 +92,6 @@ class MainWidget(QtGui.QWidget):
 
         # Adding items
         left_layout.addWidget(self.threshold_box)
-        left_layout.addWidget(self.detect_blobs)
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
@@ -113,24 +108,27 @@ class MainWidget(QtGui.QWidget):
             client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
             client_thread.start()
         elif Settings.input_source == 1:
-            self.moos_msg_client = MoosMsgs()
+            self.moos_msg_client = MoosMsgs(self.new_sonar_msg)
             self.moos_msg_client.run()
         else:
             raise Exception('Uknown input source')
-        new_msg_signal = signal('new_msg_sonar')
-        new_msg_signal.connect(self.new_sonar_msg)
-        new_pos_msg_signal = signal('new_msg_pos')
-        new_pos_msg_signal.connect(self.new_pos_msg)
 
         self.last_pos_msg = None
         self.processing_pos_msg = False
+        self.pos_lock = threading.Lock()
 
         self.timer = QtCore.QTimer()
         self.timer.timeout.connect(self.update_plot)
+        self.pos_update_timer = QtCore.QTimer()
+        self.pos_update_timer.timeout.connect(self.new_pos_msg)
+
         if Settings.plot_type == 2:
             self.timer.start(500.0)
         else:
             self.timer.start(1000.0/24.0)
+
+        self.pos_update_timer.start(Settings.pos_update)
+
 
 
     def init_grid(self):
@@ -143,8 +141,7 @@ class MainWidget(QtGui.QWidget):
         self.plot_updated = False
         self.update_plot()
 
-    def new_sonar_msg(self, sender, **kw):
-        msg = kw["msg"]
+    def new_sonar_msg(self, msg):
         self.grid.update_distance(msg.range_scale)
         if Settings.update_type == 0:
             self.grid.update_raw(msg)
@@ -153,30 +150,22 @@ class MainWidget(QtGui.QWidget):
         else:
             raise Exception('Invalid update type')
         self.plot_updated = True
-        # if self.settings.grid_settings["half_grid"] == 1:
-        #     self.img_item.setPos(-msg.range_scale/10.0, -msg.range_scale/5.0)
-        # else:
-        #     self.img_item.setPos(-msg.range_scale / 10.0, -msg.range_scale / 10.0)
-        # self.img_item.scale(16010.0/msg.range_scale, 16010.0/msg.range_scale)
 
-    def new_pos_msg(self, sender, **kw):
-        # self.new_pos_msg = kw['msg']
-        msg = kw["msg"]
-        if not self.processing_pos_msg:
-            self.process_pos_msg(msg)
-
-    def process_pos_msg(self, msg):
-        self.processing_pos_msg = True
-        if self.last_pos_msg is None:
+    def new_pos_msg(self):
+        if self.pos_lock.acquire(blocking=False):
+            msg = self.moos_msg_client.cur_pos_msg
+            if self.last_pos_msg is None:
+                self.last_pos_msg = deepcopy(msg)
+            diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
-        diff = (msg - self.last_pos_msg)
-        self.last_pos_msg = deepcopy(msg)
-        trans = self.grid.trans(diff.dx, diff.dy)
-        # rot = self.grid.rot(diff.dpsi)
+            trans = self.grid.trans(diff.dx, diff.dy)
+            rot = self.grid.rot(diff.dpsi)
 
-        if trans or rot:
-            self.plot_updated = True
-        self.processing_pos_msg = False
+            if trans or rot:
+                self.plot_updated = True
+            self.pos_lock.release()
+        else:
+            print('Locked')
 
     def update_plot(self):
         if self.plot_updated:
@@ -204,21 +193,6 @@ class MainWidget(QtGui.QWidget):
         else:
             self.binary_plot_button.text = "Set Binary mode"
         self.binary_plot_on = not self.binary_plot_on
-
-    def detect_blobs_click(self):
-        np.savez('test.npz', olog=self.grid.o_log)
-
-
-class BlobWindow(QtGui.QMainWindow):
-    def __init__(self, im_with_keypoints, parent=None):
-        super(BlobWindow, self).__init__(parent)
-        height, width, channel = im_with_keypoints.shape
-        bytes_per_line = 3 * width
-        q_img = QtGui.QImage(im_with_keypoints, width, height, bytes_per_line, QtGui.QImage.Format_RGB888)
-        pixmap = QtGui.QPixmap(q_img)
-        label = QtWidgets.QLabel(self)
-        label.setPixmap(pixmap)
-        self.resize(pixmap.width(), pixmap.height())
 
 
 if __name__ == '__main__':

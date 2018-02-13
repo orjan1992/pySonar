@@ -3,7 +3,6 @@ from pymoos import moos_msg
 import logging
 from struct import unpack, calcsize
 from math import pi
-from blinker import signal
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.moosPosMsg import MoosPosMsg
@@ -14,7 +13,7 @@ class MoosMsgs(object):
     pos_msg_flags = [False, False, False]
     RAD2GRAD = 3200.0/pi
 
-    def __init__(self):
+    def __init__(self, sonar_msg_callback):
         """
         :param host: MOOS host name/ip
         :param port: MOOS port
@@ -32,8 +31,7 @@ class MoosMsgs(object):
         self.add_queues()
 
         self.cur_pos_msg = MoosPosMsg()
-        self.new_msg_signal = signal('new_msg_sonar')
-        self.new_pos_msg_signal = signal('new_msg_pos')
+        self.sonar_callback = sonar_msg_callback
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
@@ -64,10 +62,7 @@ class MoosMsgs(object):
 
             sonar_msg.adc8on = True
             sonar_msg.chan2 = True
-            try:
-                self.new_msg_signal.send(self, msg=sonar_msg)
-            except Exception as err:
-                print("{0}".format(err))
+            self.sonar_callback(sonar_msg)
             self.logger_bins.debug('Callback OK')
         return True
 
@@ -78,23 +73,12 @@ class MoosMsgs(object):
         if msg.key() == 'currentNEDPos_x':
             self.logger_pose.debug('NEDPos x received')
             self.cur_pos_msg.lat = msg.double()
-            self.cur_pos_msg.moos_flag_lat = True
-            self.pos_msg_flags[0] = True
         if msg.key() == 'currentNEDPos_y':
             self.logger_pose.debug('NEDPos y received')
             self.cur_pos_msg.long = msg.double()
-            self.cur_pos_msg.moos_flag_long = True
-            self.pos_msg_flags[1] = True
         if msg.key() == 'currentNEDPos_rz':
             self.logger_pose.debug('NEDPos rz received')
             self.cur_pos_msg.psi = msg.double()
-            self.pos_msg_flags[2] = True
-        if all(self.pos_msg_flags):
-            try:
-                self.new_pos_msg_signal.send(self, msg=self.cur_pos_msg)
-            except Exception as err:
-                print("{0}".format(err))
-            self.pos_msg_flags = [False, False, False]
         return True
 
     def add_queues(self):

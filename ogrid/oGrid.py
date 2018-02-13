@@ -3,6 +3,7 @@ import math
 import logging
 import cv2
 from settings import BlobDetectorSettings
+import threading
 
 logger = logging.getLogger('OGrid')
 
@@ -20,7 +21,7 @@ class OGrid(object):
 
     last_bearing = 0
     MAX_BINS = 800
-    MAX_CELLS = 3
+    MAX_CELLS = 4
     RES = 1601
     r_unit = np.zeros((RES, RES))
     theta = np.zeros((RES, RES))
@@ -44,14 +45,11 @@ class OGrid(object):
             self.o_zero = 0
         self.binary_threshold = math.log(binary_threshold / (1 - binary_threshold))
         self.o_log = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * self.o_zero
-        self.raw_polar_grid = np.zeros((3200, OGrid.MAX_BINS), dtype=np.uint8)
         [self.i_max, self.j_max] = np.shape(self.o_log)
         if not np.any(OGrid.map != 0):
             # self.loadMap()
-            with np.load('OGrid_data/reduced_map.npz') as data:
-                OGrid.map[1600:4800, :, :] = data['map']
-            # with np.load('OGrid_data/map_1601.npz') as data:
-            #     OGrid.map = data['map']
+            with np.load('OGrid_data/map_1601.npz') as data:
+                OGrid.map = data['map']
         self.MAX_ROT = math.asin(801/(math.sqrt(2*(800**2))))-math.pi/4
         self.MAX_ROT_BEFORE_RESET = 30 * self.MAX_ROT
         if not np.any(OGrid.r_unit != 0):
@@ -69,7 +67,7 @@ class OGrid(object):
                 np.savez('OGrid_data/rad_1601.npz', x_mesh=OGrid.x_mesh_unit,
                          y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, theta=OGrid.theta)
 
-
+        self.lock = threading.Lock()
         # detection
         self.fast_detector = cv2.FastFeatureDetector_create()
 
@@ -133,6 +131,7 @@ class OGrid(object):
         beam_half = 27
         if msg.chan2:
             beam_half = 13
+        self.lock.acquire()
         if math.fabs(bearing_diff) <= msg.step:
             if bearing_diff > 0:
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
@@ -154,6 +153,7 @@ class OGrid(object):
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAX_CELLS):
                     self.o_log.flat[OGrid.map[n, :, i]] += new_data
+        self.lock.release()
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
@@ -186,6 +186,7 @@ class OGrid(object):
         beam_half = 27
         if msg.chan2:
             beam_half = 13
+        self.lock.acquire()
         if math.fabs(bearing_diff) <= msg.step:
             if bearing_diff > 0:
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
@@ -207,6 +208,7 @@ class OGrid(object):
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAX_CELLS):
                     self.o_log.flat[OGrid.map[n, :, i]] = new_data
+        self.lock.release()
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
@@ -234,11 +236,15 @@ class OGrid(object):
                                       factor + self.origin_j)).astype(dtype=int),
                             (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
                                       factor + self.origin_i)).astype(dtype=int))]
+        self.lock.acquire()
         self.o_log = new_grid
+        self.lock.release()
         self.last_distance = distance
 
     def clear_grid(self):
+        self.lock.acquire()
         self.o_log = np.ones((self.i_max, self.j_max)) * self.o_zero
+        self.lock.release()
         logger.info('Grid cleared')
 
 
@@ -310,18 +316,18 @@ class OGrid(object):
         dpsi_grad = np.round(dpsi_grad).astype(int)
         new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.o_zero
         if dpsi_grad < 0:
-            # new_grid.flat[OGrid.map[1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[1600:4801+dpsi_grad, :, 0]]
+            # new_grid.flat[OGrid.map[self.mask][1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[self.mask][1600:4801+dpsi_grad, :, 0]]
             for n in range(1600-dpsi_grad, 4801):
-                for i in range(0, self.MAX_BINS):
-                    if self.o_log.flat[OGrid.map[n+dpsi_grad, i, 0]] != 0:
-                        new_grid.flat[OGrid.map[n, i, :]] = self.o_log.flat[OGrid.map[n + dpsi_grad, i, 0]]
-
+                for i in range(0, self.MAX_CELLS):
+                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
         else:
             # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600+dpsi_grad:4801, :, 0]]
             for n in range(1600, 4801-dpsi_grad):
                 for i in range(0, self.MAX_CELLS):
                     new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+        self.lock.acquire()
         self.o_log = new_grid
+        self.lock.release()
         return True
 
     def trans(self, dx, dy):
@@ -342,6 +348,7 @@ class OGrid(object):
 
         # move
         # new_grid = np.ones((self.i_max, self.j_max))*self.o_zero
+        self.lock.acquire()
         if dx_int > 0:
             if dy_int > 0:
                 try:
@@ -396,6 +403,7 @@ class OGrid(object):
             else:
                 return False
         # self.o_log = new_grid
+        self.lock.release()
         return True
 
 
