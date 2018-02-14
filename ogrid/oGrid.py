@@ -303,12 +303,20 @@ class OGrid(object):
         else:
             return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)
 
+    def get_obstacles_otsu(self):
+        tmp = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
+        ret, thr = cv2.threshold(self.o_log.astype(np.uint8), 0, 255, cv2.THRESH_OTSU)
+        im2, contours, hierarchy = cv2.findContours(thr, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(tmp, contours, -1, (0, 255, 0), 3)
+        # return cv2.cvtColor(tmp, cv2.COLOR_BGR2RGB)
+        return thr
+
 
     def rot(self, dspi):
 
         dpsi_grad = dspi*3200/np.pi + self.old_delta_psi
 
-        if abs(dpsi_grad) < 8:
+        if abs(dpsi_grad) < 1:
             self.old_delta_psi = dpsi_grad
             return False
         else:

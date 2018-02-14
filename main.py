@@ -102,6 +102,12 @@ class MainWidget(QtGui.QWidget):
         main_layout.addLayout(right_layout)
         self.setLayout(main_layout)
 
+        if Settings.hist_window:
+            self.hist_window = pg.PlotWindow()
+            self.histogram = pg.BarGraphItem(x=np.arange(10), y1=np.random.rand(10), width=0.3, brush='r')
+            self.hist_window.addItem(self.histogram)
+            self.hist_window.show()
+
         self.init_grid()
         if Settings.input_source == 0:
             self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port)
@@ -178,13 +184,20 @@ class MainWidget(QtGui.QWidget):
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0), autoLevels=False)
             elif Settings.plot_type == 2:
                 # self.img_item.setImage(self.grid.get_obstacles_fast(self.threshold_box.value()))
-                self.img_item.setImage(self.grid.get_obstacles_fast_separation(self.threshold_box.value()))
+                # self.img_item.setImage(self.grid.get_obstacles_fast_separation(self.threshold_box.value()))
                 # self.img_item.setImage(self.grid.get_obstacles_blob(self.threshold_box.value()))
+                self.img_item.setImage(self.grid.get_obstacles_otsu())
             else:
                 raise Exception('Invalid plot type')
             self.img_item.setPos(-self.grid.last_distance,
                                  -self.grid.last_distance/2 if GridSettings.half_grid else - self.grid.last_distance)
             # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
+
+            if Settings.hist_window:
+                hist, _ = np.histogram(self.grid.get_raw(), 256)
+                self.histogram.setOpts(x=np.arange(256), y1=hist, height=1000)
+                self.hist_window.setYRange(max=1000, min=0)
+
             self.plot_updated = False
 
     def binary_button_click(self):
