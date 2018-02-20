@@ -41,6 +41,13 @@ class MoosPosMsg(Sensor):
     v = 0.0
     w = 0.0
 
+    def __init__(self, lat=0, long=0, psi=0, z=0, *kwargs):
+        super().__init__(*kwargs)
+        self.lat = lat
+        self.long = long
+        self.psi = psi
+        self.z = z
+
     def __sub__(self, other):
         lat_diff = self.lat - other.lat
         # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))

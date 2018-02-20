@@ -215,7 +215,7 @@ class OGrid(object):
     def update_distance(self, distance):
         try:
             factor = distance / self.last_distance
-        except:
+        except ZeroDivisionError:
             factor = 1
             self.last_distance = distance
         if factor == 1:

@@ -8,10 +8,11 @@ from blinker import signal
 class UdpMessageClient(object):
     buffer = io.BytesIO()
 
-    def __init__(self, listen_port):
+    def __init__(self, listen_port, sonar_msg_callback):
         self.new_msg_signal = signal('new_msg_sonar')
         self.listen_port = listen_port
         signal('new_udp_msg').connect(self.parse_msg)
+        self.sonar_msg_callback = sonar_msg_callback
 
     def connect(self):
         server = socketserver.UDPServer(('0.0.0.0', self.listen_port), UdpMessageHandler)
@@ -32,7 +33,8 @@ class UdpMessageClient(object):
             if tmp[i] == 0x40:
                 try:
                     last_message = MtHeadData(tmp[i:len(tmp)])
-                    self.new_msg_signal.send(self, msg=last_message)
+                    # self.new_msg_signal.send(self, msg=last_message)
+                    self.sonar_msg_callback(last_message)
                     self.buffer = io.BytesIO()
                 except CorruptMsgException:
                     self.buffer = io.BytesIO()

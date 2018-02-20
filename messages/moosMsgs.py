@@ -41,29 +41,32 @@ class MoosMsgs(object):
 
     def bins_queue(self, msg):
         # TODO implement rangescale step osv
-        self.logger_bins.debug('Message received of type: {}'.format(type(msg)))
-        if msg.is_binary():
-            sonar_msg = MoosSonarMsg()
-            self.logger_bins.debug('Binary message. length: {}\t calcsize: {}'.format(msg.binary_data_size(),
-                                                                                      calcsize('<dH{:d}f'.format((msg.binary_data_size()-10)//4))))
-            self.logger_bins.debug('time: {}'.format(msg.time()))
-            self.logger_bins.debug(msg.is_binary())
-            self.logger_bins.debug(type(msg.binary_data()))
-            data = msg.binary_data().encode('latin-1')
-            tmp = unpack('>dddH{:d}B'.format((len(data) - 26)), data)
-            self.logger_bins.debug('Unpacking complte')
-            sonar_msg.bearing = round((tmp[0] + pi/2)*self.RAD2GRAD)
-            sonar_msg.step = round(tmp[1]*self.RAD2GRAD)
-            sonar_msg.range_scale = tmp[2]
-            sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
-            sonar_msg.dbytes = tmp[3]  # TODO one variable to much, which is needed?
-            sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
-            sonar_msg.time = msg.time()
+        try:
+            self.logger_bins.debug('Message received of type: {}'.format(type(msg)))
+            if msg.is_binary():
+                sonar_msg = MoosSonarMsg()
+                self.logger_bins.debug('Binary message. length: {}\t calcsize: {}'.format(msg.binary_data_size(),
+                                                                                          calcsize('<dH{:d}f'.format((msg.binary_data_size()-10)//4))))
+                self.logger_bins.debug('time: {}'.format(msg.time()))
+                self.logger_bins.debug(msg.is_binary())
+                self.logger_bins.debug(type(msg.binary_data()))
+                data = msg.binary_data().encode('latin-1')
+                tmp = unpack('>dddH{:d}B'.format((len(data) - 26)), data)
+                self.logger_bins.debug('Unpacking complte')
+                sonar_msg.bearing = round((tmp[0] + pi/2)*self.RAD2GRAD)
+                sonar_msg.step = round(tmp[1]*self.RAD2GRAD)
+                sonar_msg.range_scale = tmp[2]
+                sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
+                sonar_msg.dbytes = tmp[3]  # TODO one variable to much, which is needed?
+                sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
+                sonar_msg.time = msg.time()
 
-            sonar_msg.adc8on = True
-            sonar_msg.chan2 = True
-            self.sonar_callback(sonar_msg)
-            self.logger_bins.debug('Callback OK')
+                sonar_msg.adc8on = True
+                sonar_msg.chan2 = True
+                self.sonar_callback(sonar_msg)
+                self.logger_bins.debug('Callback OK')
+        except Exception as e:
+            print(e)
         return True
 
 

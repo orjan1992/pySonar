@@ -110,7 +110,7 @@ class MainWidget(QtGui.QWidget):
 
         self.init_grid()
         if Settings.input_source == 0:
-            self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port)
+            self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port, self.new_sonar_msg)
             client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
             client_thread.start()
         elif Settings.input_source == 1:
@@ -159,7 +159,10 @@ class MainWidget(QtGui.QWidget):
 
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
-            msg = self.moos_msg_client.cur_pos_msg
+            if Settings.input_source == 0:
+                msg = MoosPosMsg()
+            else:
+                msg = self.moos_msg_client.cur_pos_msg
             if self.last_pos_msg is None:
                 self.last_pos_msg = deepcopy(msg)
             diff = (msg - self.last_pos_msg)
@@ -170,8 +173,6 @@ class MainWidget(QtGui.QWidget):
             if trans or rot:
                 self.plot_updated = True
             self.pos_lock.release()
-        else:
-            print('Locked')
 
     def update_plot(self):
         if self.plot_updated:
@@ -195,7 +196,8 @@ class MainWidget(QtGui.QWidget):
 
             if Settings.hist_window:
                 hist, _ = np.histogram(self.grid.get_raw(), 256)
-                self.histogram.setOpts(x=np.arange(256), y1=hist, height=1000)
+                print(np.sum(hist[1:]*np.arange(1, 256)/np.sum(hist[1:])))
+                self.histogram.setOpts(x=np.arange(255), y1=hist[1:], height=1000)
                 self.hist_window.setYRange(max=1000, min=0)
 
             self.plot_updated = False
