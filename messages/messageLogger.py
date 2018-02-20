@@ -47,8 +47,8 @@ class MoosLogger:
         if msg.is_binary():
             data = msg.binary_data().encode('latin-1')
             tmp = struct.unpack('>dddH{:d}B'.format((len(data) - 26)), data)
-            bearing = round((tmp[0] + pi / 2) * self.RAD2GRAD)
-            step = round(tmp[1] * self.RAD2GRAD)
+            bearing = tmp[0]
+            step = tmp[1]
             range_scale = tmp[2]
             length = tmp[3]  # TODO one variable to much, which is needed?
             dbytes = tmp[3]  # TODO one variable to much, which is needed?
@@ -63,7 +63,7 @@ class MoosLogger:
 
 
 if __name__ == '__main__':
-    logger = MoosLogger('log.csv')
+    logger = MoosLogger('log_still.csv')
     logger.run()
     while not select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
         sleep(0.005)

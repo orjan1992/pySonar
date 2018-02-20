@@ -26,15 +26,12 @@ class MoosLoggerRepeater:
     def run(self, host='localhost', port=9000, name='logger'):
         self.comms.run(host, port, name)
         first_row = True
-        counter = 0
         for row in self.reader:
             time = timedelta(seconds=float(row['time']))
             if first_row:
                 self.now = datetime.now()
                 self.first_time = time
                 first_row = False
-            counter += 1
-            print(counter)
             while datetime.now() < self.now + time - self.first_time:
                 sleep(0.000001)
             if row['type'] == 'binary':

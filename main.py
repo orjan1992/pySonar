@@ -160,6 +160,7 @@ class MainWidget(QtGui.QWidget):
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
             if Settings.input_source == 0:
+                # TODO: fix this
                 msg = MoosPosMsg()
             else:
                 msg = self.moos_msg_client.cur_pos_msg
