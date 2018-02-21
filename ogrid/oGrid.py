@@ -311,6 +311,19 @@ class OGrid(object):
         # return cv2.cvtColor(tmp, cv2.COLOR_BGR2RGB)
         return thr
 
+    def adaptive_threshold(self, threshold):
+        hist = np.histogram(self.o_log.astype(np.uint8).ravel(), 256)[0][1:]
+        grad = np.gradient(hist)
+        i = np.argmax(np.abs(grad) < threshold)
+        print(i)
+        thresh = cv2.threshold(self.o_log.astype(np.uint8), i, 255, cv2.THRESH_BINARY)[1]
+        # return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8),
+        #                                self.blob_detector.detect(thresh),
+        #                                np.array([]), (0, 0, 255),
+        #                                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
+        #              cv2.COLOR_BGR2RGB)
+        return thresh
+
 
     def rot(self, dspi):
 
