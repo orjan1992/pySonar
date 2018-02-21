@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 class Settings:
     # 0 == udp, 1 == MOOS
@@ -17,6 +18,10 @@ class GridSettings:
         binary_threshold = 0.78
         binary_grid = False
 
+class FeatureExtraction:
+    kernel = np.ones((5,5), dtype=np.uint8)
+    iterations = 1
+    min_area = 20
 
 class ConnectionSettings:
         sonar_port = 5555

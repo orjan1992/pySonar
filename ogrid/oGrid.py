@@ -2,7 +2,7 @@ import numpy as np
 import math
 import logging
 import cv2
-from settings import BlobDetectorSettings
+from settings import BlobDetectorSettings, FeatureExtraction
 import threading
 
 logger = logging.getLogger('OGrid')
@@ -322,7 +322,13 @@ class OGrid(object):
         #                                np.array([]), (0, 0, 255),
         #                                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
         #              cv2.COLOR_BGR2RGB)
-        return thresh
+        im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # TODO: Find all countours with small area and remove them
+        # for contour in contours:
+        #     if cv2.contourArea(contour) < FeatureExtraction.min_area:
+        #         contours.remove(contour)
+        im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
+        return im3
 
 
     def rot(self, dspi):
