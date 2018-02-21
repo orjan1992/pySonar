@@ -1,5 +1,5 @@
 import cv2
-
+import cv2.python
 
 class Settings:
     # 0 == udp, 1 == MOOS
