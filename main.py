@@ -87,9 +87,40 @@ class MainWidget(QtGui.QWidget):
         if not self.binary_plot_on:
             self.binary_plot_button.text = "Set Binary mode"
 
-        # Clear grid
+        # Clear grid button
         self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
         self.clear_grid_button.clicked.connect(self.clear_grid)
+
+        # Adding map
+        if Settings.collision_avoidance and Settings.show_map:
+            if Settings.input_source == 1:
+                self.map_scene = QtWidgets.QGraphicsScene()
+                # self.map_scene.setSceneRect(-15, -15, 30, 30)
+                pen = QtGui.QPen(QtGui.QColor(0, 0, 0, 255))  # set lineColor
+                pen.setWidth(0)  # set lineWidth
+                brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 255))
+
+                self.map_scene.addEllipse(108.0412, -133.7201, 10, 10, pen, brush)
+                self.map_scene.addEllipse(-53.5571, -60.9444, 24.88, 10, pen, brush)
+                self.map_scene.addEllipse(-214.7458, 37.2886, 10, 80, pen, brush)
+
+                self.map_scene.addRect(101.6381, 31.0354, 30, 30, pen, brush)
+
+                self.map_scene.addRect(-2.0295, 120.6624, 10, 10, pen, brush)
+                self.map_scene.addRect(311.4198, 120.6624, 10, 100, pen, brush)
+                self.map_scene.addRect(59.9079, 406.9405, 200, 10, pen, brush)
+                self.map_scene.addRect(-2.0295, -211.9193, 100, 10, pen, brush)
+
+                self.map_pos_pen = QtGui.QPen(QtGui.QColor(255, 0, 0, 255))
+                self.map_pos_ellipse = QtWidgets.QGraphicsEllipseItem(0, 0, 10, 10)
+                self.map_pos_ellipse.setPen(self.map_pos_pen)
+                self.map_scene.addItem(self.map_pos_ellipse)
+
+                self.map_waypoint_objects = []
+                self.map_waypoint_pen = QtGui.QPen(QtGui.QColor(0, 255, 0, 255))
+
+                self.map_view = QtWidgets.QGraphicsView()
+                self.map_view.setScene(self.map_scene)
 
         # Adding items
         left_layout.addWidget(self.threshold_box)
@@ -101,6 +132,8 @@ class MainWidget(QtGui.QWidget):
 
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
+        if Settings.collision_avoidance and Settings.show_map:
+            main_layout.addWidget(self.map_view)
         self.setLayout(main_layout)
 
         if Settings.hist_window:
@@ -178,6 +211,43 @@ class MainWidget(QtGui.QWidget):
 
             if Settings.collision_avoidance:
                 self.collision_avoidance.update_pos(msg.lat, msg.long, msg.psi)
+                try:
+                    if Settings.show_map:
+                        # Draw pos
+                        self.map_scene.removeItem(self.map_pos_ellipse)
+                        self.map_pos_ellipse = QtWidgets.QGraphicsEllipseItem(msg.long*10 - 5, -msg.lat*10 - 5, 10, 10)
+                        self.map_pos_ellipse.setPen(self.map_pos_pen)
+                        self.map_scene.addItem(self.map_pos_ellipse)
+
+                        # remove old waypoints
+                        for obj in self.map_waypoint_objects:
+                            self.map_scene.removeItem(obj)
+                        self.map_waypoint_objects.clear()
+
+                        # draw new
+                        waypoints = self.collision_avoidance.waypoint_list
+
+                        p = QtWidgets.QGraphicsEllipseItem(waypoints[0][1] * 10 - 5, -waypoints[0][0] * 10 - 5, 10, 10)
+                        p.setPen(self.map_waypoint_pen)
+                        self.map_scene.addItem(p)
+                        self.map_waypoint_objects.append(p)
+
+                        for i in range(1, len(waypoints)):
+                            p = QtWidgets.QGraphicsEllipseItem(waypoints[i][1]*10 - 5, -waypoints[i][0]*10 - 5, 10, 10)
+                            p.setPen(self.map_waypoint_pen)
+                            self.map_scene.addItem(p)
+                            self.map_waypoint_objects.append(p)
+
+                            l = QtWidgets.QGraphicsLineItem(waypoints[i][1]*10,
+                                                            -waypoints[i][0]*10,
+                                                            waypoints[i - 1][1]*10,
+                                                            -waypoints[i - 1][0]*10)
+                            l.setPen(self.map_waypoint_pen)
+                            self.map_scene.addItem(l)
+                            self.map_waypoint_objects.append(l)
+
+                except Exception as e:
+                    print(e)
 
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
@@ -215,6 +285,8 @@ class MainWidget(QtGui.QWidget):
                 self.histogram.setOpts(x=np.arange(255), y1=hist[1:], height=1000)
                 self.hist_window.setYRange(max=1000, min=0)
 
+            if Settings.collision_avoidance and Settings.show_map:
+                self.map_view.repaint()
             self.plot_updated = False
 
     def collision_avoidance_loop(self):

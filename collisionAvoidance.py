@@ -16,4 +16,5 @@ class CollisionAvoidance:
     def callback(self, waypoints_list, waypoint_counter):
         self.waypoint_counter = waypoint_counter
         self.waypoint_list = waypoints_list
-        print('Counter: {}\nWaypoints: {}\n'.format(self.waypoint_counter, str(self.waypoint_list)))
+        # print('Counter: {}\nWaypoints: {}\n'.format(self.waypoint_counter, str(self.waypoint_list)))
+        # TODO: Calculate new waypoints and send them back

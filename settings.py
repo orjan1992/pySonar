@@ -11,7 +11,9 @@ class Settings:
     pos_update = 1000.0/60.0
     hist_window = False
     collision_avoidance = True
+    show_map = True
     collision_avoidance_interval = 1000.0/5.0
+
 
 
 class GridSettings:
