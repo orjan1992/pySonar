@@ -12,6 +12,7 @@ from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
+from collisionAvoidance import CollisionAvoidance
 
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -133,9 +134,17 @@ class MainWidget(QtGui.QWidget):
         else:
             self.timer.start(1000.0/24.0)
 
+        if Settings.collision_avoidance:
+            self.collision_avoidance = CollisionAvoidance()
+            if Settings.input_source == 1:
+                self.moos_msg_client.set_waypoints_callback(self.collision_avoidance.callback)
+            else:
+                raise NotImplemented()
+            self.collision_avoidance_timer = QtCore.QTimer()
+            self.collision_avoidance_timer.timeout.connect(self.collision_avoidance_loop)
+            self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
+
         self.pos_update_timer.start(Settings.pos_update)
-
-
 
     def init_grid(self):
         self.grid = OGrid(GridSettings.half_grid,
@@ -166,6 +175,10 @@ class MainWidget(QtGui.QWidget):
                 msg = self.moos_msg_client.cur_pos_msg
             if self.last_pos_msg is None:
                 self.last_pos_msg = deepcopy(msg)
+
+            if Settings.collision_avoidance:
+                self.collision_avoidance.update_pos(msg.lat, msg.long, msg.psi)
+
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
             trans = self.grid.trans(diff.dx, diff.dy)
@@ -203,6 +216,12 @@ class MainWidget(QtGui.QWidget):
                 self.hist_window.setYRange(max=1000, min=0)
 
             self.plot_updated = False
+
+    def collision_avoidance_loop(self):
+        if Settings.input_source == 1:
+            self.moos_msg_client.send_msg('get_waypoints', 0)
+        else:
+            raise NotImplemented()
 
     def binary_button_click(self):
         if self.binary_plot_on:
