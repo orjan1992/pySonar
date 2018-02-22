@@ -10,16 +10,20 @@ if __name__ == '__main__':
     hist = hist[1:]
     grad = np.gradient(hist)
     i = np.argmax(np.abs(grad) < 20)
-    print(i)
-    print(hist[i])
     _, thresh = cv2.threshold(im, i, 255, cv2.THRESH_TOZERO)
-    plt.imshow(thresh)
-    plt.show()
 
-    # plt.subplot(121)
-    # plt.plot(range(255), grad)
-    # plt.ylim((-10000, 10000))
-    # plt.subplot(122)
-    # plt.plot(range(255), hist)
-    # plt.ylim((0, 25000))
-    # plt.show()
+    im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    new_contours = list()
+    for contour in contours:
+        if cv2.contourArea(contour) > 50:
+            new_contours.append(contour)
+    print('length countour: {}'.format(len(new_contours)))
+    im2 = cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
+    im3 = cv2.dilate(im2, np.ones((11, 11), dtype=np.uint8), iterations=1)
+    im4, contours, hierarchy = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        ellipse = cv2.fitEllipse(contour)
+        im = cv2.ellipse(im, ellipse, (255, 0, 0), 1)
+
+    cv2.imshow('test', im)
+    cv2.waitKey()

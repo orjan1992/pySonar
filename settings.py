@@ -19,7 +19,7 @@ class GridSettings:
         binary_grid = False
 
 class FeatureExtraction:
-    kernel = np.ones((5,5), dtype=np.uint8)
+    kernel = np.ones((11, 11), dtype=np.uint8)
     iterations = 1
     min_area = 20
 

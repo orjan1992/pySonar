@@ -312,23 +312,45 @@ class OGrid(object):
         return thr
 
     def adaptive_threshold(self, threshold):
+        # Finding histogram, calculating gradient
         hist = np.histogram(self.o_log.astype(np.uint8).ravel(), 256)[0][1:]
         grad = np.gradient(hist)
         i = np.argmax(np.abs(grad) < threshold)
-        print(i)
+
+        # threshold based on gradient
         thresh = cv2.threshold(self.o_log.astype(np.uint8), i, 255, cv2.THRESH_BINARY)[1]
-        # return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8),
-        #                                self.blob_detector.detect(thresh),
-        #                                np.array([]), (0, 0, 255),
-        #                                cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
-        #              cv2.COLOR_BGR2RGB)
-        im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        # TODO: Find all countours with small area and remove them
-        # for contour in contours:
-        #     if cv2.contourArea(contour) < FeatureExtraction.min_area:
-        #         contours.remove(contour)
+        _, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        # Removing small contours
+        new_contours = list()
+        for contour in contours:
+            if cv2.contourArea(contour) > FeatureExtraction.min_area:
+                new_contours.append(contour)
+        im2 = cv2.drawContours(np.zeros(np.shape(self.o_log), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
+
+        # dilating to join close contours
         im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
-        return im3
+        _, contours, _ = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        im = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
+        ellipses = list()
+        for contour in contours:
+            if len(contour) > 4:
+                try:
+                    ellipse = cv2.fitEllipse(contour)
+                    im = cv2.ellipse(im, ellipse, (255, 0, 0), 2)
+                    ellipses.append(ellipse)
+                except Exception as e:
+                    logger.error('{}Contour: {}\n'.format(e, contour))
+            else:
+                try:
+                    rect = cv2.minAreaRect(contour)
+                    box = np.int32(cv2.boxPoints(rect))
+                    im = cv2.drawContours(im, [box], 0, (255, 0, 0), 2)
+                    # ellipses.append(rect)
+                except Exception as e:
+                    logger.error('{}Contour: {}\nRect: {}\nBox: {}\n'.format(e, contour, rect, box))
+
+        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
 
     def rot(self, dspi):
