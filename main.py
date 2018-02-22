@@ -95,29 +95,32 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance and Settings.show_map:
             if Settings.input_source == 1:
                 self.map_scene = QtWidgets.QGraphicsScene()
-                # self.map_scene.setSceneRect(-15, -15, 30, 30)
-                pen = QtGui.QPen(QtGui.QColor(0, 0, 0, 255))  # set lineColor
-                pen.setWidth(0)  # set lineWidth
-                brush = QtGui.QBrush(QtGui.QColor(0, 0, 0, 255))
 
-                self.map_scene.addEllipse(108.0412, -133.7201, 10, 10, pen, brush)
-                self.map_scene.addEllipse(-53.5571, -60.9444, 24.88, 10, pen, brush)
-                self.map_scene.addEllipse(-214.7458, 37.2886, 10, 80, pen, brush)
+                self.map_scene.addEllipse(108.0412 - 5, -133.7201 - 5, 10, 10,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+                self.map_scene.addEllipse(-53.5571 - 24.88/2, -60.9444 - 5, 24.88, 10,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+                self.map_scene.addEllipse(-214.7458 - 5, 37.2886 - 40, 10, 80,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
-                self.map_scene.addRect(101.6381, 31.0354, 30, 30, pen, brush)
+                self.map_scene.addRect(101.6381 - 7.5, 31.0354 - 13.3/2, 15, 13.3,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
-                self.map_scene.addRect(-2.0295, 120.6624, 10, 10, pen, brush)
-                self.map_scene.addRect(311.4198, 120.6624, 10, 100, pen, brush)
-                self.map_scene.addRect(59.9079, 406.9405, 200, 10, pen, brush)
-                self.map_scene.addRect(-2.0295, -211.9193, 100, 10, pen, brush)
+                self.map_scene.addRect(-2.0295 - 5, 120.6624 - 5, 10, 10,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+                self.map_scene.addRect(311.4198 - 5, 120.6624 - 50, 10, 100,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+                self.map_scene.addRect(59.9079 - 100, 406.9405 - 5, 200, 10,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+                self.map_scene.addRect(-2.0295 - 50, -211.9193 - 5, 100, 10,
+                                          MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
-                self.map_pos_pen = QtGui.QPen(QtGui.QColor(255, 0, 0, 255))
-                self.map_pos_ellipse = QtWidgets.QGraphicsEllipseItem(0, 0, 10, 10)
-                self.map_pos_ellipse.setPen(self.map_pos_pen)
+                self.map_pos_ellipse = QtWidgets.QGraphicsEllipseItem(0, 0, MapSettings.vehicle_size,
+                                                                      MapSettings.vehicle_size)
+                self.map_pos_ellipse.setPen(MapSettings.vehicle_pen)
                 self.map_scene.addItem(self.map_pos_ellipse)
 
                 self.map_waypoint_objects = []
-                self.map_waypoint_pen = QtGui.QPen(QtGui.QColor(0, 255, 0, 255))
 
                 self.map_view = QtWidgets.QGraphicsView()
                 self.map_view.setScene(self.map_scene)
@@ -215,8 +218,12 @@ class MainWidget(QtGui.QWidget):
                     if Settings.show_map:
                         # Draw pos
                         self.map_scene.removeItem(self.map_pos_ellipse)
-                        self.map_pos_ellipse = QtWidgets.QGraphicsEllipseItem(msg.long*10 - 5, -msg.lat*10 - 5, 10, 10)
-                        self.map_pos_ellipse.setPen(self.map_pos_pen)
+                        self.map_pos_ellipse = \
+                            QtWidgets.QGraphicsEllipseItem(msg.long*10 - MapSettings.vehicle_size / 2,
+                                                           -msg.lat*10 - MapSettings.vehicle_size / 2,
+                                                           MapSettings.vehicle_size, MapSettings.vehicle_size)
+                        self.map_pos_ellipse.setPen(MapSettings.vehicle_pen)
+                        self.map_pos_ellipse.setBrush(MapSettings.vehicle_brush)
                         self.map_scene.addItem(self.map_pos_ellipse)
 
                         # remove old waypoints
@@ -227,14 +234,26 @@ class MainWidget(QtGui.QWidget):
                         # draw new
                         waypoints = self.collision_avoidance.waypoint_list
 
-                        p = QtWidgets.QGraphicsEllipseItem(waypoints[0][1] * 10 - 5, -waypoints[0][0] * 10 - 5, 10, 10)
-                        p.setPen(self.map_waypoint_pen)
+                        p = QtWidgets.QGraphicsEllipseItem(waypoints[0][1] * 10 - MapSettings.waypoint_size / 2,
+                                                           -waypoints[0][0] * 10 - MapSettings.waypoint_size / 2,
+                                                           MapSettings.waypoint_size,
+                                                           MapSettings.waypoint_size)
+                        if self.collision_avoidance.waypoint_counter == 1:
+                            p.setPen(MapSettings.waypoint_active_pen)
+                        else:
+                            p.setPen(MapSettings.waypoint_inactive_pen)
                         self.map_scene.addItem(p)
                         self.map_waypoint_objects.append(p)
 
                         for i in range(1, len(waypoints)):
-                            p = QtWidgets.QGraphicsEllipseItem(waypoints[i][1]*10 - 5, -waypoints[i][0]*10 - 5, 10, 10)
-                            p.setPen(self.map_waypoint_pen)
+                            p = QtWidgets.QGraphicsEllipseItem(waypoints[i][1]*10 - MapSettings.waypoint_size / 2,
+                                                               -waypoints[i][0]*10 - MapSettings.waypoint_size / 2,
+                                                               MapSettings.waypoint_size,
+                                                               MapSettings.waypoint_size)
+                            if self.collision_avoidance.waypoint_counter == i or self.collision_avoidance.waypoint_counter == i + 1:
+                                p.setPen(MapSettings.waypoint_active_pen)
+                            else:
+                                p.setPen(MapSettings.waypoint_inactive_pen)
                             self.map_scene.addItem(p)
                             self.map_waypoint_objects.append(p)
 
@@ -242,7 +261,10 @@ class MainWidget(QtGui.QWidget):
                                                             -waypoints[i][0]*10,
                                                             waypoints[i - 1][1]*10,
                                                             -waypoints[i - 1][0]*10)
-                            l.setPen(self.map_waypoint_pen)
+                            if self.collision_avoidance.waypoint_counter == i:
+                                l.setPen(MapSettings.waypoint_active_pen)
+                            else:
+                                l.setPen(MapSettings.waypoint_inactive_pen)
                             self.map_scene.addItem(l)
                             self.map_waypoint_objects.append(l)
 

@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from PyQt5.QtGui import QColor, QBrush, QPen
 
 class Settings:
     # 0 == udp, 1 == MOOS
@@ -15,6 +16,21 @@ class Settings:
     collision_avoidance_interval = 1000.0/5.0
 
 
+class MapSettings:
+    waypoint_size = 10.0
+    waypoint_active_color = QColor(0, 255, 0, 255)
+    waypoint_active_pen = QPen(waypoint_active_color)
+    waypoint_inactive_color = QColor(255, 102, 0, 255)
+    waypoint_inactive_pen = QPen(waypoint_inactive_color)
+
+    vehicle_size = 5.0
+    vehicle_color = QColor(255, 0, 0, 255)
+    vehicle_pen = QPen(vehicle_color)
+    vehicle_brush = QBrush(vehicle_color)
+
+    obstacle_color = QColor(0, 0, 0, 255)
+    obstacle_pen = QPen(obstacle_color)
+    obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
         half_grid = True
