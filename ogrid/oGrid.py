@@ -247,70 +247,6 @@ class OGrid(object):
         
         logger.info('Grid cleared')
 
-
-    def get_obstacles_fast(self, threshold):
-        self.fast_detector.setThreshold(threshold)
-        return cv2.cvtColor(cv2.drawKeypoints(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),
-                                              self.fast_detector.detect(self.o_log.astype(np.uint8)),
-                                              np.array([]), (255, 0, 0),
-                                              cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
-                            cv2.COLOR_BGR2RGB)
-
-
-    def get_obstacles_blob(self, threshold):
-        ret, thresh = cv2.threshold(self.o_log.astype(np.uint8), threshold, 255, cv2.THRESH_BINARY)
-        return cv2.cvtColor(cv2.drawKeypoints(self.o_log.astype(np.uint8),
-                                              self.blob_detector.detect(thresh),
-                                              np.array([]), (0, 0, 255),
-                                              cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS),
-                            cv2.COLOR_BGR2RGB)
-
-    def get_obstacles_fast_separation(self, lim):
-        keypoints = self.fast_detector.detect(self.o_log.astype(np.uint8))
-        if len(keypoints) > 1:
-            L = len(keypoints)
-            x = np.zeros(L)
-            y = np.zeros(L)
-            counter = 0
-            map = np.zeros(L, dtype=np.uint8)
-            for i in range(0, L):
-                x[i] = keypoints[i].pt[1]
-                y[i] = keypoints[i].pt[0]
-            for i in range(0, L):
-                x2 = np.power((x[i] - x), 2)
-                y2 = np.power((y[i] - y), 2)
-                r = np.sqrt(x2 + y2) < lim
-                if map[i] != 0:
-                    map[r] = map[i]
-                else:
-                    counter += 1
-                    map[r] = counter
-
-            labels = [[] for i in range(np.argmax(map))]
-
-            for i in range(0, L):
-                labels[map[i]].append(keypoints[i])
-
-            im_with_keypoints = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
-            for keypoints in labels:
-                if len(keypoints) > 1:
-                    R = np.random.randint(0, 255)
-                    G = np.random.randint(0, 255)
-                    B = np.random.randint(0, 255)
-                    im_with_keypoints = cv2.drawKeypoints(im_with_keypoints, keypoints, np.array([]), (R, G, B),
-                                                          cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
-            return cv2.cvtColor(im_with_keypoints,cv2.COLOR_BGR2RGB)
-        else:
-            return cv2.cvtColor(cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT),cv2.COLOR_BGR2RGB)
-
-    def get_obstacles_otsu(self):
-        tmp = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
-        ret, thr = cv2.threshold(self.o_log.astype(np.uint8), 0, 255, cv2.THRESH_OTSU)
-        im2, contours, hierarchy = cv2.findContours(thr, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(tmp, contours, -1, (0, 255, 0), 3)
-        # return cv2.cvtColor(tmp, cv2.COLOR_BGR2RGB)
-        return thr
-
     def adaptive_threshold(self, threshold):
         # Finding histogram, calculating gradient
         hist = np.histogram(self.o_log.astype(np.uint8).ravel(), 256)[0][1:]
@@ -452,30 +388,3 @@ class OGrid(object):
                 return False
         # self.o_log = new_grid
         return True
-
-
-if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    from messages.moosSonarMsg import *
-    grid = OGrid(True, 0)
-    grid.range_scale = 10
-    grid.o_log = np.load('test.npz')['olog']
-    grid.o_log[grid.o_log == grid.o_zero] = 0
-    plt.subplot(211)
-    plt.imshow(grid.o_log, vmin=0, vmax=255)
-
-    with np.load('dxdy.npz') as data:
-        dx = data['dx']
-        dy = data['dy']
-
-    grid.trans(dx, dy)
-
-    plt.subplot(212)
-    plt.imshow(grid.o_log, vmin=0, vmax=255)
-    plt.show()
-
-    # a = np.intersect1d(grid.map[2000, :, :], grid.map[2010, :, :])
-    # print(len(a))
-    # grid.o_log.flat[a] = 1
-    # plt.imshow(grid.o_log)
-    # plt.show()
