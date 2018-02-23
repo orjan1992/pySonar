@@ -12,13 +12,12 @@ class MapWidget(QWidget):
     def __init__(self, parent=None):
         QWidget.__init__(self, parent)
         self.scene = QGraphicsScene()
-        self.view = QGraphicsView()
+        self.view = MyQGraphicsView()
         self.init_map()
         main_layout = QHBoxLayout()
         main_layout.addWidget(self.view)
         self.setLayout(main_layout)
 
-        
     def init_map(self):
         if MapSettings.display_grid:
             xmin = -310
@@ -122,3 +121,34 @@ class MapWidget(QWidget):
                 # TODO: Paint obstacles
             except Exception as e:
                 print('Add waypoints: {}'.format(e))
+
+
+class MyQGraphicsView(QGraphicsView):
+
+    def __init__(self, parent=None):
+        super(MyQGraphicsView, self).__init__ (parent)
+        self.setDragMode(1)
+
+    def wheelEvent(self, event):
+        """
+        Zoom in or out of the view.
+        """
+        zoom_in_factor = 1.25
+        zoom_out_factor = 1 / zoom_in_factor
+
+        # Save the scene pos
+        old_pos = self.mapToScene(event.pos())
+
+        # Zoom
+        if event.angleDelta().y() > 0:
+            zoom_factor = zoom_in_factor
+        else:
+            zoom_factor = zoom_out_factor
+        self.scale(zoom_factor, zoom_factor)
+
+        # Get the new position
+        new_pos = self.mapToScene(event.pos())
+
+        # Move scene to old position
+        delta = new_pos - old_pos
+        self.translate(delta.x(), delta.y())
