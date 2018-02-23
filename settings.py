@@ -17,19 +17,28 @@ class Settings:
 
 
 class MapSettings:
+    display_grid = True
+    grid_dist = 10
+    grid_pen = QPen(QColor(198, 198, 236))
+    grid_center_pen = QPen(QColor(255, 0, 0))
+
+
     waypoint_size = 10.0
     waypoint_active_color = QColor(0, 255, 0, 255)
     waypoint_active_pen = QPen(waypoint_active_color)
     waypoint_inactive_color = QColor(255, 102, 0, 255)
     waypoint_inactive_pen = QPen(waypoint_inactive_color)
 
-    vehicle_size = 5.0
+    vehicle_size = 10.0
+    vehicle_form_factor = 0.4
     vehicle_color = QColor(255, 0, 0, 255)
     vehicle_pen = QPen(vehicle_color)
+    vehicle_pen.setWidth(2)
     vehicle_brush = QBrush(vehicle_color)
 
     obstacle_color = QColor(0, 0, 0, 255)
     obstacle_pen = QPen(obstacle_color)
+    obstacle_pen.setWidth(2)
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:

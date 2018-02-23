@@ -1,9 +1,11 @@
 class CollisionAvoidance:
 
-    def __init__(self):
+    def __init__(self, msg_client):
         self.lat = self.long = self.psi = 0.0
         self.waypoint_counter = 0
         self.waypoint_list = []
+        self.msg_client = msg_client
+        # self.msg_client.send_msg('waypoints', str(InitialWaypoints.waypoints))
 
     def update_pos(self, lat=None, long=None, psi=None):
         if lat is not None:

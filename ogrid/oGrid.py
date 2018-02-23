@@ -286,7 +286,7 @@ class OGrid(object):
                 except Exception as e:
                     logger.error('{}Contour: {}\nRect: {}\nBox: {}\n'.format(e, contour, rect, box))
 
-        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), ellipses
 
 
     def rot(self, dspi):
