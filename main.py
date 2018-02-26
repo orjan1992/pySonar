@@ -52,7 +52,6 @@ class MainWidget(QtGui.QWidget):
         main_layout = QtGui.QHBoxLayout()  # Main layout
         left_layout = QtGui.QVBoxLayout()
         right_layout = QtGui.QGridLayout()
-        bottom_right_layout = QtGui.QGridLayout()
 
         graphics_view = pg.GraphicsLayoutWidget()  # layout for holding graphics object
         self.plot_window = pg.PlotItem()
@@ -97,14 +96,14 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
-        right_layout.addWidget(graphics_view, 0, 0, 1, 1)
-        right_layout.addLayout(bottom_right_layout, 3, 0, 1, 1)
+        right_layout.addWidget(graphics_view, 0, 0, 1, 2)
 
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
         if Settings.collision_avoidance and Settings.show_map:
             self.map_widget = map.MapWidget()
-            main_layout.addWidget(self.map_widget)
+            self.map_widget.setMaximumSize(800, 10**6)
+            right_layout.addWidget(self.map_widget, 0, 2, 1, 1)
         self.setLayout(main_layout)
 
         if Settings.hist_window:
@@ -186,7 +185,7 @@ class MainWidget(QtGui.QWidget):
             if Settings.collision_avoidance:
                 self.collision_avoidance.update_pos(msg.lat, msg.long, msg.psi)
                 if Settings.show_map:
-                    self.map_widget.update_pos(msg.lat, msg.long, msg.psi)
+                    self.map_widget.update_pos(msg.lat, msg.long, msg.psi, self.grid.range_scale)
                     self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
                                                      self.collision_avoidance.waypoint_counter)
 
@@ -209,7 +208,10 @@ class MainWidget(QtGui.QWidget):
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0), autoLevels=False)
             elif Settings.plot_type == 2:
-                im, self.map_obstacle_list = self.grid.adaptive_threshold(self.threshold_box.value())
+                im, obstacles = self.grid.adaptive_threshold(self.threshold_box.value())
+                if Settings.show_map:
+                    self.map_widget.update_obstacles(obstacles, self.grid.range_scale, self.last_pos_msg.lat,
+                                                     self.last_pos_msg.long, self.last_pos_msg.psi)
                 self.img_item.setImage(im)
             else:
                 raise Exception('Invalid plot type')

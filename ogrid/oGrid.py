@@ -269,6 +269,7 @@ class OGrid(object):
         _, contours, _ = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         im = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
         ellipses = list()
+        # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
         for contour in contours:
             if len(contour) > 4:
                 try:

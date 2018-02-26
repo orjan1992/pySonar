@@ -22,6 +22,7 @@ class MapSettings:
     grid_pen = QPen(QColor(198, 198, 236))
     grid_center_pen = QPen(QColor(255, 0, 0))
 
+    sonar_obstacle_pen = QPen(QColor(0, 0, 255))
 
     waypoint_size = 10.0
     waypoint_active_color = QColor(0, 255, 0, 255)
@@ -35,6 +36,8 @@ class MapSettings:
     vehicle_pen = QPen(vehicle_color)
     vehicle_pen.setWidth(2)
     vehicle_brush = QBrush(vehicle_color)
+
+    sonar_circle_brush = QBrush(QColor(68, 198, 250, 50))
 
     obstacle_color = QColor(0, 0, 0, 255)
     obstacle_pen = QPen(obstacle_color)

@@ -2,7 +2,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from settings import MapSettings
-from math import pi
+import math
 
 class MapWidget(QWidget):
     pos_ellipse = None
@@ -20,10 +20,10 @@ class MapWidget(QWidget):
 
     def init_map(self):
         if MapSettings.display_grid:
-            xmin = -310
-            xmax = 420
-            ymin = -200
-            ymax = 400
+            xmin = -3100
+            xmax = 4200
+            ymin = -2000
+            ymax = 4000
             for i in range(xmin, xmax, MapSettings.grid_dist):
                 self.scene.addLine(i, ymin, i, ymax, MapSettings.grid_pen)
             for i in range(ymin, ymax, MapSettings.grid_dist):
@@ -57,9 +57,16 @@ class MapWidget(QWidget):
         self.pos_ellipse.setPen(MapSettings.vehicle_pen)
         self.scene.addItem(self.pos_ellipse)
 
-        self.view.setScene(self.scene)
+        self.sonar_circle = QGraphicsEllipseItem(0, 0, MapSettings.vehicle_size,
+                                                MapSettings.vehicle_size)
+        self.sonar_circle.setPen(MapSettings.vehicle_pen)
+        self.scene.addItem(self.sonar_circle)
 
-    def update_pos(self, lat, long, psi):
+        self.view.setScene(self.scene)
+        self.view.scale(1.4, 1.4)
+        self.view.centerOn(0, 0)
+
+    def update_pos(self, lat, long, psi, range):
         # Draw pos
         self.scene.removeItem(self.pos_ellipse)
         self.pos_ellipse = \
@@ -69,10 +76,20 @@ class MapWidget(QWidget):
                                            MapSettings.vehicle_size*MapSettings.vehicle_form_factor,
                                         MapSettings.vehicle_size)
         self.pos_ellipse.setTransformOriginPoint(long*10, -lat*10)
-        self.pos_ellipse.setRotation(psi*180.0/pi)
+        self.pos_ellipse.setRotation(psi*180.0/math.pi)
         self.pos_ellipse.setPen(MapSettings.vehicle_pen)
         self.pos_ellipse.setBrush(MapSettings.vehicle_brush)
         self.scene.addItem(self.pos_ellipse)
+
+        # draw sonar circle
+        self.scene.removeItem(self.sonar_circle)
+        self.sonar_circle = QGraphicsEllipseItem(long*10 - range*10, -lat*10 - range*10, 2*range*10, 2*range*10)
+        self.sonar_circle.setTransformOriginPoint(long*10, -lat*10)
+        self.sonar_circle.setRotation(psi*180.0/math.pi)
+        self.sonar_circle.setSpanAngle(180*16)
+        self.sonar_circle.setBrush(MapSettings.sonar_circle_brush)
+        self.scene.addItem(self.sonar_circle)
+
         
     def update_waypoints(self, waypoints, waypoint_counter):
         try:
@@ -118,9 +135,35 @@ class MapWidget(QWidget):
                         l.setPen(MapSettings.waypoint_inactive_pen)
                     self.scene.addItem(l)
                     self.waypoint_objects.append(l)
-                # TODO: Paint obstacles
             except Exception as e:
                 print('Add waypoints: {}'.format(e))
+
+    def update_obstacles(self, obstacles, range, lat, long, psi):
+        for ellipse in self.obstacle_list:
+            self.scene.removeItem(ellipse)
+        self.obstacle_list.clear()
+
+        for obs in obstacles:
+            x, y, r1, r2 = self.sonar_coord2scene(obs, range, lat, long, psi)
+            ellipse = QGraphicsEllipseItem(x, y, r1, r2)
+            ellipse.setPen(MapSettings.sonar_obstacle_pen)
+            ellipse.setTransformOriginPoint(x + r1/2, y + r2/2)
+            ellipse.setRotation(psi*180.0/math.pi + obs[2])
+            self.scene.addItem(ellipse)
+            self.obstacle_list.append(ellipse)
+
+    @staticmethod
+    def sonar_coord2scene(obs, range_scale, lat, long, psi):
+        x_obs = (obs[0][0] - 800) * range_scale / 800
+        y_obs = (800 - obs[0][1]) * range_scale / 800
+        alpha = math.atan2(x_obs, y_obs) + psi
+        r1 = obs[1][0] * range_scale / 800
+        r2 = obs[1][1] * range_scale / 800
+        r = math.sqrt(x_obs**2 + y_obs**2)
+        x_scene = long + r*math.sin(alpha) - r1/2
+        y_scene = -lat - r*math.cos(alpha) - r2/2
+        return x_scene*10, y_scene*10, r1*10, r2*10
+
 
 
 class MyQGraphicsView(QGraphicsView):
