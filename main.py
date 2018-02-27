@@ -1,9 +1,5 @@
-import logging
-
-import numpy as np
 import pyqtgraph as pg
-from PyQt5 import QtCore, QtGui, QtWidgets
-from blinker import signal
+from PyQt5 import QtCore, QtGui
 import threading
 from copy import deepcopy
 
@@ -12,7 +8,7 @@ from ogrid.oGrid import OGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
-from collisionAvoidance import CollisionAvoidance
+from collision_avoidance.collisionAvoidance import CollisionAvoidance
 import map
 
 LOG_FILENAME = 'main.out'
