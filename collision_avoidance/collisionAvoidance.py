@@ -53,66 +53,93 @@ if __name__ == '__main__':
     # dilating to join close contours
     im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
     _, contours, _ = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    im = cv2.applyColorMap(im, cv2.COLORMAP_HOT)
-    ellipses = list()
-    # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
-    for contour in contours:
-        if len(contour) > 4:
-            ellipse = cv2.fitEllipse(contour)
-            im = cv2.ellipse(im, ellipse, (255, 0, 0), 2)
-            ellipses.append(ellipse)
-        else:
-            rect = cv2.minAreaRect(contour)
-            box = np.int32(cv2.boxPoints(rect))
-            im = cv2.drawContours(im, [box], 0, (255, 0, 0), 2)
-            # ellipses.append(rect)
 
-    import time
-    start = time.time()
+    new_im = np.zeros((np.shape(im)[0], np.shape(im)[1], 3), dtype=np.uint8)
     #################
     ### Prepare Voronoi
     #################
 
     points = []
-    vor = np.zeros(np.shape(im), dtype=np.uint8)
     for contour in contours:
         for i in range(np.shape(contour)[0]):
             points.append((contour[i, 0][0], contour[i, 0][1]))
-            # draw points
-            cv2.circle(vor, (contour[i, 0][0], contour[i, 0][1]), 1, (0, 0, 255), 2)
+
 
     # add start and end wp
     WP0 = (800, 801)
     WP_end = (1300, 0)
     points.append(WP0)
     points.append(WP_end)
-    vp = Voronoi(points)
-    vp.process()
-    print(time.time() - start)
+
+    import scipy.spatial as sp
+    import matplotlib.pyplot as plt
+
+    vp = sp.Voronoi(np.array(points))
+
+    # connect WP0 and WP_end
+    region0 = vp.point_region[-2]
+    region_end = vp.point_region[-1]
+    for vertice in vp.regions[region0]:
+        p2x = int(vp.vertices[vertice][0])
+        p2y = int(vp.vertices[vertice][1])
+        if p2x >= 0 and p2y >= 0:
+            cv2.line(new_im, WP0, (p2x, p2y), (0, 255, 0), 1)
+    for vertice in vp.regions[region_end]:
+        p2x = int(vp.vertices[vertice][0])
+        p2y = int(vp.vertices[vertice][1])
+        if p2x >= 0 and p2y >= 0:
+            cv2.line(new_im, WP_end, (p2x, p2y), (0, 255, 0), 1)
+
+    # draw vertices
+    for ridge in vp.ridge_vertices:
+        p1x = int(vp.vertices[ridge[0]][0])
+        p1y = int(vp.vertices[ridge[0]][1])
+        p2x = int(vp.vertices[ridge[1]][0])
+        p2y = int(vp.vertices[ridge[1]][1])
+        if p1x >= 0 and p2x >= 0 and p1y >= 0 and p2y >= 0:
+            cv2.line(new_im, (p1x, p1y), (p2x, p2y), (0, 255, 0), 1)
+
+    # draw WP0 and WP_end
+    cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
+    cv2.circle(new_im, WP_end, 2, (0, 0, 255), 2)
+
+    cv2.imshow('test', new_im)
+    cv2.waitKey()
+
+    sp.voronoi_plot_2d(vp, show_points=True, show_vertices=False)
+    plt.gca().invert_yaxis()
+    plt.show()
+
+
     # lines = vp.get_output()
     # for l in vp.output:
     #     if l.end is not None:
     #         cv2.line(vor, l.start.get_point(), l.end.get_point(), (0, 255, 0), 1)
-
-    ################
-    ### Post-process
-    ################
-    bin = cv2.threshold(cv2.cvtColor(cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), contours, -1, (255, 255, 255), -1), cv2.COLOR_BGR2GRAY), i, 1, cv2.THRESH_BINARY)[1]
-    im = cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), contours, -1, (255, 255, 255), -1)
-    counter = 0
-    lines = []
-    for l in vp.output:
-        if l.end is not None and l.valid():
-            lin = np.zeros(np.shape(bin), dtype=np.uint8)
-            lin = cv2.line(lin, l.start.get_point(), l.end.get_point(), (255, 255, 255), 1)
-            if np.any(np.logical_and(bin, lin)):
-                # print(np.sum(np.logical_and(bin, lin)))
-                counter += 1
-            else:
-                cv2.line(im, l.start.get_point(), l.end.get_point(), (0, 255, 0), 1)
-                lines.append(l)
-
-    cv2.circle(im, WP0, 2, (0, 0, 255), 2)
-    cv2.circle(im, WP_end, 2, (0, 0, 255), 2)
-    cv2.imshow('test', im)
-    cv2.waitKey()
+    #
+    # ################
+    # ### Post-process
+    # ################
+    # bin = cv2.threshold(cv2.cvtColor(cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), contours, -1, (255, 255, 255), -1), cv2.COLOR_BGR2GRAY), i, 1, cv2.THRESH_BINARY)[1]
+    # # im = cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), contours, -1, (255, 255, 255), -1)
+    # im = np.zeros(np.shape(im), dtype=np.uint8)
+    # for l in vp.output:
+    #     if l.end is not None:
+    #         cv2.line(im, l.start.get_point(), l.end.get_point(), (np.random.randint(50, 255), np.random.randint(50, 255), np.random.randint(50, 255)), 1)
+    # counter = 0
+    # lines = vp.output
+    # # for l in vp.output:
+    # #     if l.end is not None and l.valid():
+    # #         lin = np.zeros(np.shape(bin), dtype=np.uint8)
+    # #         lin = cv2.line(lin, l.start.get_point(), l.end.get_point(), (255, 255, 255), 1)
+    # #         if np.any(np.logical_and(bin, lin)):
+    # #             # print(np.sum(np.logical_and(bin, lin)))
+    # #             counter += 1
+    # #         else:
+    # #             cv2.line(im, l.start.get_point(), l.end.get_point(), (0, 255, 0), 1)
+    # #             lines.append(l)
+    #
+    #
+    # cv2.circle(im, WP0, 2, (0, 0, 255), 2)
+    # cv2.circle(im, WP_end, 2, (0, 0, 255), 2)
+    # cv2.imshow('test', im)
+    # cv2.waitKey()
