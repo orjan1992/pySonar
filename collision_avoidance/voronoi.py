@@ -16,3 +16,11 @@ class MyVoronoi(Voronoi):
 
         for i in range(np.shape(self.regions[region_index])[0]):
             self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
+
+
+class Line:
+    def __init__(self, p1, p2):
+        self.p1 = p1
+        self.p2 = p2
+        self.connected_to = []
+        self.length = np.sqrt((self.p2[0] - self.p1[0])**2 + (self.p2[1] - self.p1[1])**2)

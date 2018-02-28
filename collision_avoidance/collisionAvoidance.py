@@ -26,7 +26,7 @@ if __name__ == '__main__':
     import numpy as np
     import cv2
     from settings import FeatureExtraction
-    from collision_avoidance.voronoi import Voronoi
+    from collision_avoidance.voronoi import MyVoronoi, Line
 
     ###################
     ### find countours
@@ -72,10 +72,6 @@ if __name__ == '__main__':
     points.append(WP0)
     points.append(WP_end)
 
-    import scipy.spatial as sp
-    from collision_avoidance.voronoi import MyVoronoi
-    import matplotlib.pyplot as plt
-
     vp = MyVoronoi(np.array(points))
     vp.add_wp(-1)
     vp.add_wp(-2)
@@ -105,18 +101,53 @@ if __name__ == '__main__':
     bin = cv2.drawContours(np.zeros((np.shape(im)[0], np.shape(im)[1]), dtype=np.uint8), contours, -1, (255, 255, 255), -1)
     blank_im = np.zeros(np.shape(im), dtype=np.uint8)
     im = cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), contours, -1, (255, 255, 255), -1)
-    for ridge in vp.ridge_vertices:
-        if ridge[0] > -1 and ridge[1] > -1:
-            p1x = int(vp.vertices[ridge[0]][0])
-            p1y = int(vp.vertices[ridge[0]][1])
-            p2x = int(vp.vertices[ridge[1]][0])
-            p2y = int(vp.vertices[ridge[1]][1])
+    line_active = np.zeros(np.shape(vp.ridge_vertices)[0], dtype=bool)
+    lengths = np.zeros(np.shape(vp.ridge_vertices)[0])
+    vertice_connection = np.zeros(np.shape(vp.vertices)[0], dtype=list)
+    vertice_active = np.zeros(np.shape(vp.vertices)[0], dtype=bool)
+    line_list = np.zeros(np.shape(vp.ridge_vertices)[0], dtype=list)
+    for i in range(np.shape(vp.ridge_vertices)[0]):
+        if vp.ridge_vertices[i][0] > -1 and vp.ridge_vertices[i][1] > -1:
+            p1x = int(vp.vertices[vp.ridge_vertices[i][0]][0])
+            p1y = int(vp.vertices[vp.ridge_vertices[i][0]][1])
+            p2x = int(vp.vertices[vp.ridge_vertices[i][1]][0])
+            p2y = int(vp.vertices[vp.ridge_vertices[i][1]][1])
             if p1x >= 0 and p2x >= 0 and p1y >= 0 and p2y >= 0:
                 lin = cv2.line(np.zeros(np.shape(bin), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (255, 255, 255), 1)
                 if not np.any(np.logical_and(bin, lin)):
                     cv2.line(new_im, (p1x, p1y), (p2x, p2y), (0, 0, 255), 1)
                     cv2.line(blank_im, (p1x, p1y), (p2x, p2y), (255, 255, 255), 1)
+                    line_active[i] = True
+                    # lengths[i] = np.sqrt((p2x - p1x)**2 + (p2y - p1y)**2)
+                    vertice_connection[vp.ridge_vertices[i][0]].append(vp.ridge_vertices[i][1])
+                    vertice_connection[vp.ridge_vertices[i][1]].append(vp.ridge_vertices[i][0])
+                    vertice_active[vp.ridge_vertices[i][0]] = True
+                    vertice_active[vp.ridge_vertices[i][1]] = True
 
+
+    #################
+    ### Dijkstra
+    #################
+    index = -2
+    temp_label = np.zeros(np.shape(vp.vertices)[0])
+    perm_label = np.zeros(np.shape(vp.vertices)[0], dtype=bool)
+    perm_label[i] = True
+    while not np.all(perm_label):
+        # Step 2
+        cur_vertice_connection = vertice_connection[index]
+        for i in range(len(cur_vertice_connection)):
+            if not perm_label[cur_vertice_connection[i]]
+                l = np.sqrt((vp.ridge_vertices[cur_vertice_connection[i]][0] - vp.ridge_vertices[index][0])**2 +
+                            (vp.ridge_vertices[cur_vertice_connection[i]][1] - vp.ridge_vertices[index][1])**2)
+                val = temp_label[index] + l
+                if val < temp_label[cur_vertice_connection[i]]:
+                    temp_label[cur_vertice_connection[i]] = val
+        # step 3
+        index = -1
+        val = temp_label[cur_vertice_connection[0]]
+        for i in range(len(cur_vertice_connection)):
+            if not perm_label[cur_vertice_connection[i]] and val <= temp_label[cur_vertice_connection[i]]:
+                index = cur_vertice_connection[i]
 
     # cv2.circle(im, WP0, 2, (0, 0, 255), 2)
     # cv2.circle(im, WP_end, 2, (0, 0, 255), 2)
