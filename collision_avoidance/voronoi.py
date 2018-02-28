@@ -1,13 +1,18 @@
 from scipy.spatial import Voronoi
+import numpy as np
 
 class MyVoronoi(Voronoi):
     def __init__(self, points):
-        super().__init__(points)
+        super(MyVoronoi, self).__init__(points)
 
-    # def add_wp(self, index):
-    #     for vertice in super.regions[index]:
-    #         super.
-    #         p2x = int(vp.vertices[vertice][0])
-    #         p2y = int(vp.vertices[vertice][1])
-    #         if p2x >= 0 and p2y >= 0:
-    #             cv2.line(new_im, WP_end, (p2x, p2y), (0, 255, 0), 1)
+    def add_wp(self, point_index):
+        if point_index < 0:
+            region_index = self.point_region[np.shape(self.points)[0] + point_index]
+        else:
+            region_index = self.point_region[point_index]
+
+        self.vertices = np.append(self.vertices, [self.points[point_index]], axis=0)
+        new_vertice = np.shape(self.vertices)[0]-1
+
+        for i in range(np.shape(self.regions[region_index])[0]):
+            self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
