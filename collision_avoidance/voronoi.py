@@ -1,5 +1,7 @@
 from scipy.spatial import Voronoi
 import numpy as np
+import cv2
+from scipy.sparse.csgraph import dijkstra
 
 class MyVoronoi(Voronoi):
     def __init__(self, points):
@@ -16,11 +18,40 @@ class MyVoronoi(Voronoi):
 
         for i in range(np.shape(self.regions[region_index])[0]):
             self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
+            
+    def gen_obs_free_connections(self, contours, shape):
+        bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255, 255, 255), -1)
 
+        self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 
-class Line:
-    def __init__(self, p1, p2):
-        self.p1 = p1
-        self.p2 = p2
-        self.connected_to = []
-        self.length = np.sqrt((self.p2[0] - self.p1[0])**2 + (self.p2[1] - self.p1[1])**2)
+        for i in range(np.shape(self.ridge_vertices)[0]):
+            if self.ridge_vertices[i][0] > -1 and self.ridge_vertices[i][1] > -1:
+                p1x = int(self.vertices[self.ridge_vertices[i][0]][0])
+                p1y = int(self.vertices[self.ridge_vertices[i][0]][1])
+                p2x = int(self.vertices[self.ridge_vertices[i][1]][0])
+                p2y = int(self.vertices[self.ridge_vertices[i][1]][1])
+                if p1x >= 0 and p2x >= 0 and p1y >= 0 and p2y >= 0:
+                    lin = cv2.line(np.zeros(np.shape(bin), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (255, 255, 255), 1)
+                    if not np.any(np.logical_and(bin, lin)):
+                        if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
+                            self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] = self.connection_matrix[
+                                self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
+                                (p2x - p1x) ** 2 + (p2y - p1y) ** 2)
+
+    def dijkstra(self, start, stop):
+        if start < 0:
+            start += np.shape(self.vertices)[0]
+        if stop < 0:
+            stop += np.shape(self.vertices)[0]
+        # dist_matrix, predecessors = dijkstra(self.connection_matrix, indices=start,
+        #                                      directed=False, return_predecessors=True)
+        predecessors = dijkstra(self.connection_matrix, indices=start,
+                                             directed=False, return_predecessors=True)[1]
+        shortest_path = []
+        i = stop
+        while i != start:
+            shortest_path.append(i)
+            i = predecessors[i]
+        shortest_path.append(start)
+        shortest_path.reverse()
+        return shortest_path
