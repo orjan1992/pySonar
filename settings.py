@@ -13,7 +13,7 @@ class Settings:
     hist_window = False
     collision_avoidance = True
     show_map = True
-    collision_avoidance_interval = 1000.0/5.0
+    collision_avoidance_interval = 1000.0/2.0
 
 
 class MapSettings:

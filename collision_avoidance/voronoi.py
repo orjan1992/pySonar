@@ -8,6 +8,7 @@ class MyVoronoi(Voronoi):
         super(MyVoronoi, self).__init__(points)
 
     def add_wp(self, point_index):
+        # TODO: Maybe wps should not be added as generation point?
         if point_index < 0:
             region_index = self.point_region[np.shape(self.points)[0] + point_index]
         else:
@@ -38,11 +39,15 @@ class MyVoronoi(Voronoi):
                                 self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
                                 (p2x - p1x) ** 2 + (p2y - p1y) ** 2)
 
-    def dijkstra(self, start, stop):
-        if start < 0:
-            start += np.shape(self.vertices)[0]
-        if stop < 0:
-            stop += np.shape(self.vertices)[0]
+    def dijkstra(self, start_in, stop_in):
+        if start_in < 0:
+            start = start_in + np.shape(self.vertices)[0]
+        else:
+            start = start_in
+        if stop_in < 0:
+            stop = stop_in + np.shape(self.vertices)[0]
+        else:
+            stop = stop_in
         # dist_matrix, predecessors = dijkstra(self.connection_matrix, indices=start,
         #                                      directed=False, return_predecessors=True)
         predecessors = dijkstra(self.connection_matrix, indices=start,
@@ -50,6 +55,8 @@ class MyVoronoi(Voronoi):
         shortest_path = []
         i = stop
         while i != start:
+            if i == -9999:
+                return None
             shortest_path.append(i)
             i = predecessors[i]
         shortest_path.append(start)

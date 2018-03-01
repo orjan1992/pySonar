@@ -9,6 +9,7 @@ from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance
+import cv2
 import map
 
 LOG_FILENAME = 'main.out'
@@ -34,6 +35,7 @@ class MainWindow(QtGui.QMainWindow):
 class MainWidget(QtGui.QWidget):
     plot_updated = False
     grid = None
+    new_wp_list = []
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -204,9 +206,14 @@ class MainWidget(QtGui.QWidget):
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0), autoLevels=False)
             elif Settings.plot_type == 2:
-                im, obstacles = self.grid.adaptive_threshold(self.threshold_box.value())
+                im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
+                self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
+                if self.new_wp_list is not None and len(self.new_wp_list) > 0:
+                    print('drawing wps')
+                    for i in range(len(self.new_wp_list)-1):
+                        cv2.line(im, self.new_wp_list[i], self.new_wp_list[i+1], (255, 0, 0), 2)
                 if Settings.show_map:
-                    self.map_widget.update_obstacles(obstacles, self.grid.range_scale, self.last_pos_msg.lat,
+                    self.map_widget.update_obstacles(ellipses, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)
                 self.img_item.setImage(im)
             else:
@@ -228,6 +235,7 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         if Settings.input_source == 1:
             self.moos_msg_client.send_msg('get_waypoints', 0)
+            self.new_wp_list = self.collision_avoidance.calc_new_wp()
         else:
             raise NotImplemented()
 

@@ -1,7 +1,12 @@
+import numpy as np
+from collision_avoidance.voronoi import MyVoronoi
+
 class CollisionAvoidance:
 
     def __init__(self, msg_client):
         self.lat = self.long = self.psi = 0.0
+        self.range = 0.0
+        self.obstacles = []
         self.waypoint_counter = 0
         self.waypoint_list = []
         self.msg_client = msg_client
@@ -15,25 +20,116 @@ class CollisionAvoidance:
         if psi is not None:
             self.psi = psi
 
+    def update_obstacles(self, obstacles, range):
+        self.obstacles = obstacles
+        self.range = range
+
     def callback(self, waypoints_list, waypoint_counter):
-        self.waypoint_counter = waypoint_counter
+        self.waypoint_counter = int(waypoint_counter)
         self.waypoint_list = waypoints_list
         # print('Counter: {}\nWaypoints: {}\n'.format(self.waypoint_counter, str(self.waypoint_list)))
-        # TODO: Calculate new waypoints and send them back
+    
+    def calc_new_wp(self):
+        if len(self.obstacles) > 0 and len(self.waypoint_list) > 0:
+            # find waypoints in range
+            short_wp_list = []
+            for i in range(self.waypoint_counter, len(self.waypoint_list)):
+                if np.sqrt((self.waypoint_list[i][0] - self.lat)**2 + (self.waypoint_list[i][1] - self.long)**2) <= self.range:
+                    short_wp_list.append([self.waypoint_list[i][0], self.waypoint_list[i][1]])
+                else:
+                    break
+            # find pos of last wp in range
+            # TODO: is this correct?
+            # if len(short_wp_list) == 0:
+            #     # r = np.sqrt((self.waypoint_list[self.waypoint_counter][0] - self.lat)**2 +
+            #     #             (self.waypoint_list[self.waypoint_counter][1] - self.long)**2)
+            #     r = self.range
+            #     alpha = np.arctan2(self.waypoint_list[self.waypoint_counter][1] - self.long,
+            #                        self.waypoint_list[self.waypoint_counter][0] - self.lat)
+            #     long = self.long + r*np.sin(alpha)
+            #     lat = self.lat + r*np.cos(alpha)
+            #     short_wp_list.append([lat, long])
+            # else:
+            #     if len(short_wp_list) + 1 < len(self.waypoint_list):
+            #         # r = np.sqrt((self.waypoint_list[self.waypoint_counter + len(short_wp_list)][0] -
+            #         #              short_wp_list[-1][0])**2 +
+            #         #             (self.waypoint_list[self.waypoint_counter + len(short_wp_list)][1] -
+            #         #              short_wp_list[-1][1])**2)
+            #         r = self.range
+            #         alpha = np.arctan2(self.waypoint_list[self.waypoint_counter + len(short_wp_list)][1] -
+            #                            self.long,
+            #                            self.waypoint_list[self.waypoint_counter + len(short_wp_list)][0] -
+            #                            self.lat)
+            #         long = self.long+r*np.sin(alpha)
+            #         lat = self.lat + r*np.cos(alpha)
+            #         short_wp_list.append([lat, long])
+
+            # Prepare Voronoi points
+            points = []
+            for contour in self.obstacles:
+                for i in range(np.shape(contour)[0]):
+                    points.append((contour[i, 0][0], contour[i, 0][1]))
+            points.append((800, 801))
+            # Convert to Voronoi frame
+            for i in range(len(short_wp_list)):
+                alpha = np.arctan2(short_wp_list[i][1]- self.long, short_wp_list[i][0] - self.lat) - self.psi
+                # range in meter
+                r = np.sqrt((short_wp_list[i][1] - self.long)**2 +
+                            (short_wp_list[i][0] - self.lat)**2)
+
+                short_wp_list[i][0] = int(r*np.cos(alpha)*800.0/self.range + 800)
+                short_wp_list[i][1] = int(800 - r*np.sin(alpha)*800.0/self.range)
+                points.append((short_wp_list[i][0], short_wp_list[i][1]))
+
+            ## DEBUG
+            new_list = [(801, 800)]
+            for p in short_wp_list:
+                new_list.append((int(p[1]), int(p[0])))
+            return new_list
+
+            # NORMAL
+            vp = MyVoronoi(points)
+            for i in range(-(len(short_wp_list) + 1), 0):
+                vp.add_wp(i)
+            vp.gen_obs_free_connections(self.obstacles, (1601, 800))
+
+            new_wp_list = self.waypoint_list[:self.waypoint_counter]
+            voronoi_wp_list = []
+
+            for i in range(-(len(short_wp_list) + 1), -1):
+                wps = vp.dijkstra(i, i+1)
+                if wps is None:
+                    print('No feasible solution found')
+                    # return None, vp.vertices, vp.ridge_vertices
+                    return None
+                else:
+                    for wp in wps:
+                        voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
+                        x = vp.vertices[wp][0] - 800
+                        y = 800 - vp.vertices[wp][1]
+                        r = np.sqrt(x**2 + y**2)
+                        alpha = np.arctan2(y, x) + self.psi
+                        long = self.long + r*np.cos(alpha)
+                        lat = self.lat + r*np.sin(alpha)
+                        new_wp_list.append([long, lat, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
+
+            # self.msg_client.send_msg('new_waypoints', str(new_wp_list))
+            print('Waypoints sent')
+            # return voronoi_wp_list, vp.vertices, vp.ridge_vertices
+            return voronoi_wp_list
+
 
 
 if __name__ == '__main__':
-    import numpy as np
     import cv2
     from settings import FeatureExtraction
-    from collision_avoidance.voronoi import MyVoronoi
 
     ###################
     ### find countours
     ###################
 
     # Read image
-    im = np.load('collision_avoidance/test.npz')['olog'].astype(np.uint8)
+    im = np.load('test.npz')['olog'].astype(np.uint8)
     # Finding histogram, calculating gradient
     hist = np.histogram(im.ravel(), 256)[0][1:]
     grad = np.gradient(hist)
@@ -60,41 +156,35 @@ if __name__ == '__main__':
     ### Prepare Voronoi
     #################
 
-    points = []
-    for contour in contours:
-        for i in range(np.shape(contour)[0]):
-            points.append((contour[i, 0][0], contour[i, 0][1]))
 
-
-    # add start and end wp
-    WP0 = (800, 801)
-    WP_end = (1300, 0)
-    points.append(WP0)
-    points.append(WP_end)
-
-    vp = MyVoronoi(np.array(points))
-    vp.add_wp(-1)
-    vp.add_wp(-2)
-    # -2 is start, -1 is end
-
+    collision_avoidance = CollisionAvoidance(None)
+    collision_avoidance.update_pos(0, 0, 0)
+    collision_avoidance.waypoint_list = [[0, 0, 1, 1], [10, 10, 2, 2], [15, 20, 3, 3]]
+    collision_avoidance.waypoint_counter = 1
+    collision_avoidance.update_obstacles(contours, 30)
+    wp_list, vertices, ridge_vertices = collision_avoidance.calc_new_wp()
 
 
     # draw vertices
-    for ridge in vp.ridge_vertices:
+    for ridge in ridge_vertices:
         if ridge[0] > -1 and ridge[1] > -1:
-            p1x = int(vp.vertices[ridge[0]][0])
-            p1y = int(vp.vertices[ridge[0]][1])
-            p2x = int(vp.vertices[ridge[1]][0])
-            p2y = int(vp.vertices[ridge[1]][1])
+            p1x = int(vertices[ridge[0]][0])
+            p1y = int(vertices[ridge[0]][1])
+            p2x = int(vertices[ridge[1]][0])
+            p2y = int(vertices[ridge[1]][1])
             if p1x >= 0 and p2x >= 0 and p1y >= 0 and p2y >= 0:
                 cv2.line(new_im, (p1x, p1y), (p2x, p2y), (0, 255, 0), 1)
 
-    # draw WP0 and WP_end
-    cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
-    cv2.circle(new_im, WP_end, 2, (0, 0, 255), 2)
+    # draw route
+    for i in range(len(wp_list)-1):
+        cv2.line(new_im, wp_list[i], wp_list[i+1], (255, 0, 0), 1)
 
-    # cv2.imshow('test', new_im)
-    # cv2.waitKey()
+    # draw WP0 and WP_end
+    for i in range(-len(collision_avoidance.waypoint_list), 0):
+        cv2.circle(new_im, (int(vertices[i][0]), int(vertices[i][1])), 2, (0, 0, 255), 2)
+
+    cv2.imshow('test', new_im)
+    cv2.waitKey()
 
     # ################
     # ### Post-process
@@ -119,7 +209,7 @@ if __name__ == '__main__':
     #                 if connection_matrix[vp.ridge_vertices[i][0], vp.ridge_vertices[i][1]] == connection_matrix[vp.ridge_vertices[i][1], vp.ridge_vertices[i][0]] == 0:
     #                     connection_matrix[vp.ridge_vertices[i][0], vp.ridge_vertices[i][1]] = connection_matrix[vp.ridge_vertices[i][1], vp.ridge_vertices[i][0]] = np.sqrt((p2x - p1x)**2 + (p2y - p1y)**2)
 
-    vp.gen_obs_free_connections(contours, (np.shape(im)[0], np.shape(im)[1]))
+    # vp.gen_obs_free_connections(contours, (np.shape(im)[0], np.shape(im)[1]))
 
     #################
     ### Dijkstra
@@ -138,22 +228,22 @@ if __name__ == '__main__':
     #     i = predecessors[i]
     # shortest_path.append(start_ind)
     # shortest_path.reverse()
-    shortest_path = vp.dijkstra(-2, -1)
-
-    for i in range(len(shortest_path)-1):
-            p1x = int(vp.vertices[shortest_path[i]][0])
-            p1y = int(vp.vertices[shortest_path[i]][1])
-            p2x = int(vp.vertices[shortest_path[i+1]][0])
-            p2y = int(vp.vertices[shortest_path[i+1]][1])
-            cv2.line(new_im, (p1x, p1y), (p2x, p2y), (255, 0, 0), 1)
-
-
-
-    cv2.circle(im, WP0, 2, (0, 0, 255), 2)
-    cv2.circle(im, WP_end, 2, (0, 0, 255), 2)
-    cv2.circle(new_im, (int(vp.vertices[-2][0]), int(vp.vertices[-2][1])), 10, (0, 0, 255), 2)
-    cv2.circle(new_im, (int(vp.vertices[-1][0]), int(vp.vertices[-1][1])), 10, (0, 0, 255), 2)
-    cv2.imshow('test', new_im)
-    cv2.waitKey()
+    # shortest_path = vp.dijkstra(-2, -1)
+    #
+    # for i in range(len(shortest_path)-1):
+    #         p1x = int(vp.vertices[shortest_path[i]][0])
+    #         p1y = int(vp.vertices[shortest_path[i]][1])
+    #         p2x = int(vp.vertices[shortest_path[i+1]][0])
+    #         p2y = int(vp.vertices[shortest_path[i+1]][1])
+    #         cv2.line(new_im, (p1x, p1y), (p2x, p2y), (255, 0, 0), 1)
+    #
+    #
+    #
+    # cv2.circle(im, WP0, 2, (0, 0, 255), 2)
+    # cv2.circle(im, WP_end, 2, (0, 0, 255), 2)
+    # cv2.circle(new_im, (int(vp.vertices[-2][0]), int(vp.vertices[-2][1])), 10, (0, 0, 255), 2)
+    # cv2.circle(new_im, (int(vp.vertices[-1][0]), int(vp.vertices[-1][1])), 10, (0, 0, 255), 2)
+    # cv2.imshow('test', new_im)
+    # cv2.waitKey()
     # cv2.imshow('test', blank_im)
     # cv2.waitKey()
