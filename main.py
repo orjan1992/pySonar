@@ -209,7 +209,6 @@ class MainWidget(QtGui.QWidget):
                 im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                 if self.new_wp_list is not None and len(self.new_wp_list) > 0:
-                    print('drawing wps')
                     for i in range(len(self.new_wp_list)-1):
                         cv2.line(im, self.new_wp_list[i], self.new_wp_list[i+1], (255, 0, 0), 2)
                 if Settings.show_map:

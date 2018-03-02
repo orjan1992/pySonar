@@ -1,5 +1,6 @@
 import numpy as np
 from collision_avoidance.voronoi import MyVoronoi
+from coordinate_transformations import *
 
 class CollisionAvoidance:
 
@@ -72,19 +73,13 @@ class CollisionAvoidance:
             points.append((800, 801))
             # Convert to Voronoi frame
             for i in range(len(short_wp_list)):
-                alpha = np.arctan2(short_wp_list[i][1]- self.long, short_wp_list[i][0] - self.lat) - self.psi
-                # range in meter
-                r = np.sqrt((short_wp_list[i][1] - self.long)**2 +
-                            (short_wp_list[i][0] - self.lat)**2)
-
-                short_wp_list[i][0] = int(r*np.cos(alpha)*800.0/self.range + 800)
-                short_wp_list[i][1] = int(800 - r*np.sin(alpha)*800.0/self.range)
+                short_wp_list[i] = NED2grid(short_wp_list[i][0], short_wp_list[i][1], self.lat, self.long, self.psi, self.range)
                 points.append((short_wp_list[i][0], short_wp_list[i][1]))
 
             ## DEBUG
-            new_list = [(801, 800)]
+            new_list = [(801, 801)]
             for p in short_wp_list:
-                new_list.append((int(p[1]), int(p[0])))
+                new_list.append((int(p[0]), int(p[1])))
             return new_list
 
             # NORMAL
