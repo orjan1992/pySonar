@@ -119,6 +119,14 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
     else:
         return WP, False
 
+def sat2uint(val, sat):
+    if val < 0:
+        return 0
+    if val > sat:
+        return int(sat)
+    else:
+        return int(val)
+
 
 if __name__ == '__main__':
     N_veh = 3.51

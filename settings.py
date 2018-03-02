@@ -16,6 +16,10 @@ class Settings:
     collision_avoidance_interval = 1000.0/2.0
 
 
+class CollisionSettings:
+    border_step = 30
+
+
 class MapSettings:
     display_grid = True
     grid_dist = 10
@@ -49,6 +53,8 @@ class GridSettings:
         p_inital = 0
         binary_threshold = 0.78
         binary_grid = False
+        width = 1601
+        height = 801
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)

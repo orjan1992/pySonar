@@ -1,6 +1,7 @@
 import numpy as np
 from collision_avoidance.voronoi import MyVoronoi
 from coordinate_transformations import *
+from settings import GridSettings, CollisionSettings
 
 class CollisionAvoidance:
 
@@ -35,57 +36,57 @@ class CollisionAvoidance:
     def calc_new_wp(self):
         if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             # find waypoints in range
-            short_wp_list = [(self.lat, self.long)]
-            old_WP = (self.lat, self.long)
+            initial_wp = (self.lat, self.long)
+            last_wp = None
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], old_WP,
+                NE, constrained = constrainNED2range(self.waypoint_list[i], initial_wp,
                                                      self.lat, self.long, self.psi, self.range)
-                short_wp_list.append(NE)
-                old_WP = NE
                 if constrained:
+                    last_wp = NE
                     break
+            if last_wp is None:
+                last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
 
             # Prepare Voronoi points
             points = []
             for contour in self.obstacles:
                 for i in range(np.shape(contour)[0]):
                     points.append((contour[i, 0][0], contour[i, 0][1]))
-            # points.append((800, 800))
+
+            # add border points
+            for i in range(0, GridSettings.width, CollisionSettings.border_step):
+                points.append((i, 0))
+                points.append((i, GridSettings.height))
+            for i in range(0, GridSettings.height, CollisionSettings.border_step):
+                points.append((0, i))
+                points.append((GridSettings.width, i))
+
             # Convert to Voronoi frame
-            for i in range(np.shape(short_wp_list)[0]):
-                short_wp_list[i] = NED2grid(short_wp_list[i][0], short_wp_list[i][1], self.lat, self.long, self.psi, self.range)
-                points.append((short_wp_list[i][0], short_wp_list[i][1]))
+            # start_p = len(points)
+            # points.append((800, 800))
+            # end_p = len(points)
+            # points.append(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
 
-            ## DEBUG
-            # new_list = [(800, 800)]
-            # for p in short_wp_list:
-            #     new_list.append((int(p[0]), int(p[1])))
-            # return new_list
-
-            # NORMAL
             vp = MyVoronoi(points)
-            for i in range(-(np.shape(short_wp_list)[0]), 0):
-                vp.add_wp(i)
-            vp.gen_obs_free_connections(self.obstacles, (1601, 800))
+            start_wp = vp.add_wp((801, 801))
+            end_wp = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+
+            vp.gen_obs_free_connections(self.obstacles, (800, 1601))
 
             new_wp_list = self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
-            for i in range(-(np.shape(short_wp_list)[0] + 1), -1):
-                wps = vp.dijkstra(i, i+1)
-                if wps is None:
-                    print('No feasible solution found')
-                    # return None, vp.vertices, vp.ridge_vertices
-                    return None
-                else:
-                    for wp in wps:
-                        self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
-                        N, E = grid2NED(vp.vertices[wp][0], vp.vertices[wp][1], self.range, self.lat, self.long, self.psi)
-                        new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
+            wps = vp.dijkstra(start_wp, end_wp)
+
+            if wps is not None:
+                for wp in wps:
+                    self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
+                    N, E = grid2NED(vp.vertices[wp][0], vp.vertices[wp][1], self.range, self.lat, self.long, self.psi)
+                    new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
 
             # self.msg_client.send_msg('new_waypoints', str(new_wp_list))
             print('Waypoints sent')
-            return vp.vertices, vp.ridge_vertices, vp.connection_matrix
+            return vp
             # return voronoi_wp_list
 
 
@@ -123,6 +124,9 @@ if __name__ == '__main__':
 
     new_im = np.zeros((np.shape(im)[0], np.shape(im)[1], 3), dtype=np.uint8)
     new_im = cv2.drawContours(new_im, contours, -1, (255, 255, 255), -1)
+    # for contour in contours:
+    #     for i in range(np.shape(contour)[0]):
+    #         cv2.circle(new_im, (contour[i, 0][0], contour[i, 0][1]), 2, (255, 0, 0), -1)
     #################
     ### Prepare Voronoi
     #################
@@ -132,24 +136,33 @@ if __name__ == '__main__':
     collision_avoidance.update_pos(0, 0, 0)
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [10, 10, 2, 2], [15, 20, 3, 3]]
     collision_avoidance.waypoint_list = [[0, 0, 1, 1], [15, 20, 3, 3]]
+    # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [29, -13, 3, 3]]
     collision_avoidance.waypoint_counter = 1
     collision_avoidance.update_obstacles(contours, 30)
-    vertices, ridge_vertices, cm = collision_avoidance.calc_new_wp()
+    vp = collision_avoidance.calc_new_wp()
 
+    # import matplotlib.pyplot as plt
+    # from scipy.spatial import voronoi_plot_2d
+    #
+    # voronoi_plot_2d(vp, show_vertices=False)
+    # plt.gca().invert_yaxis()
+    # plt.show()
 
     # # draw vertices
-    # for ridge in ridge_vertices:
-    #     if ridge[0] > -1 and ridge[1] > -1:
-    #         p1x = int(vertices[ridge[0]][0])
-    #         p1y = int(vertices[ridge[0]][1])
-    #         p2x = int(vertices[ridge[1]][0])
-    #         p2y = int(vertices[ridge[1]][1])
-    #         if p1x >= 0 and p2x >= 0 and p1y >= 0 and p2y >= 0:
-    #             cv2.line(new_im, (p1x, p1y), (p2x, p2y), (0, 255, 0), 1)
-    for i in range(np.shape(cm)[0]):
-        for j in range(np.shape(cm)[1]):
-            if cm[i, j] != 0:
-                cv2.line(new_im, (int(vertices[i][0]), int(vertices[i][1])), (int(vertices[j][0]), int(vertices[j][1])), (0, 255, 0), 1)
+    for ridge in vp.ridge_vertices:
+        if ridge[0] != -1 and ridge[1] != -1:
+            p1x = sat2uint(vp.vertices[ridge[0]][0], GridSettings.width)
+            p1y = sat2uint(vp.vertices[ridge[0]][1], GridSettings.height)
+            p2x = sat2uint(vp.vertices[ridge[1]][0], GridSettings.width)
+            p2y = sat2uint(vp.vertices[ridge[1]][1], GridSettings.height)
+            cv2.line(new_im, (p1x, p1y), (p2x, p2y), (0, 0, 255), 1)
+    for i in range(np.shape(vp.connection_matrix)[0]):
+        for j in range(np.shape(vp.connection_matrix)[1]):
+            if vp.connection_matrix[i, j] != 0:
+                cv2.line(new_im, (sat2uint(vp.vertices[i][0], GridSettings.width),
+                                  sat2uint(vp.vertices[i][1], GridSettings.height)),
+                         (sat2uint(vp.vertices[j][0], GridSettings.width)
+                          , sat2uint(vp.vertices[j][1], GridSettings.height)), (0, 255, 0), 1)
 
     # draw route
     for i in range(len(collision_avoidance.voronoi_wp_list) - 1):
@@ -158,7 +171,8 @@ if __name__ == '__main__':
 
     # draw WP0 and WP_end
     for i in range(-len(collision_avoidance.waypoint_list), 0):
-        cv2.circle(new_im, (int(vertices[i][0]), int(vertices[i][1])), 2, (0, 0, 255), 2)
+        cv2.circle(new_im, (int(vp.vertices[i][0]), int(vp.vertices[i][1])), 2, (0, 0, 255), 2)
 
+    cv2.rectangle(new_im, (0, 0), (GridSettings.width-1, GridSettings.height), (255, 255, 255), 1)
     cv2.imshow('test', new_im)
     cv2.waitKey()
