@@ -31,39 +31,17 @@ class CollisionAvoidance:
         # print('Counter: {}\nWaypoints: {}\n'.format(self.waypoint_counter, str(self.waypoint_list)))
     
     def calc_new_wp(self):
-        if len(self.obstacles) > 0 and len(self.waypoint_list) > 0:
+        if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             # find waypoints in range
             short_wp_list = []
-            for i in range(self.waypoint_counter, len(self.waypoint_list)):
-                if np.sqrt((self.waypoint_list[i][0] - self.lat)**2 + (self.waypoint_list[i][1] - self.long)**2) <= self.range:
-                    short_wp_list.append([self.waypoint_list[i][0], self.waypoint_list[i][1]])
-                else:
+            old_WP = (self.lat, self.long)
+            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
+                NE, constrained = constrainNED2range(self.waypoint_list[i], old_WP,
+                                                     self.lat, self.long, self.psi, self.range)
+                short_wp_list.append(NE)
+                old_WP = NE
+                if constrained:
                     break
-            # find pos of last wp in range
-            # TODO: is this correct?
-            # if len(short_wp_list) == 0:
-            #     # r = np.sqrt((self.waypoint_list[self.waypoint_counter][0] - self.lat)**2 +
-            #     #             (self.waypoint_list[self.waypoint_counter][1] - self.long)**2)
-            #     r = self.range
-            #     alpha = np.arctan2(self.waypoint_list[self.waypoint_counter][1] - self.long,
-            #                        self.waypoint_list[self.waypoint_counter][0] - self.lat)
-            #     long = self.long + r*np.sin(alpha)
-            #     lat = self.lat + r*np.cos(alpha)
-            #     short_wp_list.append([lat, long])
-            # else:
-            #     if len(short_wp_list) + 1 < len(self.waypoint_list):
-            #         # r = np.sqrt((self.waypoint_list[self.waypoint_counter + len(short_wp_list)][0] -
-            #         #              short_wp_list[-1][0])**2 +
-            #         #             (self.waypoint_list[self.waypoint_counter + len(short_wp_list)][1] -
-            #         #              short_wp_list[-1][1])**2)
-            #         r = self.range
-            #         alpha = np.arctan2(self.waypoint_list[self.waypoint_counter + len(short_wp_list)][1] -
-            #                            self.long,
-            #                            self.waypoint_list[self.waypoint_counter + len(short_wp_list)][0] -
-            #                            self.lat)
-            #         long = self.long+r*np.sin(alpha)
-            #         lat = self.lat + r*np.cos(alpha)
-            #         short_wp_list.append([lat, long])
 
             # Prepare Voronoi points
             points = []
@@ -72,7 +50,7 @@ class CollisionAvoidance:
                     points.append((contour[i, 0][0], contour[i, 0][1]))
             points.append((800, 801))
             # Convert to Voronoi frame
-            for i in range(len(short_wp_list)):
+            for i in range(np.shape(short_wp_list)[0]):
                 short_wp_list[i] = NED2grid(short_wp_list[i][0], short_wp_list[i][1], self.lat, self.long, self.psi, self.range)
                 points.append((short_wp_list[i][0], short_wp_list[i][1]))
 
@@ -84,14 +62,14 @@ class CollisionAvoidance:
 
             # NORMAL
             vp = MyVoronoi(points)
-            for i in range(-(len(short_wp_list) + 1), 0):
+            for i in range(-(np.shape(short_wp_list)[0] + 1), 0):
                 vp.add_wp(i)
             vp.gen_obs_free_connections(self.obstacles, (1601, 800))
 
             new_wp_list = self.waypoint_list[:self.waypoint_counter]
             voronoi_wp_list = []
 
-            for i in range(-(len(short_wp_list) + 1), -1):
+            for i in range(-(np.shape(short_wp_list)[0] + 1), -1):
                 wps = vp.dijkstra(i, i+1)
                 if wps is None:
                     print('No feasible solution found')

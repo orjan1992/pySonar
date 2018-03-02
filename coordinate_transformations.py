@@ -95,6 +95,30 @@ def NED2grid(north, east, N_veh, E_veh, psi, range):
     x_veh, y_veh = NED2vehicle(north, east, N_veh, E_veh, psi)
     return vehicle2grid(x_veh, y_veh, range)
 
+def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
+    """
+    :param WP: (N, E)
+    :param old_WP: (N_last, E_last)
+    :param N_veh: North pos of vehicle
+    :param E_veh: East pos of vehicle
+    :param psi: heading of vehicle
+    :param range: grid range
+    :return: constrained WP in NED frame
+    """
+    x_veh, y_veh = NED2vehicle(WP[0], WP[1], N_veh, E_veh, psi)
+    if abs(x_veh) > range or abs(x_veh) > range:
+        x_veh_old, y_veh_old = NED2vehicle(old_WP[0], old_WP[1], N_veh, E_veh, psi)
+        alpha = np.arctan2(y_veh - y_veh_old, x_veh-x_veh_old)
+        if abs(x_veh) > range:
+            x_veh_new = range*np.sign(x_veh)
+            y_veh_new = y_veh_old + (x_veh_new - x_veh_old)/np.tan(alpha)
+        else:
+            y_veh_new = range*np.sign(y_veh)
+            x_veh_new = (y_veh_new - y_veh_old)*np.tan(alpha) + x_veh_old
+        return vehicle2NED(x_veh_new, y_veh_old, N_veh, E_veh, psi), True
+    else:
+        return WP, False
+
 
 if __name__ == '__main__':
     N_veh = 3.51
