@@ -35,7 +35,7 @@ class MainWindow(QtGui.QMainWindow):
 class MainWidget(QtGui.QWidget):
     plot_updated = False
     grid = None
-    new_wp_list = []
+    contour_list = []
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -208,9 +208,9 @@ class MainWidget(QtGui.QWidget):
             elif Settings.plot_type == 2:
                 im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
-                if self.new_wp_list is not None and len(self.new_wp_list) > 0:
-                    for i in range(len(self.new_wp_list)-1):
-                        cv2.line(im, self.new_wp_list[i], self.new_wp_list[i+1], (255, 0, 0), 2)
+                if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
+                    for i in range(len(self.collision_avoidance.voronoi_wp_list)-1):
+                        cv2.line(im, self.collision_avoidance.voronoi_wp_list[i], self.collision_avoidance.voronoi_wp_list[i+1], (255, 0, 0), 2)
                 if Settings.show_map:
                     self.map_widget.update_obstacles(ellipses, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)
@@ -234,7 +234,6 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         if Settings.input_source == 1:
             self.moos_msg_client.send_msg('get_waypoints', 0)
-            self.new_wp_list = self.collision_avoidance.calc_new_wp()
         else:
             raise NotImplemented()
 

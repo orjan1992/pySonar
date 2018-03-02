@@ -154,11 +154,11 @@ class MapWidget(QWidget):
 
     @staticmethod
     def sonar_coord2scene(obs, range_scale, lat, long, psi):
-        x_obs = (obs[0][0] - 800) * range_scale / 800
-        y_obs = (800 - obs[0][1]) * range_scale / 800
+        x_obs = (obs[0][0] - 801) * range_scale / 801
+        y_obs = (801 - obs[0][1]) * range_scale / 801
         alpha = math.atan2(x_obs, y_obs) + psi
-        r1 = obs[1][0] * range_scale / 800
-        r2 = obs[1][1] * range_scale / 800
+        r1 = obs[1][0] * range_scale / 801
+        r2 = obs[1][1] * range_scale / 801
         r = math.sqrt(x_obs**2 + y_obs**2)
         x_scene = long + r*math.sin(alpha) - r1/2
         y_scene = -lat - r*math.cos(alpha) - r2/2

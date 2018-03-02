@@ -4,6 +4,8 @@ import cv2
 from scipy.sparse.csgraph import dijkstra
 
 class MyVoronoi(Voronoi):
+    connection_matrix = 0
+
     def __init__(self, points):
         super(MyVoronoi, self).__init__(points)
 
