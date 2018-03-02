@@ -12,6 +12,7 @@ class CollisionAvoidance:
         self.waypoint_counter = 0
         self.waypoint_list = []
         self.voronoi_wp_list = []
+        self.new_wp_list = []
         self.msg_client = msg_client
         # self.msg_client.send_msg('waypoints', str(InitialWaypoints.waypoints))
 
@@ -39,7 +40,7 @@ class CollisionAvoidance:
             initial_wp = (self.lat, self.long)
             last_wp = None
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], initial_wp,
+                NE, constrained = constrainNED2range(self.waypoint_list[i],
                                                      self.lat, self.long, self.psi, self.range)
                 if constrained:
                     last_wp = NE
@@ -74,7 +75,7 @@ class CollisionAvoidance:
 
             vp.gen_obs_free_connections(self.obstacles, (800, 1601))
 
-            new_wp_list = self.waypoint_list[:self.waypoint_counter]
+            self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
             wps = vp.dijkstra(start_wp, end_wp)
@@ -83,12 +84,13 @@ class CollisionAvoidance:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
                     N, E = grid2NED(vp.vertices[wp][0], vp.vertices[wp][1], self.range, self.lat, self.long, self.psi)
-                    new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
+                    self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
 
             # self.msg_client.send_msg('new_waypoints', str(new_wp_list))
-            print('Waypoints sent')
+            # print('Waypoints sent')
             return vp
             # return voronoi_wp_list
+            # print(self.new_wp_list)
 
 
 
@@ -138,7 +140,7 @@ if __name__ == '__main__':
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [10, 10, 2, 2], [15, 20, 3, 3]]
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [15, 20, 3, 3]]
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [29, -13, 3, 3]]
-    collision_avoidance.waypoint_list = [[0, 0, 1, 1], [45, 45, 3, 3]]
+    collision_avoidance.waypoint_list = [[0, 0, 1, 1], [59, 10, 3, 3]]
     collision_avoidance.waypoint_counter = 1
     collision_avoidance.update_obstacles(contours, 30)
     vp = collision_avoidance.calc_new_wp()
@@ -170,10 +172,11 @@ if __name__ == '__main__':
     for i in range(len(collision_avoidance.voronoi_wp_list) - 1):
         cv2.line(new_im, collision_avoidance.voronoi_wp_list[i], collision_avoidance.voronoi_wp_list[i + 1],
                  (255, 0, 0), 2)
-
+    cv2.circle(new_im, collision_avoidance.voronoi_wp_list[0], 2, (0, 0, 255), 2)
+    cv2.circle(new_im, collision_avoidance.voronoi_wp_list[-1], 2, (0, 0, 255), 2)
     # draw WP0 and WP_end
-    for i in range(-len(collision_avoidance.waypoint_list), 0):
-        cv2.circle(new_im, (int(vp.vertices[i][0]), int(vp.vertices[i][1])), 2, (0, 0, 255), 2)
+    # for i in range(-len(collision_avoidance.waypoint_list), 0):
+    #     cv2.circle(new_im, (int(vp.vertices[i][0]), int(vp.vertices[i][1])), 2, (0, 0, 255), 2)
 
     cv2.rectangle(new_im, (0, 0), (GridSettings.width-1, GridSettings.height), (255, 255, 255), 1)
     cv2.imshow('test', new_im)

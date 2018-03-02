@@ -15,7 +15,7 @@ def grid2vehicle(x_grid, y_grid, range):
     x_veh is longitudinal vehicle direction, y_veh is transverse
     """
     x_veh = (801 - y_grid) * range / 801.0
-    y_veh = (x_grid + 801) * range / 801.0
+    y_veh = (x_grid - 801) * range / 801.0
     return x_veh, y_veh
 
 def vehicle2grid(x_veh, y_veh, range):
@@ -95,7 +95,7 @@ def NED2grid(north, east, N_veh, E_veh, psi, range):
     x_veh, y_veh = NED2vehicle(north, east, N_veh, E_veh, psi)
     return vehicle2grid(x_veh, y_veh, range)
 
-def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
+def constrainNED2range(WP, N_veh, E_veh, psi, range):
     """
     :param WP: (N, E)
     :param old_WP: (N_last, E_last)
@@ -106,16 +106,15 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
     :return: constrained WP in NED frame
     """
     x_veh, y_veh = NED2vehicle(WP[0], WP[1], N_veh, E_veh, psi)
-    if abs(x_veh) > range or abs(x_veh) > range:
-        x_veh_old, y_veh_old = NED2vehicle(old_WP[0], old_WP[1], N_veh, E_veh, psi)
-        alpha = np.arctan2(y_veh - y_veh_old, x_veh-x_veh_old)
-        if abs(x_veh) > range:
-            x_veh_new = range*np.sign(x_veh)
-            y_veh_new = y_veh_old + (x_veh_new - x_veh_old)/np.tan(alpha)
+    if abs(x_veh) > range or abs(y_veh) > range:
+        alpha = np.arctan2(y_veh, x_veh)
+        if abs(x_veh) > abs(y_veh):
+            x_veh_new = range * np.sign(x_veh)
+            y_veh_new = x_veh_new * np.tan(alpha)
         else:
-            y_veh_new = range*np.sign(y_veh)
-            x_veh_new = (y_veh_new - y_veh_old)*np.tan(alpha) + x_veh_old
-        return vehicle2NED(x_veh_new, y_veh_old, N_veh, E_veh, psi), True
+            y_veh_new = range * np.sign(y_veh)
+            x_veh_new = y_veh_new / np.tan(alpha)
+        return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
     else:
         return WP, False
 
@@ -135,7 +134,9 @@ if __name__ == '__main__':
     x_veh = 1.67
     y_veh = 1.57
     range = 1.57
-    N, E = vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
+    # N, E = vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
+    # print_args(N=N, E=E)
+    # x_veh, y_veh = NED2vehicle(N, E, N_veh, E_veh, psi)
+    # print_args(x_veh=x_veh, y_veh=y_veh)
+    N, E = grid2NED(801, 801, 30, N_veh, E_veh, psi)
     print_args(N=N, E=E)
-    x_veh, y_veh = NED2vehicle(N, E, N_veh, E_veh, psi)
-    print_args(x_veh=x_veh, y_veh=y_veh)

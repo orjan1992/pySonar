@@ -34,6 +34,7 @@ class MapSettings:
     waypoint_active_pen = QPen(waypoint_active_color)
     waypoint_inactive_color = QColor(255, 102, 0, 255)
     waypoint_inactive_pen = QPen(waypoint_inactive_color)
+    avoidance_waypoint_pen = QPen(QColor(255, 0, 0))
 
     vehicle_size = 10.0
     vehicle_form_factor = 0.4

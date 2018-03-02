@@ -7,6 +7,7 @@ import math
 class MapWidget(QWidget):
     pos_ellipse = None
     waypoint_objects = []
+    avoidance_waypoints = []
     obstacle_list = []
 
     def __init__(self, parent=None):
@@ -90,7 +91,46 @@ class MapWidget(QWidget):
         self.sonar_circle.setBrush(MapSettings.sonar_circle_brush)
         self.scene.addItem(self.sonar_circle)
 
-        
+    def update_avoidance_waypoints(self, waypoints):
+        try:
+            # remove old waypoints
+            for obj in self.avoidance_waypoints:
+                self.scene.removeItem(obj)
+            self.avoidance_waypoints.clear()
+        except Exception as e:
+            print('Remove waypoints: {}'.format(e))
+
+        # draw new
+        if len(waypoints) > 0:
+            p = QGraphicsEllipseItem(waypoints[0][1] * 10 - MapSettings.waypoint_size / 2,
+                                               -waypoints[0][0] * 10 - MapSettings.waypoint_size / 2,
+                                               MapSettings.waypoint_size,
+                                               MapSettings.waypoint_size)
+
+            p.setPen(MapSettings.avoidance_waypoint_pen)
+            self.scene.addItem(p)
+            self.avoidance_waypoints.append(p)
+            try:
+                for i in range(1, len(waypoints)):
+                    p = QGraphicsEllipseItem(waypoints[i][1] * 10 - MapSettings.waypoint_size / 2,
+                                                       -waypoints[i][0] * 10 - MapSettings.waypoint_size / 2,
+                                                       MapSettings.waypoint_size,
+                                                       MapSettings.waypoint_size)
+
+                    p.setPen(MapSettings.avoidance_waypoint_pen)
+                    self.scene.addItem(p)
+                    self.avoidance_waypoints.append(p)
+
+                    l = QGraphicsLineItem(waypoints[i][1] * 10,
+                                                    -waypoints[i][0] * 10,
+                                                    waypoints[i - 1][1] * 10,
+                                                    -waypoints[i - 1][0] * 10)
+                    l.setPen(MapSettings.avoidance_waypoint_pen)
+                    self.scene.addItem(l)
+                    self.avoidance_waypoints.append(l)
+            except Exception as e:
+                print('Add waypoints: {}'.format(e))
+
     def update_waypoints(self, waypoints, waypoint_counter):
         try:
             # remove old waypoints
@@ -103,9 +143,9 @@ class MapWidget(QWidget):
         # draw new
         if len(waypoints) > 0:
             p = QGraphicsEllipseItem(waypoints[0][1] * 10 - MapSettings.waypoint_size / 2,
-                                               -waypoints[0][0] * 10 - MapSettings.waypoint_size / 2,
-                                               MapSettings.waypoint_size,
-                                               MapSettings.waypoint_size)
+                                     -waypoints[0][0] * 10 - MapSettings.waypoint_size / 2,
+                                     MapSettings.waypoint_size,
+                                     MapSettings.waypoint_size)
             if waypoint_counter == 1:
                 p.setPen(MapSettings.waypoint_active_pen)
             else:
@@ -115,9 +155,9 @@ class MapWidget(QWidget):
             try:
                 for i in range(1, len(waypoints)):
                     p = QGraphicsEllipseItem(waypoints[i][1] * 10 - MapSettings.waypoint_size / 2,
-                                                       -waypoints[i][0] * 10 - MapSettings.waypoint_size / 2,
-                                                       MapSettings.waypoint_size,
-                                                       MapSettings.waypoint_size)
+                                             -waypoints[i][0] * 10 - MapSettings.waypoint_size / 2,
+                                             MapSettings.waypoint_size,
+                                             MapSettings.waypoint_size)
                     if waypoint_counter == i or waypoint_counter == i + 1:
                         p.setPen(MapSettings.waypoint_active_pen)
                     else:
@@ -126,9 +166,9 @@ class MapWidget(QWidget):
                     self.waypoint_objects.append(p)
 
                     l = QGraphicsLineItem(waypoints[i][1] * 10,
-                                                    -waypoints[i][0] * 10,
-                                                    waypoints[i - 1][1] * 10,
-                                                    -waypoints[i - 1][0] * 10)
+                                          -waypoints[i][0] * 10,
+                                          waypoints[i - 1][1] * 10,
+                                          -waypoints[i - 1][0] * 10)
                     if waypoint_counter == i:
                         l.setPen(MapSettings.waypoint_active_pen)
                     else:

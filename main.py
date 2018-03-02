@@ -186,6 +186,7 @@ class MainWidget(QtGui.QWidget):
                     self.map_widget.update_pos(msg.lat, msg.long, msg.psi, self.grid.range_scale)
                     self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
                                                      self.collision_avoidance.waypoint_counter)
+                    self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
 
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
