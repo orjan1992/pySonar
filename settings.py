@@ -18,6 +18,7 @@ class Settings:
 
 class CollisionSettings:
     border_step = 30
+    wp_as_gen_point = True
 
 
 class MapSettings:

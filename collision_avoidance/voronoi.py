@@ -11,18 +11,19 @@ class MyVoronoi(Voronoi):
     def __init__(self, points):
         super(MyVoronoi, self).__init__(points)
 
-    # def add_wp(self, point_index):
-    #     # TODO: Maybe wps should not be added as generation point?
-    #     if point_index < 0:
-    #         region_index = self.point_region[np.shape(self.points)[0] + point_index]
-    #     else:
-    #         region_index = self.point_region[point_index]
-    #
-    #     self.vertices = np.append(self.vertices, [self.points[point_index]], axis=0)
-    #     new_vertice = np.shape(self.vertices)[0]-1
-    #
-    #     for i in range(np.shape(self.regions[region_index])[0]):
-    #         self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
+    def add_wp_as_gen_point(self, point_index):
+        if point_index < 0:
+            region_index = self.point_region[np.shape(self.points)[0] + point_index]
+        else:
+            region_index = self.point_region[point_index]
+
+        self.vertices = np.append(self.vertices, [self.points[point_index]], axis=0)
+        new_vertice = np.shape(self.vertices)[0]-1
+
+        for i in range(np.shape(self.regions[region_index])[0]):
+            self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
+        return new_vertice
+
     def add_wp(self, wp):
         dist = np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1]))
         point_index = np.argmin(dist)
@@ -40,25 +41,27 @@ class MyVoronoi(Voronoi):
 
         for i in range(np.shape(self.ridge_vertices)[0]):
             if self.ridge_vertices[i][0] == -1 or self.ridge_vertices[i][1] == -1:
-                # j = self.ridge_vertices[i][self.ridge_vertices[i] >= 0][0]  # finite end Voronoi vertex
-                if self.ridge_vertices[i][0] == -1:
-                    j = self.ridge_vertices[i][1]
-                else:
-                    j = self.ridge_vertices[i][0]
+                try:
+                    if self.ridge_vertices[i][0] == -1:
+                        j = self.ridge_vertices[i][1]
+                    else:
+                        j = self.ridge_vertices[i][0]
 
-                t = self.points[self.ridge_points[i][1]] - self.points[self.ridge_points[i][0]]  # tangent
-                t /= np.linalg.norm(t)
-                n = np.array([-t[1], t[0]])  # normal
+                    t = self.points[self.ridge_points[i][1]] - self.points[self.ridge_points[i][0]]  # tangent
+                    t /= np.linalg.norm(t)
+                    n = np.array([-t[1], t[0]])  # normal
 
-                midpoint = self.points[self.ridge_points[i]].mean(axis=0)
-                direction = np.sign(np.dot(midpoint - center, n)) * n
-                far_point = self.vertices[j] + direction * ptp_bound.max()
+                    midpoint = self.points[self.ridge_points[i]].mean(axis=0)
+                    direction = np.sign(np.dot(midpoint - center, n)) * n
+                    far_point = self.vertices[j] + direction * ptp_bound.max()
 
-                self.vertices = np.append(self.vertices, [far_point], axis=0)
-                if self.ridge_vertices[i][0] == -1:
-                    self.ridge_vertices[i][0] = np.shape(self.vertices)[0]-1
-                else:
-                    self.ridge_vertices[i][1] = np.shape(self.vertices)[0]-1
+                    self.vertices = np.append(self.vertices, [far_point], axis=0)
+                    if self.ridge_vertices[i][0] == -1:
+                        self.ridge_vertices[i][0] = np.shape(self.vertices)[0]-1
+                    else:
+                        self.ridge_vertices[i][1] = np.shape(self.vertices)[0]-1
+                except IndexError:
+                    break
 
         bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255, 255, 255), -1)
 
@@ -90,20 +93,20 @@ class MyVoronoi(Voronoi):
             stop = stop_in + np.shape(self.vertices)[0]
         else:
             stop = stop_in
-        dist_matrix, predecessors = dijkstra(self.connection_matrix, indices=start,
-                                             directed=False, return_predecessors=True)
-        length = 0
-        # predecessors = dijkstra(self.connection_matrix, indices=start,
-        #                                      directed=False, return_predecessors=True)[1]
+        # dist_matrix, predecessors = dijkstra(self.connection_matrix, indices=start,
+        #                                      directed=False, return_predecessors=True)
+        # length = 0
+        predecessors = dijkstra(self.connection_matrix, indices=start,
+                                             directed=False, return_predecessors=True)[1]
         shortest_path = []
         i = stop
         while i != start:
             if i == -9999:
                 return None
             shortest_path.append(i)
-            length += dist_matrix[i]
+            # length += dist_matrix[i]
             i = predecessors[i]
         shortest_path.append(start)
         shortest_path.reverse()
-        print(length)
+        # print(length)
         return shortest_path

@@ -61,15 +61,16 @@ class CollisionAvoidance:
                 points.append((0, i))
                 points.append((GridSettings.width, i))
 
-            # Convert to Voronoi frame
-            # start_p = len(points)
-            # points.append((800, 800))
-            # end_p = len(points)
-            # points.append(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
-
-            vp = MyVoronoi(points)
-            start_wp = vp.add_wp((801, 801))
-            end_wp = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+            if CollisionSettings.wp_as_gen_point:
+                points.append((800, 800))
+                points.append(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+                vp = MyVoronoi(points)
+                start_wp = vp.add_wp_as_gen_point(-2)
+                end_wp = vp.add_wp_as_gen_point(-1)
+            else:
+                vp = MyVoronoi(points)
+                start_wp = vp.add_wp((801, 801))
+                end_wp = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
 
             vp.gen_obs_free_connections(self.obstacles, (800, 1601))
 
@@ -135,8 +136,9 @@ if __name__ == '__main__':
     collision_avoidance = CollisionAvoidance(None)
     collision_avoidance.update_pos(0, 0, 0)
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [10, 10, 2, 2], [15, 20, 3, 3]]
-    collision_avoidance.waypoint_list = [[0, 0, 1, 1], [15, 20, 3, 3]]
+    # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [15, 20, 3, 3]]
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [29, -13, 3, 3]]
+    collision_avoidance.waypoint_list = [[0, 0, 1, 1], [45, 45, 3, 3]]
     collision_avoidance.waypoint_counter = 1
     collision_avoidance.update_obstacles(contours, 30)
     vp = collision_avoidance.calc_new_wp()
