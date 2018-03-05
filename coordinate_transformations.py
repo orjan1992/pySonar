@@ -1,4 +1,5 @@
 import numpy as np
+import traceback
 def print_args(**kwargs):
     tmp = ''
     for a in kwargs:
@@ -28,10 +29,12 @@ def vehicle2grid(x_veh, y_veh, range):
     y_grid = int(801 - (x_veh * 801.0 / range))
     if y_grid < 0:
         print('y_grid truncated to zero, old_value: {}'.format(y_grid))
+        traceback.print_stack()
         y_grid = 0
     x_grid = int(y_veh * 801.0 / range + 801)
     if x_grid < 0:
         print('x_grid truncated to zero, old_value: {}'.format(x_grid))
+        traceback.print_stack()
         x_grid = 0
     return x_grid, y_grid
 

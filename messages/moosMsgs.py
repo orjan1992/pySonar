@@ -8,6 +8,7 @@ from ast import literal_eval
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.moosPosMsg import MoosPosMsg
 from settings import *
+import cv2
 
 
 class MoosMsgs(object):

@@ -14,11 +14,16 @@ class Settings:
     collision_avoidance = True
     show_map = True
     collision_avoidance_interval = 1000.0/2.0
+    save_obstacles = False
 
 
 class CollisionSettings:
     border_step = 30
-    wp_as_gen_point = True
+    wp_as_gen_point = False
+    obstacle_margin = 3 # meter
+    loop_sleep = 0.001
+    max_loop_iterations = 100
+    parallel_line_tolerance = 2*np.pi/180.0
 
 
 class MapSettings:

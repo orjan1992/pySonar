@@ -237,6 +237,7 @@ class MainWidget(QtGui.QWidget):
             self.moos_msg_client.send_msg('get_waypoints', 0)
         else:
             raise NotImplemented()
+        # self.collision_avoidance.loop()
 
     def binary_button_click(self):
         if self.binary_plot_on:
