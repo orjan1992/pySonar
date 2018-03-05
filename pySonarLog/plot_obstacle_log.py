@@ -5,8 +5,8 @@ import time
 import datetime
 
 flist = os.listdir()
-start_time = datetime.datetime(2018, 3, 5, 16, 8, 0)
-end_time = datetime.datetime(2018, 3, 5, 16, 9, 30)
+start_time = datetime.datetime(2018, 3, 5, 16, 31, 0)
+end_time = datetime.datetime(2019, 1, 1, 0, 0, 0)
 for file in flist:
     fname_split = file.split('.')
     try:
