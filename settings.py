@@ -13,8 +13,8 @@ class Settings:
     hist_window = False
     collision_avoidance = True
     show_map = True
-    collision_avoidance_interval = 1000.0/2.0
-    save_obstacles = False
+    collision_avoidance_interval = 1500  # 1000.0/2.0
+    save_obstacles = True
 
 
 class CollisionSettings:

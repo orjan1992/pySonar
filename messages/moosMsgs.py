@@ -9,12 +9,14 @@ from messages.moosSonarMsg import MoosSonarMsg
 from messages.moosPosMsg import MoosPosMsg
 from settings import *
 import cv2
+from PyQt5.QtCore import QObject, pyqtSignal
 
 
-class MoosMsgs(object):
+class MoosMsgs(QObject):
     cur_pos_msg = None
     pos_msg_flags = [False, False, False]
     RAD2GRAD = 3200.0/pi
+    signal_new_wp = pyqtSignal(list, int, name='new_wp')
 
     def __init__(self, sonar_msg_callback, waypoints_callback=None):
         """
@@ -23,6 +25,7 @@ class MoosMsgs(object):
         :param name: Name of program
         """
         # Logger stuff
+        super().__init__()
         self.logger = logging.getLogger('messages.MoosMsgs')
         self.logger_bins = logging.getLogger('messages.MoosMsgs.bins')
         self.logger_pose = logging.getLogger('messages.MoosMsgs.pose')
@@ -71,7 +74,7 @@ class MoosMsgs(object):
                 sonar_msg.range_scale = tmp[2]
                 sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
                 sonar_msg.dbytes = tmp[3]  # TODO one variable to much, which is needed?
-                sonar_msg.data = tmp[4:] # = np.array(tmp[2:])
+                sonar_msg.data = tmp[4:]  # = np.array(tmp[2:])
                 sonar_msg.time = msg.time()
 
                 sonar_msg.adc8on = True
@@ -81,7 +84,6 @@ class MoosMsgs(object):
         except Exception as e:
             print(e)
         return True
-
 
     def pose_queue(self, msg):
         # TODO implement time
@@ -104,7 +106,8 @@ class MoosMsgs(object):
             else:
                 self.waypoint_list = literal_eval(msg.string())
             if self.waypoint_list is not None and self.waypoint_counter is not None:
-                self.waypoints_callback(self.waypoint_list, self.waypoint_counter)
+                # self.waypoints_callback(self.waypoint_list, self.waypoint_counter)
+                self.signal_new_wp.emit(self.waypoint_list, self.waypoint_counter)
                 self.waypoint_list = None
                 self.waypoint_counter = None
         except Exception as e:

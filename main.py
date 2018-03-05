@@ -138,6 +138,7 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance:
             if Settings.input_source == 1:
                 self.collision_avoidance = CollisionAvoidance(self.moos_msg_client)
+                self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
                 raise NotImplemented
             if Settings.input_source == 1:
@@ -210,8 +211,8 @@ class MainWidget(QtGui.QWidget):
                 im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                 if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
-                    for i in range(len(self.collision_avoidance.voronoi_wp_list)-1):
-                        cv2.line(im, self.collision_avoidance.voronoi_wp_list[i], self.collision_avoidance.voronoi_wp_list[i+1], (255, 0, 0), 2)
+                    for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
+                        cv2.line(im, wp0, wp1, (255, 0, 0), 2)
                 if Settings.show_map:
                     self.map_widget.update_obstacles(ellipses, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)
@@ -238,6 +239,11 @@ class MainWidget(QtGui.QWidget):
         else:
             raise NotImplemented()
         # self.collision_avoidance.loop()
+
+    @QtCore.pyqtSlot(list, int)
+    def wp_received(self, waypoint_list, waypoint_counter):
+        print('signal received')
+        self.collision_avoidance.callback(waypoint_list, waypoint_counter)
 
     def binary_button_click(self):
         if self.binary_plot_on:
