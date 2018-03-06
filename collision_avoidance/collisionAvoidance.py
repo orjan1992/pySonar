@@ -181,12 +181,13 @@ class CollisionAvoidance:
         #     cv2.circle(new_im, WP1, 2, (0, 0, 255), 2)
         #     cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
         #     WP0 = WP1
-        for i in range(len(voronoi_wp_list) - 1):
-            WP1 = voronoi_wp_list[i]
-            cv2.circle(new_im, voronoi_wp_list[i], 2, (0, 0, 255), 2)
-            cv2.line(new_im, voronoi_wp_list[i], voronoi_wp_list[i+1], (255, 0, 0), 2)
-        cv2.circle(new_im, voronoi_wp_list[-1], 2, (0, 0, 255), 2)
-        np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
+        if len(voronoi_wp_list) > 0:
+            for i in range(len(voronoi_wp_list) - 1):
+                WP1 = voronoi_wp_list[i]
+                cv2.circle(new_im, voronoi_wp_list[i], 2, (0, 0, 255), 2)
+                cv2.line(new_im, voronoi_wp_list[i], voronoi_wp_list[i+1], (255, 0, 0), 2)
+            cv2.circle(new_im, voronoi_wp_list[-1], 2, (0, 0, 255), 2)
+            np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
 
 if __name__ == '__main__':
     import cv2

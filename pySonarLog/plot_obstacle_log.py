@@ -1,11 +1,12 @@
 import numpy as np
 import cv2
 import os
-import time
 import datetime
+import select
+import sys
 
 flist = os.listdir()
-start_time = datetime.datetime(2018, 3, 5, 16, 31, 0)
+start_time = datetime.datetime(2018, 3, 6, 1, 31, 0)
 end_time = datetime.datetime(2019, 1, 1, 0, 0, 0)
 for file in flist:
     fname_split = file.split('.')
@@ -19,3 +20,5 @@ for file in flist:
                 cv2.destroyAllWindows()
     except:
         pass
+    if select.select([sys.stdin], [], [], 0) == ([sys.stdin], [], []):
+        break

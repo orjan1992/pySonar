@@ -3,6 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from settings import MapSettings
 import math
+from coordinate_transformations import *
 
 class MapWidget(QWidget):
     pos_ellipse = None
@@ -184,13 +185,23 @@ class MapWidget(QWidget):
         self.obstacle_list.clear()
 
         for obs in obstacles:
-            x, y, r1, r2 = self.sonar_coord2scene(obs, range, lat, long, psi)
-            ellipse = QGraphicsEllipseItem(x, y, r1, r2)
-            ellipse.setPen(MapSettings.sonar_obstacle_pen)
-            ellipse.setTransformOriginPoint(x + r1/2, y + r2/2)
-            ellipse.setRotation(psi*180.0/math.pi + obs[2])
-            self.scene.addItem(ellipse)
-            self.obstacle_list.append(ellipse)
+            # x, y, r1, r2 = self.sonar_coord2scene(obs, range, lat, long, psi)
+            # ellipse = QGraphicsEllipseItem(x, y, r1, r2)
+            # ellipse.setPen(MapSettings.sonar_obstacle_pen)
+            # ellipse.setTransformOriginPoint(x + r1/2, y + r2/2)
+            # ellipse.setRotation(psi*180.0/math.pi + obs[2])
+            # self.scene.addItem(ellipse)
+            # self.obstacle_list.append(ellipse)
+            polygon = QPolygonF()
+            for p in obs:
+                N, E = grid2NED(p[0][0], p[0][1], range, lat, long, psi)
+                polygon.append(QPointF(E*10.0, -N*10.0))
+            q_poly = QGraphicsPolygonItem()
+            q_poly.setPolygon(polygon)
+            q_poly.setPen(MapSettings.sonar_obstacle_pen)
+            self.scene.addItem(q_poly)
+            self.obstacle_list.append(q_poly)
+
 
     @staticmethod
     def sonar_coord2scene(obs, range_scale, lat, long, psi):

@@ -2,7 +2,7 @@ import numpy as np
 import math
 import logging
 import cv2
-from settings import BlobDetectorSettings, FeatureExtraction
+from settings import FeatureExtraction
 import threading
 
 logger = logging.getLogger('OGrid')

@@ -9,12 +9,12 @@ class Settings:
     plot_type = 2
     # 0 == raw update, 1 == zhou update
     update_type = 0
-    pos_update = 1000.0/60.0
+    pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = True
     show_map = True
-    collision_avoidance_interval = 1500  # 1000.0/2.0
-    save_obstacles = True
+    collision_avoidance_interval = 1000  # ms
+    save_obstacles = False
 
 
 class CollisionSettings:

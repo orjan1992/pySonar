@@ -214,7 +214,7 @@ class MainWidget(QtGui.QWidget):
                     for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
                         cv2.line(im, wp0, wp1, (255, 0, 0), 2)
                 if Settings.show_map:
-                    self.map_widget.update_obstacles(ellipses, self.grid.range_scale, self.last_pos_msg.lat,
+                    self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)
                 self.img_item.setImage(im)
             else:
