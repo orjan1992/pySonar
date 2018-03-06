@@ -89,7 +89,10 @@ class CollisionAvoidance:
             return False
     
     def calc_new_wp(self):
-        # TODO: include collision margins before voronoi
+        # Using obstacles with collision margins for wp generation
+        t0 = time()
+        _, self.obstacles, _ = cv2.findContours(self.bin_map, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
+        print(time()-t0)
         if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             # find waypoints in range
             initial_wp = (self.lat, self.long)
@@ -109,7 +112,7 @@ class CollisionAvoidance:
             for contour in self.obstacles:
                 for i in range(np.shape(contour)[0]):
                     points.append((contour[i, 0][0], contour[i, 0][1]))
-
+            print(len(points))
             # add border points
             for i in range(0, GridSettings.width, CollisionSettings.border_step):
                 points.append((i, 0))
@@ -246,7 +249,7 @@ if __name__ == '__main__':
     ### Prepare Voronoi
     #################
     collision_avoidance.check_collision_margins()
-    vp = collision_avoidance.calc_new_wp()
+    vp, wp_list, voronoi_wp_list = collision_avoidance.calc_new_wp()
     new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
     new_im[:, :, 0] = collision_avoidance.bin_map
     new_im[:, :, 1] = collision_avoidance.bin_map

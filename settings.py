@@ -78,27 +78,3 @@ class PlotSettings:
         max_val = 50.0
         min_val = -50.0
         threshold = 10
-
-
-class BlobDetectorSettings:
-    params = cv2.SimpleBlobDetector_Params()
-
-    # Change thresholds
-    params.minThreshold = 50
-    params.maxThreshold = 255
-
-    # Filter by Area.
-    params.filterByArea = False
-    params.minArea = 100
-
-    # Filter by Circularity
-    params.filterByCircularity = False
-    params.minCircularity = 0.1
-
-    # Filter by Convexity
-    params.filterByConvexity = False
-    params.minConvexity = 0.87
-
-    # Filter by Inertia
-    params.filterByInertia = False
-    params.minInertiaRatio = 0.01

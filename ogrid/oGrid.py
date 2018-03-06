@@ -68,10 +68,6 @@ class OGrid(object):
                          y_mesh=OGrid.y_mesh_unit, r=OGrid.r_unit, theta=OGrid.theta)
 
         self.lock = threading.Lock()
-        # detection
-        self.fast_detector = cv2.FastFeatureDetector_create()
-
-        self.blob_detector = cv2.SimpleBlobDetector_create(BlobDetectorSettings.params)
 
     # def loadMap(self):
     #     binary_file = open('OGrid_data/map_1601_new_no_stride.bin', "rb")
@@ -255,9 +251,10 @@ class OGrid(object):
 
         # threshold based on gradient
         thresh = cv2.threshold(self.o_log.astype(np.uint8), i, 255, cv2.THRESH_BINARY)[1]
-        _, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
 
         # Removing small contours
+        # TODO: Should min_area be dependent on range?
         new_contours = list()
         for contour in contours:
             if cv2.contourArea(contour) > FeatureExtraction.min_area:
@@ -265,8 +262,9 @@ class OGrid(object):
         im2 = cv2.drawContours(np.zeros(np.shape(self.o_log), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
 
         # dilating to join close contours
+        # TODO: maybe introduce safety margin in this dilation
         im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
-        _, contours, _ = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.o_log.astype(np.uint8), cv2.COLORMAP_HOT)
         ellipses = list()
         # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
