@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from scipy.sparse.csgraph import dijkstra
 from coordinate_transformations import sat2uint
-from settings import GridSettings
+from settings import GridSettings, CollisionSettings
 
 class MyVoronoi(Voronoi):
     connection_matrix = 0
@@ -31,9 +31,11 @@ class MyVoronoi(Voronoi):
 
         self.vertices = np.append(self.vertices, [wp], axis=0)
         new_vertice = np.shape(self.vertices)[0] - 1
+        new_ridges = []
         for i in range(np.shape(self.regions[region_index])[0]):
             self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
-        return new_vertice
+            new_ridges.append(self.ridge_vertices[-1])
+        return new_vertice, new_ridges
             
     def gen_obs_free_connections(self, contours, shape):
         center = self.points.mean(axis=0)
@@ -83,6 +85,20 @@ class MyVoronoi(Voronoi):
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
+
+    def add_start_penalty(self, ridges):
+        """
+        Add extra weight to ridges with large change in heading
+        :param ridges: list of ridges
+        :return:
+        """
+        # TODO: Penalty should probably be range dependent
+        for ridge in ridges:
+            penalty = np.abs((np.arctan2(self.vertices[ridge[0]][0] - self.vertices[ridge[1]][0],
+                                         self.vertices[ridge[0]][1] - self.vertices[ridge[1]][1]) + np.pi / 2 % np.pi) -
+                             np.pi / 2) * CollisionSettings.start_penalty_factor
+            self.connection_matrix[ridge[0], ridge[1]] *= penalty
+            self.connection_matrix[ridge[1], ridge[0]] *= penalty
 
     def dijkstra(self, start_in, stop_in):
         if start_in < 0:

@@ -76,12 +76,13 @@ class CollisionAvoidance:
 
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
-            last_wp = None
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i-1],
+                NE, constrained = constrainNED2range(self.waypoint_list[i], old_wp,
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp, (255, 255, 255), 1)
+                old_wp = NE
+                grid_old_wp = grid_wp
                 if np.any(np.logical_and(self.bin_map, lin)):
                     return True
                 if constrained:
@@ -101,9 +102,21 @@ class CollisionAvoidance:
                 if constrained:
                     constrained_wp_index = i
                     last_wp = NE
+                    for i in range(constrained_wp_index, np.shape(self.waypoint_list)[0]):
+                        NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
+                                                             self.lat, self.long, self.psi, self.range)
+                        if not constrained:
+                            constrained_wp_index = i
+                            if i < np.shape(self.waypoint_list)[0] - 1:
+                                NE, constrained = constrainNED2range(self.waypoint_list[i + 1], self.waypoint_list[i],
+                                                                     self.lat, self.long, self.psi, self.range)
+                                if constrained:
+                                    constrained_wp_index = i
+                                    last_wp = NE
                     break
             if last_wp is None:
                 last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
+                constrained_wp_index = np.shape(self.waypoint_list)[0] - 1
 
             # Prepare Voronoi points
             points = []
@@ -122,14 +135,15 @@ class CollisionAvoidance:
                 points.append((800, 800))
                 points.append(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
                 vp = MyVoronoi(points)
-                start_wp = vp.add_wp_as_gen_point(-2)
-                end_wp = vp.add_wp_as_gen_point(-1)
+                start_wp, start_ridges = vp.add_wp_as_gen_point(-2)
+                end_wp, _ = vp.add_wp_as_gen_point(-1)
             else:
                 vp = MyVoronoi(points)
-                start_wp = vp.add_wp((801, 801))
-                end_wp = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+                start_wp, start_ridges = vp.add_wp((801, 801))
+                end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
 
             vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
+            vp.add_start_penalty(start_ridges)
 
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
@@ -155,6 +169,44 @@ class CollisionAvoidance:
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
             return True
+
+    def fermat(self, wp_list):
+        wp_array = np.array(wp_list)
+        for wp1, wp2, wp3 in zip(wp_list, wp_list[1:], wp_list[2:]):
+            # Segment lengths
+            l_in = np.linalg.norm(wp2 - wp1)
+            l_out = np.linalg.norm(wp3 - wp2)
+            # Endpoint tangents
+            v_in =(wp2 - wp1) / l_in
+            v_out =(wp3 - wp2)/ l_out
+            # Course change magnitude
+            chi_mag = np.arccos(np.dot(v_in, v_out))
+            # Course change direction
+            rho = -np.sign(v_in[1]*v_out[0] - v_in[0]*v_out[1])
+            # Endpoint tanget
+            chi_theta_max = chi_mag*rho/2
+
+            # find shortest segment and intersection point with both segments
+            if l_in < l_out:
+                p_st = wp1 + 0.5*l_in*v_in
+                q_st = wp2 + ((-p_st + wp2) / v_in) * v_out
+            else:
+                q_st = wp3 + 0.5*l_out*v_out
+                p_st = wp2 - ((-q_st - wp2) / v_out) * v_in
+
+            # find end curvature numerically
+            theta_end = 1
+
+            # find maximum curvature
+            theta_kappa_max = np.min([theta_end, ((7**0.5)/2 - 5/4)**0.5])
+
+            # compute scaling factor
+
+            kappa = (1 / CollisionSettings.kappa_max) * (2 * (theta_kappa_max**0.5) * (3 + 4 * (theta_kappa_max**2))) / \
+                    (1 + 4 * (theta_kappa_max**2))**1.5
+
+
+
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
