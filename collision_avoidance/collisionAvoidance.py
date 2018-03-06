@@ -13,7 +13,7 @@ class CollisionAvoidance:
     save_counter = 0
     pos_and_obs_lock = False
 
-    def __init__(self, msg_client):
+    def __init__(self, msg_client=None, voronoi_plot_item=None):
         self.lat = self.long = self.psi = 0.0
         self.range = 0.0
         self.obstacles = []
@@ -23,6 +23,7 @@ class CollisionAvoidance:
         self.new_wp_list = []
         self.bin_map = np.zeros((GridSettings.height, GridSettings.width), dtype=np.uint8)
         self.msg_client = msg_client
+        self.voronoi_plot_item = voronoi_plot_item
         # self.msg_client.send_msg('waypoints', str(InitialWaypoints.waypoints))
 
     def update_pos(self, lat=None, long=None, psi=None):
@@ -39,20 +40,19 @@ class CollisionAvoidance:
             self.obstacles = obstacles
             self.range = range
 
-    def callback(self, waypoints_list, waypoint_counter):
+    def callback(self, waypoints_list, waypoint_counter, reliable):
         self.waypoint_counter = int(waypoint_counter)
         self.waypoint_list = waypoints_list
-        self.pos_and_obs_lock = True
-        t0 = time()
-        if self.check_collision_margins():
-            if Settings.save_obstacles:
-                self.save_obstacles(self.calc_new_wp())
+        if reliable:
+            self.pos_and_obs_lock = True
+            t0 = time()
+            if self.check_collision_margins():
+                if not self.calc_new_wp():
+                    print('Collision danger: could not calculate feasible path')
+                logger.debug('collision loop time: {}'.format(time()-t0))
             else:
-                self.calc_new_wp()
-            logger.debug('collision loop time: {}'.format(time()-t0))
-        else:
-            logger.debug('no collision danger')
-        self.pos_and_obs_lock = False
+                logger.debug('no collision danger')
+            self.pos_and_obs_lock = False
 
     def remove_obsolete_wp(self, wp_list):
         i = 0
@@ -78,7 +78,7 @@ class CollisionAvoidance:
             grid_old_wp = (801, 801)
             last_wp = None
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i],
+                NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i-1],
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp, (255, 255, 255), 1)
@@ -93,12 +93,13 @@ class CollisionAvoidance:
         _, self.obstacles, _ = cv2.findContours(self.bin_map, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             # find waypoints in range
-            initial_wp = (self.lat, self.long)
             last_wp = None
+            constrained_wp_index = self.waypoint_counter
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i],
+                NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
                                                      self.lat, self.long, self.psi, self.range)
                 if constrained:
+                    constrained_wp_index = i
                     last_wp = NE
                     break
             if last_wp is None:
@@ -141,13 +142,21 @@ class CollisionAvoidance:
                 for wps in self.voronoi_wp_list:
                     N, E = grid2NED(wps[0], wps[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
-            self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
-            return (vp, self.new_wp_list, self.voronoi_wp_list)
+            else:
+                return False
+            self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
+            if CollisionSettings.send_new_wps:
+                self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
 
-    def save_obstacles(self, vp_and_wp_list):
-        vp = vp_and_wp_list[0]
-        wp_list = vp_and_wp_list[1]
-        voronoi_wp_list = vp_and_wp_list[2]
+            if Settings.show_voronoi_plot or Settings.save_obstacles:
+                im = self.calc_voronoi_img(vp, self.new_wp_list, self.voronoi_wp_list)
+                if Settings.show_voronoi_plot:
+                    self.voronoi_plot_item.setImage(im)
+                if Settings.save_obstacles:
+                    np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
+            return True
+
+    def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
         new_im[:, :, 0] = self.bin_map
         new_im[:, :, 1] = self.bin_map
@@ -169,21 +178,15 @@ class CollisionAvoidance:
                              (sat2uint(vp.vertices[j][0], GridSettings.width)
                               , sat2uint(vp.vertices[j][1], GridSettings.height)), (0, 255, 0), 1)
 
-        # WP0 = NED2grid(wp_list[0][0], wp_list[0][1], 0, 0, 0, 30)
-        # cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
-        # for i in range(len(wp_list) - 1):
-        #     WP1 = NED2grid(wp_list[i + 1][0], wp_list[i + 1][1], 0, 0,
-        #                    0, 30)
-        #     cv2.circle(new_im, WP1, 2, (0, 0, 255), 2)
-        #     cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
-        #     WP0 = WP1
+
         if len(voronoi_wp_list) > 0:
             for i in range(len(voronoi_wp_list) - 1):
                 WP1 = voronoi_wp_list[i]
                 cv2.circle(new_im, voronoi_wp_list[i], 2, (0, 0, 255), 2)
                 cv2.line(new_im, voronoi_wp_list[i], voronoi_wp_list[i+1], (255, 0, 0), 2)
             cv2.circle(new_im, voronoi_wp_list[-1], 2, (0, 0, 255), 2)
-            np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
+        return new_im
+
 
 if __name__ == '__main__':
     import cv2

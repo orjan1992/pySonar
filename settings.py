@@ -13,6 +13,7 @@ class Settings:
     hist_window = False
     collision_avoidance = True
     show_map = True
+    show_voronoi_plot = False
     collision_avoidance_interval = 1000  # ms
     save_obstacles = False
 
@@ -24,6 +25,7 @@ class CollisionSettings:
     loop_sleep = 0.001
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0
+    send_new_wps = True
 
 
 class MapSettings:
@@ -62,6 +64,7 @@ class GridSettings:
         binary_grid = False
         width = 1601
         height = 801
+        min_set_pixels = 1601.0*801.0/3.0
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)

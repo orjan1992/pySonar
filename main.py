@@ -109,6 +109,15 @@ class MainWidget(QtGui.QWidget):
             self.histogram = pg.BarGraphItem(x=np.arange(10), y1=np.random.rand(10), width=0.3, brush='r')
             self.hist_window.addItem(self.histogram)
             self.hist_window.show()
+        if Settings.show_voronoi_plot:
+            self.voronoi_window = pg.PlotWindow()
+            self.voronoi_plot_item = pg.ImageItem(autoLevels=False)
+            self.voronoi_window.addItem(self.voronoi_plot_item)
+            self.voronoi_plot_item.getViewBox().invertY(True)
+            self.voronoi_plot_item.getViewBox().setAspectLocked(True)
+            self.voronoi_plot_item.setOpts(axisOrder='row-major')
+            self.voronoi_window.show()
+
 
         self.init_grid()
         if Settings.input_source == 0:
@@ -137,7 +146,10 @@ class MainWidget(QtGui.QWidget):
 
         if Settings.collision_avoidance:
             if Settings.input_source == 1:
-                self.collision_avoidance = CollisionAvoidance(self.moos_msg_client)
+                if Settings.show_voronoi_plot:
+                    self.collision_avoidance = CollisionAvoidance(self.moos_msg_client, self.voronoi_plot_item)
+                else:
+                    self.collision_avoidance = CollisionAvoidance(self.moos_msg_client)
                 self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
                 raise NotImplemented
@@ -241,8 +253,7 @@ class MainWidget(QtGui.QWidget):
 
     @QtCore.pyqtSlot(list, int)
     def wp_received(self, waypoint_list, waypoint_counter):
-        print('signal received')
-        self.collision_avoidance.callback(waypoint_list, waypoint_counter)
+        self.collision_avoidance.callback(waypoint_list, waypoint_counter, self.grid.reliable)
 
     def binary_button_click(self):
         if self.binary_plot_on:

@@ -4,6 +4,7 @@ import logging
 import cv2
 from settings import FeatureExtraction
 import threading
+from settings import GridSettings
 
 logger = logging.getLogger('OGrid')
 
@@ -33,6 +34,7 @@ class OGrid(object):
     range_scale = 1.0
     last_dx = 0
     last_dy = 0
+    reliable = False
 
     def __init__(self, half_grid, p_m, binary_threshold=0.7, cellsize=0):
         if half_grid:
@@ -245,8 +247,10 @@ class OGrid(object):
 
     def adaptive_threshold(self, threshold):
         # Finding histogram, calculating gradient
-        hist = np.histogram(self.o_log.astype(np.uint8).ravel(), 256)[0][1:]
-        grad = np.gradient(hist)
+        hist = np.histogram(self.o_log.astype(np.uint8).ravel(), 256)[0]
+        # Check if more than half of pixels is set
+        self.reliable = hist[0] > GridSettings.min_set_pixels
+        grad = np.gradient(hist[1:])
         i = np.argmax(np.abs(grad) < threshold)
 
         # threshold based on gradient
