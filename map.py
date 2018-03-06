@@ -180,8 +180,8 @@ class MapWidget(QWidget):
                 print('Add waypoints: {}'.format(e))
 
     def update_obstacles(self, obstacles, range, lat, long, psi):
-        for ellipse in self.obstacle_list:
-            self.scene.removeItem(ellipse)
+        for polygon in self.obstacle_list:
+            self.scene.removeItem(polygon)
         self.obstacle_list.clear()
 
         for obs in obstacles:

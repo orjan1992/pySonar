@@ -50,9 +50,9 @@ class MoosLogger:
             bearing = tmp[0]
             step = tmp[1]
             range_scale = tmp[2]
-            length = tmp[3]  # TODO one variable to much, which is needed?
-            dbytes = tmp[3]  # TODO one variable to much, which is needed?
-            data = tmp[4:]  # = np.array(tmp[2:])
+            length = tmp[3]
+            dbytes = tmp[3]
+            data = tmp[4:]
 
             self.writer.writerow({'time': msg.time(), 'key': msg.key(), 'type': 'binary',
                              'bearing': bearing, 'step': step, 'range_scale': range_scale,

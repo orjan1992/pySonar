@@ -51,7 +51,7 @@ class CollisionAvoidance:
                 self.calc_new_wp()
             logger.debug('collision loop time: {}'.format(time()-t0))
         else:
-            print('no collision danger')
+            logger.debug('no collision danger')
         self.pos_and_obs_lock = False
 
     def remove_obsolete_wp(self, wp_list):
@@ -64,7 +64,7 @@ class CollisionAvoidance:
             else:
                 wp_list.remove(wp_list[i+1])
                 counter += 1
-        print('{} redundant wps removed'.format(counter))
+        logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
     def check_collision_margins(self):
@@ -90,9 +90,7 @@ class CollisionAvoidance:
     
     def calc_new_wp(self):
         # Using obstacles with collision margins for wp generation
-        t0 = time()
         _, self.obstacles, _ = cv2.findContours(self.bin_map, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
-        print(time()-t0)
         if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             # find waypoints in range
             initial_wp = (self.lat, self.long)
@@ -107,12 +105,10 @@ class CollisionAvoidance:
                 last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
 
             # Prepare Voronoi points
-            # TODO: Remove some points to reduce comp time
             points = []
             for contour in self.obstacles:
                 for i in range(np.shape(contour)[0]):
                     points.append((contour[i, 0][0], contour[i, 0][1]))
-            print(len(points))
             # add border points
             for i in range(0, GridSettings.width, CollisionSettings.border_step):
                 points.append((i, 0))
@@ -145,7 +141,7 @@ class CollisionAvoidance:
                 for wps in self.voronoi_wp_list:
                     N, E = grid2NED(wps[0], wps[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
-            # TODO: send waypoints to controller
+            self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
             return (vp, self.new_wp_list, self.voronoi_wp_list)
 
     def save_obstacles(self, vp_and_wp_list):

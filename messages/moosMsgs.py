@@ -56,7 +56,6 @@ class MoosMsgs(QObject):
         self.comms.notify(var, val, pm.time())
 
     def bins_queue(self, msg):
-        # TODO implement rangescale step osv
         try:
             self.logger_bins.debug('Message received of type: {}'.format(type(msg)))
             if msg.is_binary():
@@ -86,7 +85,6 @@ class MoosMsgs(QObject):
         return True
 
     def pose_queue(self, msg):
-        # TODO implement time
         self.logger_pose.debug('Message recieved. Type{}'.format(type(msg)))
         if msg.key() == 'currentNEDPos_x':
             self.logger_pose.debug('NEDPos x received')

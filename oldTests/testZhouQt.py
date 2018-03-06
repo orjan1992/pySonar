@@ -259,7 +259,6 @@ class MainWidget(QtGui.QWidget):
         return True
 
     def moos_updater(self):
-        # TODO remove saving of scanlines
         updated = False
         # self.moos_client.send_speed(0.1, 0.001)
         if self.latest_sonar_msg_moose:

@@ -41,7 +41,7 @@ class MainWidget(QtGui.QWidget):
         super(MainWidget, self).__init__(parent)
 
         if Settings.input_source == 0:
-            # TODO: Do something
+            raise NotImplemented
             self.last_pos_msg = None
         elif Settings.input_source == 1:
             self.last_pos_msg = MoosPosMsg()
@@ -174,8 +174,7 @@ class MainWidget(QtGui.QWidget):
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
             if Settings.input_source == 0:
-                # TODO: fix this
-                msg = MoosPosMsg()
+                raise NotImplemented
             else:
                 msg = self.moos_msg_client.cur_pos_msg
             if self.last_pos_msg is None:
