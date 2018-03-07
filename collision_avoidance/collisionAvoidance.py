@@ -133,37 +133,51 @@ class CollisionAvoidance:
                 points.append((GridSettings.width, i))
 
             if CollisionSettings.wp_as_gen_point:
+                # TODO: adding wp to keep initial constraints
+                # TODO: Smarter calc of wp
+                points.append(vehicle2grid(self.waypoint_list[self.waypoint_counter][3], 0, self.range))
                 points.append((800, 800))
                 points.append(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
                 vp = MyVoronoi(points)
+                constrain_wp, _ = vp.add_wp_as_gen_point(-3)
                 start_wp, start_ridges = vp.add_wp_as_gen_point(-2)
                 end_wp, _ = vp.add_wp_as_gen_point(-1)
             else:
                 vp = MyVoronoi(points)
                 start_wp, start_ridges = vp.add_wp((801, 801))
                 end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+                # TODO: adding wp to keep initial constraints
+                # TODO: Smarter calc of wp
+                constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3], 0, self.range))
 
             vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
-            # vp.add_start_penalty(start_ridges)
+            vp.add_start_penalty(start_ridges)
 
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
             # Find shortest route
-            wps = vp.dijkstra(start_wp, end_wp)
+            wps = vp.dijkstra(constrain_wp, end_wp)
             if wps is not None:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
+                self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
                 for wps in self.voronoi_wp_list:
                     N, E = grid2NED(wps[0], wps[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
                 return False
             # Smooth waypoints
+            # TODO: Add first constrained wp?
+            self.new_wp_list.append(self.waypoint_list[constrained_wp_index])
             self.new_wp_list = fermat(self.new_wp_list)
             # Add old waypoints
-            self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
+            try:
+                # self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+                self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
+            except IndexError:
+                pass
             if CollisionSettings.send_new_wps:
                 self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
 
@@ -173,8 +187,8 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            return True
-            # return vp
+            # return True
+            return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
@@ -273,8 +287,6 @@ if __name__ == '__main__':
     wp_list = collision_avoidance.new_wp_list
     voronoi_wp_list = collision_avoidance.voronoi_wp_list
 
-    smooth_wp = fermat(wp_list)
-
     new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
     new_im[:, :, 0] = collision_avoidance.bin_map
     new_im[:, :, 1] = collision_avoidance.bin_map
@@ -300,20 +312,18 @@ if __name__ == '__main__':
     WP0 = NED2grid(collision_avoidance.new_wp_list[0][0], collision_avoidance.new_wp_list[0][1], 0, 0, 0, 30)
     cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
     for i in range(len(collision_avoidance.new_wp_list)-1):
-        WP1 = NED2grid(collision_avoidance.new_wp_list[i+1][0], collision_avoidance.new_wp_list[i+1][1], 0, 0, 0, 30)
-        cv2.circle(new_im, WP1, 2, (0, 0, 255), 2)
-        cv2.line(new_im, WP0, WP1, (0, 0, 255), 2)
-        WP0 = WP1
-
-    # draw smoothed route
-    WP0 = NED2grid(smooth_wp[0][0], smooth_wp[0][1], 0, 0, 0, 30)
-    cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
-    for i in range(len(smooth_wp) - 1):
-        WP1 = NED2grid(smooth_wp[i + 1][0], smooth_wp[i + 1][1], 0, 0, 0,
-                       30)
-        # cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
-        cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
-        WP0 = WP1
+        NE, constrained = constrainNED2range(collision_avoidance.new_wp_list[i+1], collision_avoidance.new_wp_list[i], 0, 0, 0, 30)
+        if not constrained:
+            WP1 = NED2grid(collision_avoidance.new_wp_list[i+1][0], collision_avoidance.new_wp_list[i+1][1], 0, 0, 0, 30)
+            cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
+            cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
+            WP0 = WP1
+        else:
+            WP1 = NED2grid(NE[0], NE[1], 0, 0,
+                           0, 30)
+            cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
+            cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
+            break
 
     cv2.rectangle(new_im, (0, 0), (GridSettings.width-1, GridSettings.height), (255, 255, 255), 1)
     cv2.imshow('test', new_im)

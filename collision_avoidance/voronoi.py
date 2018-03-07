@@ -4,6 +4,9 @@ import cv2
 from scipy.sparse.csgraph import dijkstra
 from coordinate_transformations import sat2uint
 from settings import GridSettings, CollisionSettings
+import logging
+
+logger = logging.getLogger('MyVoronoi')
 
 class MyVoronoi(Voronoi):
     connection_matrix = 0
@@ -111,18 +114,18 @@ class MyVoronoi(Voronoi):
             stop = stop_in
         # dist_matrix, predecessors = dijkstra(self.connection_matrix, indices=start,
         #                                      directed=False, return_predecessors=True)
-        # length = 0
-        predecessors = dijkstra(self.connection_matrix, indices=start,
-                                             directed=False, return_predecessors=True)[1]
+        length = 0
+        dist, predecessors = dijkstra(self.connection_matrix, indices=start,
+                                             directed=False, return_predecessors=True)
         shortest_path = []
         i = stop
         while i != start:
             if i == -9999:
                 return None
             shortest_path.append(i)
-            # length += dist_matrix[i]
+            length += dist[i]
             i = predecessors[i]
         shortest_path.append(start)
         shortest_path.reverse()
-        # print(length)
+        logger.debug('path length={}'.format(length))
         return shortest_path

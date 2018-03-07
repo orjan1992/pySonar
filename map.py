@@ -35,23 +35,41 @@ class MapWidget(QWidget):
             self.scene.addLine(0, -MapSettings.grid_dist, 0, MapSettings.grid_dist,
                                MapSettings.grid_center_pen)
 
-        self.scene.addEllipse(108.0412 - 5, -133.7201 - 5, 10, 10,
+        # self.scene.addEllipse(108.0412 - 5, -133.7201 - 5, 10, 10,
+        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        # self.scene.addEllipse(-53.5571 - 24.88 / 2, -60.9444 - 5, 24.88, 10,
+        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        # self.scene.addEllipse(-214.7458 - 5, 37.2886 - 40, 10, 80,
+        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        #
+        # self.scene.addRect(101.6381 - 7.5, 31.0354 - 13.3 / 2, 15, 13.3,
+        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        #
+        # self.scene.addRect(-2.0295 - 5, 120.6624 - 5, 10, 10,
+        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        # self.scene.addRect(311.4198 - 5, 120.6624 - 50, 10, 100,
+        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        # self.scene.addRect(59.9079 - 100, 406.9405 - 5, 200, 10,
+        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        # self.scene.addRect(-2.0295 - 500, -211.9193 - 5, 1000, 10,
+        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
+        self.scene.addEllipse(108.0412 - 10, -133.7201 - 10, 20, 20,
                               MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        self.scene.addEllipse(-53.5571 - 24.88 / 2, -60.9444 - 5, 24.88, 10,
+        self.scene.addEllipse(-53.5571 - 24.88, -60.9444 - 10, 24.88*2, 20,
                               MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        self.scene.addEllipse(-214.7458 - 5, 37.2886 - 40, 10, 80,
+        self.scene.addEllipse(-214.7458 - 10, 37.2886 - 80, 20, 160,
                               MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
-        self.scene.addRect(101.6381 - 7.5, 31.0354 - 13.3 / 2, 15, 13.3,
+        self.scene.addRect(101.6381 - 15, 31.0354 - 13.3, 30, 13.3*2,
                            MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
-        self.scene.addRect(-2.0295 - 5, 120.6624 - 5, 10, 10,
+        self.scene.addRect(-2.0295 - 10, 120.6624 - 10, 20, 20,
                            MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        self.scene.addRect(311.4198 - 5, 120.6624 - 50, 10, 100,
+        self.scene.addRect(311.4198 - 10, 120.6624 - 100, 20, 200,
                            MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        self.scene.addRect(59.9079 - 100, 406.9405 - 5, 200, 10,
+        self.scene.addRect(59.9079 - 200, 406.9405 - 10, 400, 20,
                            MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        self.scene.addRect(-2.0295 - 50, -211.9193 - 5, 100, 10,
+        self.scene.addRect(-2.0295 - 100, -211.9193 - 10, 200, 20,
                            MapSettings.obstacle_pen, MapSettings.obstacle_brush)
 
         self.pos_ellipse = QGraphicsEllipseItem(0, 0, MapSettings.vehicle_size,
