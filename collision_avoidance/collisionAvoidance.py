@@ -1,5 +1,6 @@
 import numpy as np
 from collision_avoidance.voronoi import MyVoronoi
+from collision_avoidance.fermat import fermat
 from coordinate_transformations import *
 from settings import GridSettings, CollisionSettings, Settings
 from time import sleep
@@ -143,11 +144,12 @@ class CollisionAvoidance:
                 end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
 
             vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
-            vp.add_start_penalty(start_ridges)
+            # vp.add_start_penalty(start_ridges)
 
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
+            # Find shortest route
             wps = vp.dijkstra(start_wp, end_wp)
             if wps is not None:
                 for wp in wps:
@@ -158,6 +160,9 @@ class CollisionAvoidance:
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
                 return False
+            # Smooth waypoints
+            self.new_wp_list = fermat(self.new_wp_list)
+            # Add old waypoints
             self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
             if CollisionSettings.send_new_wps:
                 self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
@@ -168,8 +173,8 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            # return True
-            return vp
+            return True
+            # return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
@@ -268,7 +273,7 @@ if __name__ == '__main__':
     wp_list = collision_avoidance.new_wp_list
     voronoi_wp_list = collision_avoidance.voronoi_wp_list
 
-    smooth_wp = collision_avoidance.fermat(wp_list)
+    smooth_wp = fermat(wp_list)
 
     new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
     new_im[:, :, 0] = collision_avoidance.bin_map

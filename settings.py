@@ -28,7 +28,8 @@ class CollisionSettings:
     send_new_wps = True
     start_penalty_factor = 3.0
 
-    kappa_max = 1  # max curvature
+    fermat_kappa_max = 1  # max curvature
+    fermat_step_factor = 0.8
 
 
 class MapSettings:
