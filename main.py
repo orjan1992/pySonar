@@ -21,6 +21,9 @@ logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('moosPosMsg').disabled = True
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+logging.getLogger('').addHandler(console)
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):

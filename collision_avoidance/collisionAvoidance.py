@@ -9,6 +9,9 @@ import cv2
 from time import time, strftime
 
 logger = logging.getLogger('Collision_avoidance')
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+logger.addHandler(console)
 
 class CollisionAvoidance:
     save_counter = 0
@@ -47,9 +50,9 @@ class CollisionAvoidance:
         if reliable:
             self.pos_and_obs_lock = True
             t0 = time()
-            if self.check_collision_margins():
+            if self.check_collision_margins(self.waypoint_list, self.waypoint_counter):
                 if not self.calc_new_wp():
-                    print('Collision danger: could not calculate feasible path')
+                    logger.info('Collision danger: could not calculate feasible path')
                 logger.debug('collision loop time: {}'.format(time()-t0))
             else:
                 logger.debug('no collision danger')
@@ -68,8 +71,8 @@ class CollisionAvoidance:
         logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
-    def check_collision_margins(self):
-        if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
+    def check_collision_margins(self, waypoint_list, waypoint_counter):
+        if len(self.obstacles) > 0 and np.shape(waypoint_list)[0] > 0:
             self.bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
                                                 dtype=np.uint8), self.obstacles, -1, (255, 255, 255), -1)
             k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range).astype(int)
@@ -77,8 +80,8 @@ class CollisionAvoidance:
 
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
-            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], old_wp,
+            for i in range(waypoint_counter, np.shape(waypoint_list)[0]):
+                NE, constrained = constrainNED2range(waypoint_list[i], old_wp,
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp, (255, 255, 255), 1)
@@ -178,6 +181,14 @@ class CollisionAvoidance:
                 self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
             except IndexError:
                 pass
+
+            # Check if smooth path is collision free
+            collision = self.check_collision_margins(self.new_wp_list, 1)
+            while collision:
+                # TODO: Calc new path with modified dijkstra from lekkas
+                logger.debug('Smooth path violates collision margins')
+                collision = False
+
             if CollisionSettings.send_new_wps:
                 self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
 
