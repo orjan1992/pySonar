@@ -168,45 +168,8 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            return True
-
-    def fermat(self, wp_list):
-        wp_array = np.array(wp_list)
-        for wp1, wp2, wp3 in zip(wp_list, wp_list[1:], wp_list[2:]):
-            # Segment lengths
-            l_in = np.linalg.norm(wp2 - wp1)
-            l_out = np.linalg.norm(wp3 - wp2)
-            # Endpoint tangents
-            v_in =(wp2 - wp1) / l_in
-            v_out =(wp3 - wp2)/ l_out
-            # Course change magnitude
-            chi_mag = np.arccos(np.dot(v_in, v_out))
-            # Course change direction
-            rho = -np.sign(v_in[1]*v_out[0] - v_in[0]*v_out[1])
-            # Endpoint tanget
-            chi_theta_max = chi_mag*rho/2
-
-            # find shortest segment and intersection point with both segments
-            if l_in < l_out:
-                p_st = wp1 + 0.5*l_in*v_in
-                q_st = wp2 + ((-p_st + wp2) / v_in) * v_out
-            else:
-                q_st = wp3 + 0.5*l_out*v_out
-                p_st = wp2 - ((-q_st - wp2) / v_out) * v_in
-
-            # find end curvature numerically
-            theta_end = 1
-
-            # find maximum curvature
-            theta_kappa_max = np.min([theta_end, ((7**0.5)/2 - 5/4)**0.5])
-
-            # compute scaling factor
-
-            kappa = (1 / CollisionSettings.kappa_max) * (2 * (theta_kappa_max**0.5) * (3 + 4 * (theta_kappa_max**2))) / \
-                    (1 + 4 * (theta_kappa_max**2))**1.5
-
-
-
+            # return True
+            return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
@@ -279,7 +242,7 @@ if __name__ == '__main__':
     ######
     ## init
     ######
-
+    CollisionSettings.send_new_wps = False
     collision_avoidance = CollisionAvoidance(None)
     collision_avoidance.update_pos(0, 0, 0)
     # collision_avoidance.waypoint_list = [[0, 0, 1, 1], [10, 10, 2, 2], [15, 20, 3, 3]]
@@ -301,7 +264,12 @@ if __name__ == '__main__':
     ### Prepare Voronoi
     #################
     collision_avoidance.check_collision_margins()
-    vp, wp_list, voronoi_wp_list = collision_avoidance.calc_new_wp()
+    vp = collision_avoidance.calc_new_wp()
+    wp_list = collision_avoidance.new_wp_list
+    voronoi_wp_list = collision_avoidance.voronoi_wp_list
+
+    smooth_wp = collision_avoidance.fermat(wp_list)
+
     new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
     new_im[:, :, 0] = collision_avoidance.bin_map
     new_im[:, :, 1] = collision_avoidance.bin_map
@@ -324,24 +292,23 @@ if __name__ == '__main__':
                           , sat2uint(vp.vertices[j][1], GridSettings.height)), (0, 255, 0), 1)
 
     # draw route
-    # for i in range(len(collision_avoidance.voronoi_wp_list) - 1):
-    #     cv2.line(new_im, collision_avoidance.voronoi_wp_list[i], collision_avoidance.voronoi_wp_list[i + 1],
-    #              (255, 0, 0), 2)
-    # cv2.circle(new_im, collision_avoidance.voronoi_wp_list[0], 2, (0, 0, 255), 2)
-    # cv2.circle(new_im, collision_avoidance.voronoi_wp_list[-1], 2, (0, 0, 255), 2)
-
     WP0 = NED2grid(collision_avoidance.new_wp_list[0][0], collision_avoidance.new_wp_list[0][1], 0, 0, 0, 30)
     cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
     for i in range(len(collision_avoidance.new_wp_list)-1):
         WP1 = NED2grid(collision_avoidance.new_wp_list[i+1][0], collision_avoidance.new_wp_list[i+1][1], 0, 0, 0, 30)
         cv2.circle(new_im, WP1, 2, (0, 0, 255), 2)
-        cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
+        cv2.line(new_im, WP0, WP1, (0, 0, 255), 2)
         WP0 = WP1
 
-
-    # draw WP0 and WP_end
-    # for i in range(-len(collision_avoidance.waypoint_list), 0):
-    #     cv2.circle(new_im, (int(vp.vertices[i][0]), int(vp.vertices[i][1])), 2, (0, 0, 255), 2)
+    # draw smoothed route
+    WP0 = NED2grid(smooth_wp[0][0], smooth_wp[0][1], 0, 0, 0, 30)
+    cv2.circle(new_im, WP0, 2, (0, 0, 255), 2)
+    for i in range(len(smooth_wp) - 1):
+        WP1 = NED2grid(smooth_wp[i + 1][0], smooth_wp[i + 1][1], 0, 0, 0,
+                       30)
+        # cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
+        cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
+        WP0 = WP1
 
     cv2.rectangle(new_im, (0, 0), (GridSettings.width-1, GridSettings.height), (255, 255, 255), 1)
     cv2.imshow('test', new_im)
