@@ -2,7 +2,7 @@ from scipy.spatial import Voronoi
 import numpy as np
 import cv2
 from scipy.sparse.csgraph import dijkstra
-from coordinate_transformations import sat2uint
+from coordinate_transformations import sat2uint, constrainNED2range, NED2grid
 from settings import GridSettings, CollisionSettings
 import logging
 
@@ -40,7 +40,16 @@ class MyVoronoi(Voronoi):
             new_ridges.append(self.ridge_vertices[-1])
         return new_vertice, new_ridges
             
-    def gen_obs_free_connections(self, contours, shape):
+    def gen_obs_free_connections(self, contours, shape, add_penalty=False, old_wp_list=None):
+        """
+
+        :param contours: list of contours
+        :param shape: tuple, shape of grid
+        :param add_penalty: add penalty to path away from old on
+        :param old_wp_list: list of wp is grid frame
+        :return:
+        """
+        # TODO: waypoints behind vehicle should not be possible
         center = self.points.mean(axis=0)
         ptp_bound = self.points.ptp(axis=0)
 
@@ -70,6 +79,12 @@ class MyVoronoi(Voronoi):
 
         bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255, 255, 255), -1)
 
+        if add_penalty:
+            bin_old_wps =np.zeros(shape, dtype=np.uint8)
+            for wp0, wp1 in zip(old_wp_list, old_wp_list[1:]):
+                # TODO: Line width should be dependent on range
+                bin_old_wps = cv2.line(bin_old_wps, wp0, wp1, (255, 255, 255), 20)
+
         self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 
         for i in range(np.shape(self.ridge_vertices)[0]):
@@ -88,6 +103,12 @@ class MyVoronoi(Voronoi):
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
+                    if add_penalty:
+                        if not np.any(np.logical_and(bin_old_wps, lin)):
+                            self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] *= \
+                                CollisionSettings.path_deviation_penalty_factor
+                            self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] *= \
+                                CollisionSettings.path_deviation_penalty_factor
 
     def add_start_penalty(self, ridges):
         """
