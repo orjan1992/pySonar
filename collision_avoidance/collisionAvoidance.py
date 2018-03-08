@@ -147,19 +147,22 @@ class CollisionAvoidance:
                 vp = MyVoronoi(points)
                 start_wp, start_ridges = vp.add_wp((801, 801))
                 end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
-                # TODO: Smarter calc of wp, has to be function of range and speed
-                constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3], 0, self.range))
+                # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
+                constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3]*Settings.collision_avoidance_interval*0.0015, 0, self.range))
 
             # vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
             # vp.add_start_penalty(start_ridges)
-            old_voronoi_wp_list = [(801, 801)]
-            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
-                                                     self.lat, self.long, self.psi, self.range)
-                old_voronoi_wp_list.append(NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range))
-                if constrained:
-                    break
-            vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), True, old_voronoi_wp_list)
+            if CollisionSettings.add_path_deviation_penalty:
+                old_voronoi_wp_list = [(801, 801)]
+                for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
+                    NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
+                                                         self.lat, self.long, self.psi, self.range)
+                    old_voronoi_wp_list.append(NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range))
+                    if constrained:
+                        break
+                vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), True, old_voronoi_wp_list)
+            else:
+                vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
 
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
@@ -177,14 +180,14 @@ class CollisionAvoidance:
             else:
                 return False
             # Smooth waypoints
-            self.new_wp_list.append(self.waypoint_list[constrained_wp_index])
-            self.new_wp_list = fermat(self.new_wp_list)
+            # self.new_wp_list.append(self.waypoint_list[constrained_wp_index])
             # Add old waypoints
             try:
                 # self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
                 self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
             except IndexError:
                 pass
+            self.new_wp_list = fermat(self.new_wp_list)
 
             # Check if smooth path is collision free
             collision = self.check_collision_margins(self.new_wp_list, 1)

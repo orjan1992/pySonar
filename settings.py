@@ -26,10 +26,11 @@ class CollisionSettings:
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0
     send_new_wps = True
+    add_path_deviation_penalty = False
     start_penalty_factor = 1000.0
     path_deviation_penalty_factor = 10.0
 
-    fermat_kappa_max = 1  # max curvature
+    fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
 
 
