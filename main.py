@@ -2,6 +2,7 @@ import pyqtgraph as pg
 from PyQt5 import QtCore, QtGui
 import threading
 from copy import deepcopy
+import sys
 
 from settings import *
 from ogrid.oGrid import OGrid
@@ -24,6 +25,12 @@ logging.getLogger('moosPosMsg').disabled = True
 console = logging.StreamHandler()
 console.setLevel(logging.INFO)
 logging.getLogger('').addHandler(console)
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    print('haha')
+    logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+    sys.__excepthook__(exc_type, exc_value, exc_traceback)
+    return
 
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
@@ -267,6 +274,7 @@ class MainWidget(QtGui.QWidget):
 
 
 if __name__ == '__main__':
+    sys.excepthook = handle_exception
     app = QtGui.QApplication([])
     window = MainWindow()
     window.show()
