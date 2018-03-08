@@ -77,13 +77,21 @@ class MyVoronoi(Voronoi):
                 except IndexError:
                     break
 
-        bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255, 255, 255), -1)
+        bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (1, 0, 0), -1)
 
         if add_penalty:
-            bin_old_wps =np.zeros(shape, dtype=np.uint8)
-            for wp0, wp1 in zip(old_wp_list, old_wp_list[1:]):
-                # TODO: Line width should be dependent on range
-                bin_old_wps = cv2.line(bin_old_wps, wp0, wp1, (255, 255, 255), 20)
+            # bin_old_wps =np.zeros(shape, dtype=np.uint8)
+            # for wp0, wp1 in zip(old_wp_list, old_wp_list[1:]):
+            #     # TODO: Line width should be dependent on range
+            #     bin_old_wps = cv2.line(bin_old_wps, wp0, wp1, (255, 255, 255), 20)
+            wp_array = [np.array(old_wp_list, dtype=np.int32).reshape((-1, 1, 2))]
+            bin_old_wps = np.zeros(shape, dtype=np.uint8)
+            cv2.polylines(bin_old_wps, wp_array, False, (1, 0, 0), 600)
+            cv2.polylines(bin_old_wps, wp_array, False, (2, 0, 0), 600)
+            cv2.polylines(bin_old_wps, wp_array, False, (4, 0, 0), 400)
+            cv2.polylines(bin_old_wps, wp_array, False, (8, 0, 0), 200)
+            cv2.polylines(bin_old_wps, wp_array, False, (16, 0, 0), 100)
+            cv2.polylines(bin_old_wps, wp_array, False, (32, 0, 0), 50)
 
         self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 
@@ -92,7 +100,7 @@ class MyVoronoi(Voronoi):
             p1y = sat2uint(self.vertices[self.ridge_vertices[i][0]][1], GridSettings.height)
             p2x = sat2uint(self.vertices[self.ridge_vertices[i][1]][0], GridSettings.width)
             p2y = sat2uint(self.vertices[self.ridge_vertices[i][1]][1], GridSettings.height)
-            lin = cv2.line(np.zeros(np.shape(bin), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (255, 255, 255), 1)
+            lin = cv2.line(np.zeros(np.shape(bin), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), 1)
 
             if not np.any(np.logical_and(bin, lin)):
                 # tmp = False
@@ -104,11 +112,21 @@ class MyVoronoi(Voronoi):
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
                     if add_penalty:
-                        if not np.any(np.logical_and(bin_old_wps, lin)):
-                            self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] *= \
-                                CollisionSettings.path_deviation_penalty_factor
-                            self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] *= \
-                                CollisionSettings.path_deviation_penalty_factor
+                        penalty_factor = CollisionSettings.path_deviation_penalty_factor
+                        if np.any(np.logical_and(bin_old_wps, lin)):
+                            penalty_factor /= 2
+                        elif np.any(np.logical_and(bin_old_wps, lin*2)):
+                            penalty_factor /= 4
+                        elif np.any(np.logical_and(bin_old_wps, lin*4)):
+                            penalty_factor /= 8
+                        elif np.any(np.logical_and(bin_old_wps, lin*8)):
+                            penalty_factor /= 16
+                        elif np.any(np.logical_and(bin_old_wps, lin*16)):
+                            penalty_factor /= 32
+                        elif np.any(np.logical_and(bin_old_wps, lin*32)):
+                            penalty_factor = 1
+                        self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] *= penalty_factor
+                        self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] *= penalty_factor
 
     def add_start_penalty(self, ridges):
         """
