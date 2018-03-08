@@ -35,24 +35,6 @@ class MapWidget(QWidget):
             self.scene.addLine(0, -MapSettings.grid_dist, 0, MapSettings.grid_dist,
                                MapSettings.grid_center_pen)
 
-        # self.scene.addEllipse(108.0412 - 5, -133.7201 - 5, 10, 10,
-        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        # self.scene.addEllipse(-53.5571 - 24.88 / 2, -60.9444 - 5, 24.88, 10,
-        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        # self.scene.addEllipse(-214.7458 - 5, 37.2886 - 40, 10, 80,
-        #                       MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        #
-        # self.scene.addRect(101.6381 - 7.5, 31.0354 - 13.3 / 2, 15, 13.3,
-        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        #
-        # self.scene.addRect(-2.0295 - 5, 120.6624 - 5, 10, 10,
-        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        # self.scene.addRect(311.4198 - 5, 120.6624 - 50, 10, 100,
-        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        # self.scene.addRect(59.9079 - 100, 406.9405 - 5, 200, 10,
-        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
-        # self.scene.addRect(-2.0295 - 500, -211.9193 - 5, 1000, 10,
-        #                    MapSettings.obstacle_pen, MapSettings.obstacle_brush)
         self.scene.addEllipse(108.0412 - 10, -133.7201 - 10, 20, 20,
                               MapSettings.obstacle_pen, MapSettings.obstacle_brush)
         self.scene.addEllipse(-53.5571 - 24.88, -60.9444 - 10, 24.88*2, 20,
@@ -204,13 +186,6 @@ class MapWidget(QWidget):
         self.obstacle_list.clear()
 
         for obs in obstacles:
-            # x, y, r1, r2 = self.sonar_coord2scene(obs, range, lat, long, psi)
-            # ellipse = QGraphicsEllipseItem(x, y, r1, r2)
-            # ellipse.setPen(MapSettings.sonar_obstacle_pen)
-            # ellipse.setTransformOriginPoint(x + r1/2, y + r2/2)
-            # ellipse.setRotation(psi*180.0/math.pi + obs[2])
-            # self.scene.addItem(ellipse)
-            # self.obstacle_list.append(ellipse)
             polygon = QPolygonF()
             for p in obs:
                 N, E = grid2NED(p[0][0], p[0][1], range, lat, long, psi)
@@ -220,20 +195,6 @@ class MapWidget(QWidget):
             q_poly.setPen(MapSettings.sonar_obstacle_pen)
             self.scene.addItem(q_poly)
             self.obstacle_list.append(q_poly)
-
-
-    @staticmethod
-    def sonar_coord2scene(obs, range_scale, lat, long, psi):
-        x_obs = (obs[0][0] - 801) * range_scale / 801
-        y_obs = (801 - obs[0][1]) * range_scale / 801
-        alpha = math.atan2(x_obs, y_obs) + psi
-        r1 = obs[1][0] * range_scale / 801
-        r2 = obs[1][1] * range_scale / 801
-        r = math.sqrt(x_obs**2 + y_obs**2)
-        x_scene = long + r*math.sin(alpha) - r1/2
-        y_scene = -lat - r*math.cos(alpha) - r2/2
-        return x_scene*10, y_scene*10, r1*10, r2*10
-
 
 
 class MyQGraphicsView(QGraphicsView):
@@ -266,21 +227,6 @@ class MyQGraphicsView(QGraphicsView):
         # Move scene to old position
         delta = new_pos - old_pos
         self.translate(delta.x(), delta.y())
-
-    # def dragEnterEvent(self, QDragEnterEvent):
-    #     self.drag_lock = True
-    #     print('drag enter')
-    #     super(MyQGraphicsView, self).dragEnterEvent(QDragEnterEvent)
-    #     super(MyQGraphicsView, self).drag
-    #
-    # def dragLeaveEvent(self, QDragLeaveEvent):
-    #     self.drag_lock = False
-    #     super(MyQGraphicsView, self).dragLeaveEvent(QDragEnterEvent)
-
-    # def dragMoveEvent(self, QDragMoveEvent):
-    #     self.drag_lock = True
-    #     super(MyQGraphicsView, self).dragMoveEvent(QDragMoveEvent)
-    #     self.drag_lock = False
 
     def mousePressEvent(self, QMouseEvent):
         self.drag_lock = True

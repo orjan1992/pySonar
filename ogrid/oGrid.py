@@ -304,15 +304,26 @@ class OGrid(object):
         dpsi_grad = np.round(dpsi_grad).astype(int)
         new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.o_zero
         if dpsi_grad < 0:
-            # new_grid.flat[OGrid.map[self.mask][1600-dpsi_grad:4801, :, :]] = self.o_log.flat[OGrid.map[self.mask][1600:4801+dpsi_grad, :, 0]]
-            for n in range(1600-dpsi_grad, 4801):
-                for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+            if GridSettings.half_grid:
+                for n in range(1600-dpsi_grad, 4801):
+                    for i in range(0, self.MAX_CELLS):
+                        new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+            else:
+                for n in range(0, 6399):
+                    for i in range(0, self.MAX_CELLS):
+                        new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
         else:
-            # new_grid.flat[OGrid.map[1600:4801-dpsi_grad, :, :]] = self.o_log.flat[OGrid.map[1600+dpsi_grad:4801, :, 0]]
-            for n in range(1600, 4801-dpsi_grad):
-                for i in range(0, self.MAX_CELLS):
-                    new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+            if GridSettings.half_grid:
+                for n in range(1600, 4801-dpsi_grad):
+                    for i in range(0, self.MAX_CELLS):
+                        new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n+dpsi_grad, :, 0]]
+            else:
+                for n in range(0, 6399):
+                    for i in range(0, self.MAX_CELLS):
+                        n_d = n+dpsi_grad
+                        if n_d > 6399:
+                            n_d = 6399 - n_d
+                        new_grid.flat[OGrid.map[n, :, i]] = self.o_log.flat[OGrid.map[n_d, :, 0]]
         
         self.o_log = new_grid
         

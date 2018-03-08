@@ -64,7 +64,7 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
-        half_grid = True
+        half_grid = False
         p_inital = 0
         binary_threshold = 0.78
         binary_grid = False

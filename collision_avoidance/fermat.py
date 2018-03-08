@@ -1,5 +1,7 @@
 import numpy as np
 from settings import CollisionSettings
+import logging
+logger = logging.getLogger('Fermat')
 
 THETA_MAX = ((7 ** 0.5) / 2 - 5 / 4) ** 0.5
 
@@ -50,15 +52,18 @@ def fermat(wp_list):
         step = np.round(delta_chi_mag / CollisionSettings.fermat_step_factor).astype(int)
 
         # Find intermediate waypoints
-        for theta in np.linspace(0, theta_end, step, endpoint=False):
-            x = p_0[0] + kappa * (theta ** 0.5) * np.cos(rho * theta + chi_0)
-            y = p_0[1] + kappa * (theta ** 0.5) * np.sin(rho * theta + chi_0)
-            new_list.append([x, y, wp2[2], wp2[3]])
-        tmp_list = []
-        for theta in np.linspace(0, theta_end, step + 1, endpoint=True):
-            x = p_end[0] - kappa * (theta ** 0.5) * np.cos(-rho * theta + chi_end)
-            y = p_end[1] - kappa * (theta ** 0.5) * np.sin(-rho * theta + chi_end)
-            tmp_list.append([x, y, wp3[2], wp3[3]])
+        try:
+            for theta in np.linspace(0, theta_end, step, endpoint=False):
+                x = p_0[0] + kappa * (theta ** 0.5) * np.cos(rho * theta + chi_0)
+                y = p_0[1] + kappa * (theta ** 0.5) * np.sin(rho * theta + chi_0)
+                new_list.append([x, y, wp2[2], wp2[3]])
+            tmp_list = []
+            for theta in np.linspace(0, theta_end, step + 1, endpoint=True):
+                x = p_end[0] - kappa * (theta ** 0.5) * np.cos(-rho * theta + chi_end)
+                y = p_end[1] - kappa * (theta ** 0.5) * np.sin(-rho * theta + chi_end)
+                tmp_list.append([x, y, wp3[2], wp3[3]])
+        except ValueError as e:
+            logger.error('step={}'.format(delta_chi_mag / CollisionSettings.fermat_step_factor), e)
         tmp_list.reverse()
         new_list.extend(tmp_list)
     new_list.append(wp_list[-1])

@@ -9,9 +9,9 @@ import cv2
 from time import time, strftime
 
 logger = logging.getLogger('Collision_avoidance')
-console = logging.StreamHandler()
-console.setLevel(logging.DEBUG)
-logger.addHandler(console)
+# console = logging.StreamHandler()
+# console.setLevel(logging.DEBUG)
+# logger.addHandler(console)
 
 class CollisionAvoidance:
     save_counter = 0

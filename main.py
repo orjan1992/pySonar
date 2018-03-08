@@ -253,6 +253,7 @@ class MainWidget(QtGui.QWidget):
             self.plot_updated = False
 
     def collision_avoidance_loop(self):
+        # TODO: faster loop when no object is in the way
         self.collision_avoidance.main_loop(self.grid.reliable)
 
     @QtCore.pyqtSlot(object, name='new_wp')
