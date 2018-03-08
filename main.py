@@ -168,6 +168,7 @@ class MainWidget(QtGui.QWidget):
             else:
                 raise NotImplemented()
             self.collision_avoidance_timer = QtCore.QTimer()
+            self.collision_avoidance_timer.setSingleShot(True)
             self.collision_avoidance_timer.timeout.connect(self.collision_avoidance_loop)
             self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
@@ -255,6 +256,7 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         # TODO: faster loop when no object is in the way
         self.collision_avoidance.main_loop(self.grid.reliable)
+        self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -283,3 +285,5 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
+
+    window.login_widget.collision_avoidance.save_paths()

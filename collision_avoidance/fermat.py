@@ -12,6 +12,9 @@ def fermat(wp_list):
         # Segment lengths
         l_in = np.linalg.norm(wp2[:2] - wp1[:2])
         l_out = np.linalg.norm(wp3[:2] - wp2[:2])
+        if l_in == 0 or l_out == 0:
+            new_list.append(wp2)
+            continue
         # Endpoint tangents
         v_in = (wp2[:2] - wp1[:2]) / l_in
         v_out = (wp3[:2] - wp2[:2]) / l_out
@@ -63,7 +66,7 @@ def fermat(wp_list):
                 y = p_end[1] - kappa * (theta ** 0.5) * np.sin(-rho * theta + chi_end)
                 tmp_list.append([x, y, wp3[2], wp3[3]])
         except ValueError as e:
-            logger.error('step={}'.format(delta_chi_mag / CollisionSettings.fermat_step_factor), e)
+            logger.error('step={}\tdelta_chi_mag={}'.format(delta_chi_mag / CollisionSettings.fermat_step_factor, delta_chi_mag))
         tmp_list.reverse()
         new_list.extend(tmp_list)
     new_list.append(wp_list[-1])

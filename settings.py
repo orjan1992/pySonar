@@ -14,8 +14,9 @@ class Settings:
     collision_avoidance = True
     show_map = True
     show_voronoi_plot = False
-    collision_avoidance_interval = 1000  # ms
+    collision_avoidance_interval = 200  # ms
     save_obstacles = False
+    save_paths = True
 
 
 class CollisionSettings:
@@ -75,7 +76,7 @@ class GridSettings:
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
     iterations = 1
-    min_area = 20
+    min_area = 30
 
 class ConnectionSettings:
         sonar_port = 5555

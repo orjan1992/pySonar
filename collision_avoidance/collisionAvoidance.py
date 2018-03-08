@@ -25,6 +25,9 @@ class CollisionAvoidance:
         self.waypoint_list = []
         self.voronoi_wp_list = []
         self.new_wp_list = []
+        if Settings.save_paths:
+            self.pos = []
+            self.paths = []
         self.bin_map = np.zeros((GridSettings.height, GridSettings.width), dtype=np.uint8)
         self.msg_client = msg_client
         self.voronoi_plot_item = voronoi_plot_item
@@ -38,6 +41,7 @@ class CollisionAvoidance:
                 self.long = long
             if psi is not None:
                 self.psi = psi
+        self.pos.append((lat, long, psi))
 
     def update_obstacles(self, obstacles, range):
         if not self.pos_and_obs_lock:
@@ -50,6 +54,7 @@ class CollisionAvoidance:
                 self.waypoint_list = wp_list
             if wp_counter is not None:
                 self.waypoint_counter = wp_counter
+        self.paths.append(wp_list)
 
     def main_loop(self, reliable):
         if reliable:
@@ -153,7 +158,8 @@ class CollisionAvoidance:
                 start_wp, start_ridges = vp.add_wp((801, 801))
                 end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
                 # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
-                constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3]*Settings.collision_avoidance_interval*0.0015, 0, self.range))
+                constrain_wp, _ = vp.add_wp(vehicle2grid(1, 0, self.range))
+                # constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3]*Settings.collision_avoidance_interval*0.0015, 0, self.range))
 
             # vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
             # vp.add_start_penalty(start_ridges)
@@ -209,7 +215,7 @@ class CollisionAvoidance:
                 if Settings.show_voronoi_plot:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
-                    np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
+                    np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
             return True
             # return vp
 
@@ -244,6 +250,9 @@ class CollisionAvoidance:
             cv2.circle(new_im, voronoi_wp_list[-1], 2, (0, 0, 255), 2)
         return new_im
 
+    def save_paths(self):
+        if Settings.save_paths:
+            np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
 
 if __name__ == '__main__':
     import cv2
