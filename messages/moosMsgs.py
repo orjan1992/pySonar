@@ -16,7 +16,7 @@ class MoosMsgs(QObject):
     cur_pos_msg = None
     pos_msg_flags = [False, False, False]
     RAD2GRAD = 3200.0/pi
-    signal_new_wp = pyqtSignal(list, int, name='new_wp')
+    signal_new_wp = pyqtSignal(object, name='new_wp')
 
     def __init__(self, sonar_msg_callback, waypoints_callback=None):
         """
@@ -100,14 +100,11 @@ class MoosMsgs(QObject):
     def waypoints_queue(self, msg):
         try:
             if msg.key() == 'waypoint_counter':
-                self.waypoint_counter = msg.double()
+                self.waypoint_counter = int(msg.double())
+                self.signal_new_wp.emit(self.waypoint_counter)
             else:
                 self.waypoint_list = literal_eval(msg.string())
-            if self.waypoint_list is not None and self.waypoint_counter is not None:
-                # self.waypoints_callback(self.waypoint_list, self.waypoint_counter)
-                self.signal_new_wp.emit(self.waypoint_list, self.waypoint_counter)
-                self.waypoint_list = None
-                self.waypoint_counter = None
+                self.signal_new_wp.emit(self.waypoint_list)
         except Exception as e:
             print(e)
         return True

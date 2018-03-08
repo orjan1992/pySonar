@@ -13,6 +13,7 @@ from collision_avoidance.collisionAvoidance import CollisionAvoidance
 import cv2
 import map
 
+# LOG and EXECPTION stuff
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
                     level=logging.DEBUG,
@@ -27,11 +28,11 @@ console.setLevel(logging.INFO)
 logging.getLogger('').addHandler(console)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
-    print('haha')
     logger.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     sys.__excepthook__(exc_type, exc_value, exc_traceback)
     return
 
+# Main Prog
 class MainWindow(QtGui.QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
@@ -128,7 +129,6 @@ class MainWidget(QtGui.QWidget):
             self.voronoi_plot_item.setOpts(axisOrder='row-major')
             self.voronoi_window.show()
 
-
         self.init_grid()
         if Settings.input_source == 0:
             self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port, self.new_sonar_msg)
@@ -164,7 +164,7 @@ class MainWidget(QtGui.QWidget):
             else:
                 raise NotImplemented
             if Settings.input_source == 1:
-                self.moos_msg_client.set_waypoints_callback(self.collision_avoidance.callback)
+                self.moos_msg_client.set_waypoints_callback(self.collision_avoidance.main_loop)
             else:
                 raise NotImplemented()
             self.collision_avoidance_timer = QtCore.QTimer()
@@ -206,9 +206,7 @@ class MainWidget(QtGui.QWidget):
                 self.collision_avoidance.update_pos(msg.lat, msg.long, msg.psi)
                 if Settings.show_map:
                     self.map_widget.update_pos(msg.lat, msg.long, msg.psi, self.grid.range_scale)
-                    self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
-                                                     self.collision_avoidance.waypoint_counter)
-                    self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
+                    # self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
 
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
@@ -231,9 +229,9 @@ class MainWidget(QtGui.QWidget):
             elif Settings.plot_type == 2:
                 im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
-                if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
-                    for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
-                        cv2.line(im, wp0, wp1, (255, 0, 0), 2)
+                # if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
+                #     for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
+                #         cv2.line(im, wp0, wp1, (255, 0, 0), 2)
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)
@@ -255,15 +253,20 @@ class MainWidget(QtGui.QWidget):
             self.plot_updated = False
 
     def collision_avoidance_loop(self):
-        if Settings.input_source == 1:
-            self.moos_msg_client.send_msg('get_waypoints', 0)
-        else:
-            raise NotImplemented()
-        # self.collision_avoidance.loop()
+        self.collision_avoidance.main_loop(self.grid.reliable)
 
-    @QtCore.pyqtSlot(list, int)
-    def wp_received(self, waypoint_list, waypoint_counter):
-        self.collision_avoidance.callback(waypoint_list, waypoint_counter, self.grid.reliable)
+    @QtCore.pyqtSlot(object, name='new_wp')
+    def wp_received(self, var):
+        if type(var) is list:
+            self.collision_avoidance.update_external_wps(var, None)
+        elif type(var) is int:
+            self.collision_avoidance.update_external_wps(None, var)
+        else:
+            raise Exception('Unknown object type in wp_received slot')
+        if Settings.show_map:
+            self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
+                                             self.collision_avoidance.waypoint_counter)
+
 
     def binary_button_click(self):
         if self.binary_plot_on:

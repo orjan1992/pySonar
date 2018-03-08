@@ -109,6 +109,7 @@ class MapWidget(QWidget):
         self.sonar_circle.setSpanAngle(180*16)
         self.sonar_circle.setBrush(MapSettings.sonar_circle_brush)
         self.scene.addItem(self.sonar_circle)
+        self.view.update_pos(lat, long)
 
     def update_avoidance_waypoints(self, waypoints):
         try:
@@ -240,6 +241,7 @@ class MyQGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
         super(MyQGraphicsView, self).__init__ (parent)
         self.setDragMode(1)
+        self.drag_lock = False
 
     def wheelEvent(self, event):
         """
@@ -264,3 +266,31 @@ class MyQGraphicsView(QGraphicsView):
         # Move scene to old position
         delta = new_pos - old_pos
         self.translate(delta.x(), delta.y())
+
+    # def dragEnterEvent(self, QDragEnterEvent):
+    #     self.drag_lock = True
+    #     print('drag enter')
+    #     super(MyQGraphicsView, self).dragEnterEvent(QDragEnterEvent)
+    #     super(MyQGraphicsView, self).drag
+    #
+    # def dragLeaveEvent(self, QDragLeaveEvent):
+    #     self.drag_lock = False
+    #     super(MyQGraphicsView, self).dragLeaveEvent(QDragEnterEvent)
+
+    # def dragMoveEvent(self, QDragMoveEvent):
+    #     self.drag_lock = True
+    #     super(MyQGraphicsView, self).dragMoveEvent(QDragMoveEvent)
+    #     self.drag_lock = False
+
+    def mousePressEvent(self, QMouseEvent):
+        self.drag_lock = True
+        super(MyQGraphicsView, self).mousePressEvent(QMouseEvent)
+
+    def mouseReleaseEvent(self, QMouseEvent):
+        self.drag_lock = False
+        super(MyQGraphicsView, self). mouseReleaseEvent(QMouseEvent)
+
+    def update_pos(self, lat, long):
+        if not self.drag_lock:
+            self.centerOn(long*10, -lat*10)
+        # pass

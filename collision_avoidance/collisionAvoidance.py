@@ -44,13 +44,18 @@ class CollisionAvoidance:
             self.obstacles = obstacles
             self.range = range
 
-    def callback(self, waypoints_list, waypoint_counter, reliable):
-        self.waypoint_counter = int(waypoint_counter)
-        self.waypoint_list = waypoints_list
+    def update_external_wps(self, wp_list, wp_counter):
+        if not self.pos_and_obs_lock:
+            if wp_list is not None:
+                self.waypoint_list = wp_list
+            if wp_counter is not None:
+                self.waypoint_counter = wp_counter
+
+    def main_loop(self, reliable):
         if reliable:
             self.pos_and_obs_lock = True
             t0 = time()
-            if self.check_collision_margins(self.waypoint_list, self.waypoint_counter):
+            if self.check_collision_margins():
                 if not self.calc_new_wp():
                     logger.info('Collision danger: could not calculate feasible path')
                 logger.debug('collision loop time: {}'.format(time()-t0))
@@ -71,8 +76,8 @@ class CollisionAvoidance:
         logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
-    def check_collision_margins(self, waypoint_list, waypoint_counter):
-        if len(self.obstacles) > 0 and np.shape(waypoint_list)[0] > 0:
+    def check_collision_margins(self):
+        if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             self.bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
                                                 dtype=np.uint8), self.obstacles, -1, (255, 255, 255), -1)
             k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range).astype(int)
@@ -80,8 +85,8 @@ class CollisionAvoidance:
 
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
-            for i in range(waypoint_counter, np.shape(waypoint_list)[0]):
-                NE, constrained = constrainNED2range(waypoint_list[i], old_wp,
+            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
+                NE, constrained = constrainNED2range(self.waypoint_list[i], old_wp,
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp, (255, 255, 255), 1)
@@ -190,7 +195,7 @@ class CollisionAvoidance:
             self.new_wp_list = fermat(self.new_wp_list)
 
             # Check if smooth path is collision free
-            collision = self.check_collision_margins(self.new_wp_list, 1)
+            collision = self.check_collision_margins()
             while collision:
                 # TODO: Calc new path with modified dijkstra from lekkas
                 logger.debug('Smooth path violates collision margins')
@@ -205,8 +210,8 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            # return True
-            return vp
+            return True
+            # return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
