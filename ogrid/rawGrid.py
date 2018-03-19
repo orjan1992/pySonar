@@ -58,10 +58,10 @@ class RawGrid(object):
                 with np.load('OGrid_data/rad_1601.npz') as data:
                     RawGrid.x_mesh_unit = data['x_mesh']
                     RawGrid.y_mesh_unit = data['y_mesh']
-                    RawGrid.r_unit = data['r_unit']
+                    RawGrid.r_unit = data['r']
                     RawGrid.theta = data['theta']
                     RawGrid.theta_grad = data['theta_grad']
-            except:
+            except Exception as e:
                 xy_unit = np.linspace(-(RawGrid.RES - 1) / 2, (RawGrid.RES - 1) / 2, RawGrid.RES, True) / (0.5*RawGrid.RES)
                 RawGrid.x_mesh_unit, RawGrid.y_mesh_unit = np.meshgrid(xy_unit, xy_unit)
                 # RawGrid.r_unit = np.sqrt(np.power(RawGrid.x_mesh_unit, 2) + np.power(RawGrid.y_mesh_unit, 2))

@@ -7,59 +7,68 @@ logger = logging.getLogger('OccupancyGrid')
 class OccupancyGrid(RawGrid):
     def __init__(self, half_grid, p_m, cellfactor):
         super().__init__(half_grid, p_m)
-        self.cell_size = cellfactor
+        self.cellfactor = cellfactor
         try:
-            with np.load('OGrid_data/occ_map_{}_1601.npz'.format(int(cellfactor))) as data:
+            with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cellfactor))) as data:
                 self.new_map = data['new_map']
-                self.cell2grid_map = data['cell2grid_map']
-        except:
+        except Exception as e:
             self.calc_map(cellfactor)
 
     def calc_map(self, factor):
         if factor % 2 != 0:
             raise ValueError('Wrong size reduction')
         size = int((self.RES - 1) / factor)
-        # new_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS), dtype=np.uint32)
-        # cell2grid_map = [[[] for x in range(size)] for y in range(size)]
-        # for i in range(np.shape(self.map)[0]):
-        #     print(i)
-        #     for j in range(np.shape(self.map)[1]):
-        #         cell_list = []
-        #         for cell in self.map[i, j][self.map[i, j] != 0]:
-        #             row, col = np.unravel_index(cell, (self.RES, self.RES))
-        #             new_row = row // factor
-        #             new_col = col // factor
-        #             cell2grid_map[new_row][new_col].append(cell)
-        #             cell_list.append((new_row, new_col))
-        #         if len(cell_list) > 1:
-        #             r = self.r_unit.flat[self.map[i, j][self.map[i, j] != 0]]
-        #             theta_grad = self.theta_grad.flat[self.map[i, j][self.map[i, j] != 0]]
-        #             cell_ind = np.argmin(np.abs(j-r)*6400 + np.abs(i - theta_grad))
-        #             new_map[i, j] = np.ravel_multi_index((cell_list[cell_ind][0], cell_list[cell_ind][1]), (size, size))
-        #         elif len(cell_list) > 0:
-        #             new_map[i, j] = np.ravel_multi_index((cell_list[0][0], cell_list[0][1]), (size, size))
-        # print('Convert to small map')
-        cell2grid_map = self.cell2grid_map
-        new_map = self.new_map
-        max_cells = 0
-        counter = 0
-        count_grid = np.zeros(np.shape(cell2grid_map))
-        for i in range(size):
-            for j in range(size):
-                count_grid[i, j] = len(cell2grid_map[i][j])
-                if len(cell2grid_map[i][j]) > 64:
-                    counter += 1
-                if len(cell2grid_map[i][j]) > max_cells:
-                    max_cells = len(cell2grid_map[i][j])
-        print('counter: {}'.format(counter))
-        reduced_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, max_cells))
-        for i in range(self.N_ANGLE_STEPS):
-            for j in range(self.MAX_BINS):
-                for k in range(np.shape(cell2grid_map.flat[new_map[i, j]])):
-                    reduced_map[i, j, k] = cell2grid_map.flat[new_map[i, j]][k]
-        print('Saving results')
-        np.savez('OGrid_data/occ_map_new_{}_1601.npz'.format(int(factor)), bin2grid_map=reduced_map)
+        new_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, 2), dtype=np.uint32)
+        for i in range(np.shape(self.map)[0]):
+            print(i)
+            for j in range(np.shape(self.map)[1]):
+                cell_list = []
+                for cell in self.map[i, j][self.map[i, j] != 0]:
+                    row, col = np.unravel_index(cell, (self.RES, self.RES))
+                    new_row = row // factor
+                    new_col = col // factor
 
+                    cell_list.append((new_row, new_col))
+                if len(cell_list) > 0:
+                    cell_ind = 0
+                    if len(cell_list) > 1:
+                        r = self.r_unit.flat[self.map[i, j][self.map[i, j] != 0]]
+                        theta_grad = self.theta_grad.flat[self.map[i, j][self.map[i, j] != 0]]
+                        cell_ind = np.argmin(np.abs(j-r)*6400 + np.abs(i - theta_grad))
+
+                    new_map[i, j, 0] = cell_list[cell_ind][0] * factor
+                    new_map[i, j, 1] = cell_list[cell_ind][1] * factor
+        print('Calculated map successfully')
+        np.savez('OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), new_map=new_map)
+        print('Map saved')
+
+                #     new_map[i, j] = np.ravel_multi_index((cell_list[cell_ind][0], cell_list[cell_ind][1]), (size, size))
+                # elif len(cell_list) > 0:
+                #     new_map[i, j] = np.ravel_multi_index((cell_list[0][0], cell_list[0][1]), (size, size))
+        # print('Convert to small map')
+        # cell2grid_map = self.cell2grid_map
+        # new_map = self.new_map
+        # max_cells = 0
+        # counter = 0
+        # count_grid = np.zeros(np.shape(cell2grid_map))
+        # for i in range(size):
+        #     for j in range(size):
+        #         count_grid[i, j] = len(cell2grid_map[i][j])
+        #         if len(cell2grid_map[i][j]) > 64:
+        #             counter += 1
+        #         if len(cell2grid_map[i][j]) > max_cells:
+        #             max_cells = len(cell2grid_map[i][j])
+        # print('counter: {}'.format(counter))
+        # reduced_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, max_cells))
+        # for i in range(self.N_ANGLE_STEPS):
+        #     for j in range(self.MAX_BINS):
+        #         for k in range(np.shape(cell2grid_map.flat[new_map[i, j]])):
+        #             reduced_map[i, j, k] = cell2grid_map.flat[new_map[i, j]][k]
+        # print('Saving results')
+        # np.savez('OGrid_data/occ_map_new_{}_1601.npz'.format(int(factor)), bin2grid_map=reduced_map)
+
+    def update_cell(self, indices, value):
+        self.grid[indices[0]:(indices[0] + self.cellfactor), indices[1]:(indices[1] + self.cellfactor)] += value
 
     def get_p(self):
         try:
@@ -101,6 +110,10 @@ class OccupancyGrid(RawGrid):
                         updated[k] = True
         new_data[np.nonzero(new_data < threshold)] = -self.o_zero
         new_data[np.nonzero(new_data > 0)] = 0.5 + self.o_zero
+
+        for i in range(self.MAX_BINS):
+            self.update_cell(self.new_map[msg.bearing, i], new_data[i])
+
         # bearing_diff = msg.bearing - self.last_bearing
 
         # for i in range(self.MAX_BINS):
@@ -140,11 +153,11 @@ if __name__=="__main__":
     grid = OccupancyGrid(True, 0.7, 8)
     # grid.calc_map(2)
     # grid.calc_map(4)
-    grid.calc_map(8)
+    # grid.calc_map(8)
     # grid.calc_map(16)
     # grid.calc_map(32)
     # print('Finished sucsessfully')
     # with np.load('OGrid_data/occ_map_2_1601.npz') as data:
     #     new_map = data['new_map']
     #     cell2grid_map = data['cell2grid_map']
-    # a = 1
+    a = 1

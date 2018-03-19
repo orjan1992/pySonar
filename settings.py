@@ -75,6 +75,7 @@ class GridSettings:
         width = 1601
         height = 801
         min_set_pixels = 1601.0*801.0/3.0
+        cell_factor = 8
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)

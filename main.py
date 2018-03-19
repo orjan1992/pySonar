@@ -6,6 +6,7 @@ import sys
 
 from settings import *
 from ogrid.rawGrid import RawGrid
+from ogrid.occupancyGrid import OccupancyGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
@@ -137,6 +138,7 @@ class MainWidget(QtGui.QWidget):
             client_thread.start()
         elif Settings.input_source == 1:
             self.moos_msg_client = MoosMsgs(self.new_sonar_msg)
+            self.moos_msg_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
             self.moos_msg_client.run()
         else:
             raise Exception('Uknown input source')
@@ -176,15 +178,17 @@ class MainWidget(QtGui.QWidget):
         self.pos_update_timer.start(Settings.pos_update)
 
     def init_grid(self):
-        self.grid = RawGrid(GridSettings.half_grid,
-                            GridSettings.p_inital,
-                            GridSettings.binary_threshold)
+        if Settings.update_type == 1:
+            self.grid = OccupancyGrid(GridSettings.half_grid, GridSettings.p_inital, GridSettings.cell_factor)
+        elif Settings.update_type == 0:
+            self.grid = RawGrid(GridSettings.half_grid, GridSettings.p_inital)
 
     def clear_grid(self):
         self.grid.clear_grid()
         self.plot_updated = False
         self.update_plot()
 
+    @QtCore.pyqtSlot(object, name='new_sonar_msg')
     def new_sonar_msg(self, msg):
         self.grid.update_distance(msg.range_scale)
         if Settings.update_type == 0:

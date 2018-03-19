@@ -14,11 +14,11 @@ from PyQt5.QtCore import QObject, pyqtSignal
 
 class MoosMsgs(QObject):
     cur_pos_msg = None
-    pos_msg_flags = [False, False, False]
     RAD2GRAD = 3200.0/pi
     signal_new_wp = pyqtSignal(object, name='new_wp')
+    signal_new_sonar_msg = pyqtSignal(object, name='new_sonar_msg')
 
-    def __init__(self, sonar_msg_callback, waypoints_callback=None):
+    def __init__(self, sonar_msg_callback=None, waypoints_callback=None):
         """
         :param host: MOOS host name/ip
         :param port: MOOS port
@@ -37,9 +37,7 @@ class MoosMsgs(QObject):
         self.add_queues()
 
         self.cur_pos_msg = MoosPosMsg()
-        self.sonar_callback = sonar_msg_callback
 
-        self.waypoints_callback = waypoints_callback
         self.waypoint_list = None
         self.waypoint_counter = None
 
@@ -78,7 +76,8 @@ class MoosMsgs(QObject):
 
                 sonar_msg.adc8on = True
                 sonar_msg.chan2 = True
-                self.sonar_callback(sonar_msg)
+                # self.sonar_callback(sonar_msg)
+                self.signal_new_sonar_msg.emit(sonar_msg)
                 self.logger_bins.debug('Callback OK')
         except Exception as e:
             print(e)
