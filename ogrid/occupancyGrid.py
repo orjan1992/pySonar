@@ -1,6 +1,6 @@
 from ogrid.rawGrid import RawGrid
 import numpy as np
-import math
+from settings import *
 import logging
 logger = logging.getLogger('OccupancyGrid')
 
@@ -9,6 +9,7 @@ class OccupancyGrid(RawGrid):
         super().__init__(half_grid, p_m)
         self.cellfactor = cellfactor
         self.size = int((self.RES - 1) / cellfactor)
+        self.binary_threshold = np.log(GridSettings.binary_threshold/(1-GridSettings.binary_threshold))
         try:
             with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cellfactor))) as data:
                 self.new_map = data['new_map']
@@ -77,7 +78,7 @@ class OccupancyGrid(RawGrid):
 
     def get_p(self):
         try:
-            p = 1 - 1 / (1 + np.exp(self.grid))
+            p = 1 - 1 / (1 + np.exp(self.grid.clip(-6.0, 6.0)))
         except RuntimeWarning:
             self.grid[np.nonzero(self.grid > 50)] = 50
             self.grid[np.nonzero(self.grid < -50)] = -50
@@ -106,7 +107,7 @@ class OccupancyGrid(RawGrid):
                 updated[int(round(i * range_step))] = True
         except Exception as e:
             logger.debug('Mapping to unibins: {0}'.format(e))
-        new_data[np.nonzero(new_data < threshold)] = 0
+        # new_data[np.nonzero(new_data < threshold)] = 0
         for i in range(0, self.MAX_BINS):
             if not updated[i]:
                 j = i + 1
@@ -120,8 +121,19 @@ class OccupancyGrid(RawGrid):
                     for k in range(i, j):
                         new_data[k] = val * (k - i + 1) + new_data[i - 1]
                         updated[k] = True
-        # new_data[np.nonzero(new_data < threshold)] = -self.o_zero
-        # new_data[np.nonzero(new_data > 0)] = 0.5 + self.o_zero
+        # Try new threshold method
+        grad = np.gradient(new_data.astype(float))
+        grad_max_ind = np.argmax(grad > threshold)
+        try:
+            if grad_max_ind != 0:
+                threshold = new_data[grad_max_ind+1]
+            else:
+                threshold = 255
+        except IndexError:
+            threshold = 255
+            print('Could not find threshold')
+        # print('Threshold: {},\tgrad_max: {},\tval_max: {}'.format(threshold, grad[grad_max_ind], np.max(new_data)))
+        # ind_max = np.argmax(new_data)
         for i in range(self.MAX_BINS):
             if new_data[i] > threshold:
                 self.update_cell(self.new_map[msg.bearing, i], 0.5 + self.o_zero)
@@ -165,6 +177,45 @@ class OccupancyGrid(RawGrid):
         # self.last_bearing = msg.bearing
         # self.last_data = new_data
 
+    def get_obstacles(self):
+
+        thresh = (self.grid > self.binary_threshold).astype(dtype=np.uint8)
+        _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
+
+        # Removing small contours
+        # TODO: Should min_area be dependent on range?
+        new_contours = list()
+        for contour in contours:
+            if cv2.contourArea(contour) > FeatureExtraction.min_area:
+                new_contours.append(contour)
+        im2 = cv2.drawContours(np.zeros(np.shape(self.grid), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
+
+        # dilating to join close contours
+        # TODO: maybe introduce safety margin in this dilation
+        im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
+        _, contours, _ = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)
+        im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).astype(np.uint8), cv2.COLORMAP_HOT)
+        im = cv2.drawContours(im, contours, -1, (255, 0, 0), 2)
+        ellipses = list()
+        # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
+        for contour in contours:
+            if len(contour) > 4:
+                try:
+                    ellipse = cv2.fitEllipse(contour)
+                    # im = cv2.ellipse(im, ellipse, (255, 0, 0), 2)
+                    ellipses.append(ellipse)
+                except Exception as e:
+                    logger.error('{}Contour: {}\n'.format(e, contour))
+            # else:
+            #     try:
+            #         # rect = cv2.minAreaRect(contour)
+            #         # box = np.int32(cv2.boxPoints(rect))
+            #         # im = cv2.drawContours(im, [box], 0, (255, 0, 0), 2)
+            #         # ellipses.append(rect)
+            #     except Exception as e:
+            #         logger.error('{}Contour: {}\nRect: {}\nBox: {}\n'.format(e, contour, rect, box))
+
+        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), ellipses, contours
 
 if __name__=="__main__":
     grid = OccupancyGrid(True, 0.7, 16)

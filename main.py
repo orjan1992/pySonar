@@ -70,11 +70,7 @@ class MainWidget(QtGui.QWidget):
         # IMAGE Window
         self.img_item = pg.ImageItem(autoLevels=False)
 
-        if Settings.plot_type != 2 and Settings.update_type != 1:
-            colormap = pg.ColorMap(PlotSettings.steps_raw, np.array(
-                PlotSettings.colors))
-            self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
-        else:
+        if Settings.plot_type != 2:
             colormap = pg.ColorMap(PlotSettings.steps_raw, np.array(
                 PlotSettings.colors))
             self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
@@ -87,6 +83,15 @@ class MainWidget(QtGui.QWidget):
 
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
+        # if Settings.update_type == 1:
+        #     self.threshold_box.setMinimum(0)
+        #     self.threshold_box.setMaximum(6800)
+        #     self.threshold_box.setValue(3000)
+        #     self.threshold_box.setSingleStep(100)
+        # else:
+        #     self.threshold_box.setMinimum(0)
+        #     self.threshold_box.setMaximum(255)
+        #     self.threshold_box.setValue(PlotSettings.threshold)
         self.threshold_box.setMinimum(0)
         self.threshold_box.setMaximum(255)
         self.threshold_box.setValue(PlotSettings.threshold)
@@ -237,7 +242,10 @@ class MainWidget(QtGui.QWidget):
                 else:
                     self.img_item.setImage(self.grid.get_p(), levels=(0.0, 1.0), autoLevels=False)
             elif Settings.plot_type == 2:
-                im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
+                if Settings.update_type == 1:
+                    im, ellipses, contours = self.grid.get_obstacles()
+                else:
+                    im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                 # if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
                 #     for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
