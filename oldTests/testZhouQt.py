@@ -8,7 +8,7 @@ from PyQt5 import QtCore, QtGui
 # from matplotlib import pyplot as plt
 import scipy.io
 
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 from ogrid.rawPlot import RawPlot
 from readLogFile.readCsvFile import ReadCsvFile
 
@@ -193,8 +193,8 @@ class MainWidget(QtGui.QWidget):
 
     def run_morse(self):
         if self.first_run:
-            self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
-                              self.ogrid_conditions[3], self.ogrid_conditions[4])
+            self.grid = RawGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
+                                self.ogrid_conditions[3], self.ogrid_conditions[4])
             self.raw_grid = RawPlot(self.raw_res, self.ogrid_conditions[1], self.ogrid_conditions[2])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)
@@ -347,7 +347,7 @@ class MainWidget(QtGui.QWidget):
                 self.file = ReadCsvFile(self.fname, sonarPort =4002, posPort=13102, cont_reading=self.cont_reading_checkbox.checkState())
             else:
                 self.file = ReadLogFile(self.fname)
-            self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
+            self.grid = RawGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2], self.ogrid_conditions[3])
             self.raw_grid = RawPlot(self.raw_res, self.ogrid_conditions[1], self.ogrid_conditions[2])
             self.img_item.scale(self.grid.cellSize, self.grid.cellSize)
             self.img_item.setPos(-self.grid.XLimMeters, -self.grid.YLimMeters)

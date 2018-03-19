@@ -6,7 +6,7 @@ from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 from messages.sonarMsg import SonarMsg
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
 
@@ -19,7 +19,7 @@ else:
     log = '/home/orjangr/Repos/pySonar/logs/360 degree scan harbour piles.V4LOG'
     file = ReadLogFile(log)
 
-O = OGrid(0.2, 20, 10, 0.5)
+O = RawGrid(0.2, 20, 10, 0.5)
 Threshold = 60
 theta = np.zeros(1)
 while file.messagesReturned < 10:

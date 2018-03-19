@@ -2,9 +2,9 @@ from math import pi
 
 import numpy as np
 
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 
-O = OGrid(0.1, 20, 15, 0.5)
+O = RawGrid(0.1, 20, 15, 0.5)
 print(len(O.bearing_ref))
 step = np.array([4, 8, 16, 32])*O.GRAD2RAD
 

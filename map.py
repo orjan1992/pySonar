@@ -133,7 +133,11 @@ class MapWidget(QWidget):
             except Exception as e:
                 print('Add waypoints: {}'.format(e))
 
-    def update_waypoints(self, waypoints, waypoint_counter):
+    def invalidate_wps(self):
+        for obj in self.waypoint_objects:
+            obj.setPen(MapSettings.waypoint_invalid_pen)
+
+    def update_waypoints(self, waypoints, waypoint_counter, valid=0):
         try:
             # remove old waypoints
             for obj in self.waypoint_objects:
@@ -177,6 +181,9 @@ class MapWidget(QWidget):
                         l.setPen(MapSettings.waypoint_inactive_pen)
                     self.scene.addItem(l)
                     self.waypoint_objects.append(l)
+                if valid == 2:
+                    for obj in self.waypoint_objects:
+                        obj.setPen(MapSettings.waypoint_invalid_pen)
             except Exception as e:
                 print('Add waypoints: {}'.format(e))
 

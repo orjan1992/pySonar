@@ -1,6 +1,6 @@
 import math
 
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
 
@@ -12,7 +12,7 @@ else:
     log = 'logs/360 degree scan harbour piles.V4LOG'
     file = ReadLogFile(log)
 
-O = OGrid(0.1, 20, 15, 0.5)
+O = RawGrid(0.1, 20, 15, 0.5)
 
 O.coneSplit(O.sonarConeLookup(8*O.GRAD2RAD, -math.pi/3), 5)
 O.show()

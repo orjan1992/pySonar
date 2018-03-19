@@ -16,7 +16,7 @@ class Settings:
     show_voronoi_plot = False
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
-    save_paths = True
+    save_paths = False
 
 
 class CollisionSettings:
@@ -34,6 +34,8 @@ class CollisionSettings:
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
 
+    first_wp_dist = 1
+
 
 class MapSettings:
     display_grid = True
@@ -49,6 +51,7 @@ class MapSettings:
     waypoint_inactive_color = QColor(255, 102, 0, 255)
     waypoint_inactive_pen = QPen(waypoint_inactive_color)
     avoidance_waypoint_pen = QPen(QColor(255, 0, 0))
+    waypoint_invalid_pen = QPen(QColor(255, 0, 0))
 
     vehicle_size = 10.0
     vehicle_form_factor = 0.4

@@ -1,6 +1,6 @@
 from messages.moosMsgs import MoosMsgs
 import logging
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 import threading
 LOG_FILENAME = 'testMooseMsgs.out'
 logging.basicConfig(filename=LOG_FILENAME,
@@ -16,8 +16,8 @@ class Test(object):
         # moos.set_on_pos_msg_callback(print_pos_msg)
         self.moos.run()
         self.ogrid_conditions = [0.1, 20, 15, 0.5]
-        self.grid = OGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
-                          self.ogrid_conditions[3])
+        self.grid = RawGrid(self.ogrid_conditions[0], self.ogrid_conditions[1], self.ogrid_conditions[2],
+                            self.ogrid_conditions[3])
 
     def print_msg(self, msg):
         a = self.grid.get_p()

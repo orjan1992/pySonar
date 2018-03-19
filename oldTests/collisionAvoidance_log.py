@@ -156,8 +156,6 @@ class CollisionAvoidance:
                 points.append((0, i))
                 points.append((GridSettings.width, i))
 
-            use_constrain_wp = False
-
             if CollisionSettings.wp_as_gen_point:
                 points.append(vehicle2grid(self.waypoint_list[self.waypoint_counter][3], 0, self.range))
                 points.append((800, 800))
@@ -171,15 +169,7 @@ class CollisionAvoidance:
                 start_wp, start_ridges = vp.add_wp((801, 801))
                 end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
                 # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
-                # Check if first wp in vehicle direction is ok
-                fixed_wp = vehicle2grid(CollisionSettings.first_wp_dist, 0, self.range)
-                lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), (801, 801), fixed_wp, (255, 255, 255),
-                               1)
-                if not np.any(np.logical_and(self.bin_map, lin)):
-                    # Fixed wp cannot be used
-                    constrain_wp, _ = vp.add_wp(fixed_wp)
-                    use_constrain_wp = True
-
+                constrain_wp, _ = vp.add_wp(vehicle2grid(0, 0, self.range))
                 # constrain_wp, _ = vp.add_wp(vehicle2grid(self.waypoint_list[self.waypoint_counter][3]*Settings.collision_avoidance_interval*0.0015, 0, self.range))
 
             # vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
@@ -200,10 +190,7 @@ class CollisionAvoidance:
             self.voronoi_wp_list = []
 
             # Find shortest route
-            if use_constrain_wp:
-                wps = vp.dijkstra(constrain_wp, end_wp)
-            else:
-                wps = vp.dijkstra(start_wp, end_wp)
+            wps = vp.dijkstra(constrain_wp, end_wp)
             if wps is not None:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
@@ -214,6 +201,7 @@ class CollisionAvoidance:
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
                 return False
+            # return vp
             # Smooth waypoints
             # self.new_wp_list.append(self.waypoint_list[constrained_wp_index])
             # Add old waypoints
@@ -240,8 +228,8 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            return True
-            # return vp
+            # return True
+            return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)

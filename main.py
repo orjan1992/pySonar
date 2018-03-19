@@ -5,7 +5,7 @@ from copy import deepcopy
 import sys
 
 from settings import *
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
@@ -47,6 +47,7 @@ class MainWidget(QtGui.QWidget):
     plot_updated = False
     grid = None
     contour_list = []
+    collision_stat = 0
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -175,9 +176,9 @@ class MainWidget(QtGui.QWidget):
         self.pos_update_timer.start(Settings.pos_update)
 
     def init_grid(self):
-        self.grid = OGrid(GridSettings.half_grid,
-                          GridSettings.p_inital,
-                          GridSettings.binary_threshold)
+        self.grid = RawGrid(GridSettings.half_grid,
+                            GridSettings.p_inital,
+                            GridSettings.binary_threshold)
 
     def clear_grid(self):
         self.grid.clear_grid()
@@ -255,7 +256,9 @@ class MainWidget(QtGui.QWidget):
 
     def collision_avoidance_loop(self):
         # TODO: faster loop when no object is in the way
-        self.collision_avoidance.main_loop(self.grid.reliable)
+        self.collision_stat = self.collision_avoidance.main_loop(self.grid.reliable)
+        if self.collision_stat == 2:
+            self.map_widget.invalidate_wps()
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(object, name='new_wp')
@@ -268,7 +271,7 @@ class MainWidget(QtGui.QWidget):
             raise Exception('Unknown object type in wp_received slot')
         if Settings.show_map:
             self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
-                                             self.collision_avoidance.waypoint_counter)
+                                             self.collision_avoidance.waypoint_counter, self.collision_stat)
 
 
     def binary_button_click(self):

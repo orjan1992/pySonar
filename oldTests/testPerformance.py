@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 from messages.sonarMsg import SonarMsg
-from ogrid.oGrid import OGrid
+from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFile import ReadLogFile
 
@@ -16,8 +16,8 @@ else:
     log = 'logs/360 degree scan harbour piles.V4LOG'
     file = ReadLogFile(log)
 
-O = OGrid(0.1, 20, 15, 0.5)
-O2 = OGrid(0.1, 20, 15, 0.5)
+O = RawGrid(0.1, 20, 15, 0.5)
+O2 = RawGrid(0.1, 20, 15, 0.5)
 Threshold = 60
 theta = np.zeros(1)
 while file.messagesReturned < 50:
@@ -28,7 +28,7 @@ while file.messagesReturned < 50:
         theta = np.append(theta, msg.bearing)
     elif msg == -1:
         break
-print('All equal before {}'.format(np.all(O.o_log == O2.o_log)))
+print('All equal before {}'.format(np.all(O.grid == O2.grid)))
 
 t0 = time.time()
 for i in range(0, 200):
@@ -38,5 +38,5 @@ t0 = time.time()
 for i in range(0, 200):
     O2.trans2(0.01, -0.01)
 print('Slow time {:.2f}'.format(time.time()-t0))
-test = O.o_log - O2.o_log
-print('All equal after {}'.format(np.all(O.o_log == O2.o_log)))
+test = O.grid - O2.grid
+print('All equal after {}'.format(np.all(O.grid == O2.grid)))
