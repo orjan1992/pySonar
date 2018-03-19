@@ -6,9 +6,9 @@ class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 1
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
-    plot_type = 2
+    plot_type = 1
     # 0 == raw update, 1 == zhou update
-    update_type = 0
+    update_type = 1
     pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = True
@@ -75,7 +75,7 @@ class GridSettings:
         width = 1601
         height = 801
         min_set_pixels = 1601.0*801.0/3.0
-        cell_factor = 8
+        cell_factor = 16
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
@@ -87,7 +87,8 @@ class ConnectionSettings:
 
 
 class PlotSettings:
-        steps = [0, 0.33, 0.67, 1]
+        steps_raw = [0, 0.33, 0.67, 1]
+        steps_prob = [-5, -1.67, 1.67, 5]
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0

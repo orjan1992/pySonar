@@ -8,9 +8,11 @@ class OccupancyGrid(RawGrid):
     def __init__(self, half_grid, p_m, cellfactor):
         super().__init__(half_grid, p_m)
         self.cellfactor = cellfactor
+        self.size = int((self.RES - 1) / cellfactor)
         try:
             with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cellfactor))) as data:
                 self.new_map = data['new_map']
+                self.angle2cell = data['angle2cell']
         except Exception as e:
             self.calc_map(cellfactor)
 
@@ -19,14 +21,15 @@ class OccupancyGrid(RawGrid):
             raise ValueError('Wrong size reduction')
         size = int((self.RES - 1) / factor)
         new_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, 2), dtype=np.uint32)
+        angle2cell = [[] for x in range(self.N_ANGLE_STEPS)]
         for i in range(np.shape(self.map)[0]):
             print(i)
             for j in range(np.shape(self.map)[1]):
                 cell_list = []
                 for cell in self.map[i, j][self.map[i, j] != 0]:
                     row, col = np.unravel_index(cell, (self.RES, self.RES))
-                    new_row = row // factor
-                    new_col = col // factor
+                    new_row = (row // factor) * factor
+                    new_col = (col // factor) * factor
 
                     cell_list.append((new_row, new_col))
                 if len(cell_list) > 0:
@@ -36,10 +39,11 @@ class OccupancyGrid(RawGrid):
                         theta_grad = self.theta_grad.flat[self.map[i, j][self.map[i, j] != 0]]
                         cell_ind = np.argmin(np.abs(j-r)*6400 + np.abs(i - theta_grad))
 
-                    new_map[i, j, 0] = cell_list[cell_ind][0] * factor
-                    new_map[i, j, 1] = cell_list[cell_ind][1] * factor
+                    new_map[i, j, :] = cell_list[cell_ind]
+                    if not cell_list[cell_ind] in angle2cell[i]:
+                        angle2cell[i].append(cell_list[cell_ind])
         print('Calculated map successfully')
-        np.savez('OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), new_map=new_map)
+        np.savez('OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), new_map=new_map, angle2cell=angle2cell)
         print('Map saved')
 
                 #     new_map[i, j] = np.ravel_multi_index((cell_list[cell_ind][0], cell_list[cell_ind][1]), (size, size))
@@ -68,7 +72,8 @@ class OccupancyGrid(RawGrid):
         # np.savez('OGrid_data/occ_map_new_{}_1601.npz'.format(int(factor)), bin2grid_map=reduced_map)
 
     def update_cell(self, indices, value):
-        self.grid[indices[0]:(indices[0] + self.cellfactor), indices[1]:(indices[1] + self.cellfactor)] += value
+        # self.grid[indices[0]:(indices[0] + self.cellfactor), indices[1]:(indices[1] + self.cellfactor)] += value
+        self.grid[indices[0], indices[1]] += value
 
     def get_p(self):
         try:
@@ -80,8 +85,15 @@ class OccupancyGrid(RawGrid):
             logger.debug('Overflow when calculating probability')
         return p
 
-    # def get_binary_map(self):
-    #     return (self.grid > self.binary_threshold).astype(np.float)
+    def get_raw(self):
+        # self.update_pixels()
+        return self.grid
+
+    def update_pixels(self):
+        for i in range(0, self.RES, self.cellfactor):
+            for j in range(0, self.RES, self.cellfactor):
+                if self.grid[i, j] != self.grid[i+1, j+1]:
+                    self.grid[i:i+self.cellfactor, j:j+self.cellfactor] = self.grid[i, j]
 
     def auto_update_zhou(self, msg, threshold):
         self.range_scale = msg.range_scale
@@ -108,11 +120,16 @@ class OccupancyGrid(RawGrid):
                     for k in range(i, j):
                         new_data[k] = val * (k - i + 1) + new_data[i - 1]
                         updated[k] = True
-        new_data[np.nonzero(new_data < threshold)] = -self.o_zero
-        new_data[np.nonzero(new_data > 0)] = 0.5 + self.o_zero
-
+        # new_data[np.nonzero(new_data < threshold)] = -self.o_zero
+        # new_data[np.nonzero(new_data > 0)] = 0.5 + self.o_zero
         for i in range(self.MAX_BINS):
-            self.update_cell(self.new_map[msg.bearing, i], new_data[i])
+            if new_data[i] > threshold:
+                self.update_cell(self.new_map[msg.bearing, i], 0.5 + self.o_zero)
+            else:
+                self.update_cell(self.new_map[msg.bearing, i], -self.o_zero)
+        for cell in self.angle2cell[msg.bearing]:
+            self.grid[cell[0]:cell[0] + self.cellfactor, cell[1]:cell[1] + self.cellfactor] = self.grid[cell[0], cell[1]]
+
 
         # bearing_diff = msg.bearing - self.last_bearing
 
@@ -150,7 +167,7 @@ class OccupancyGrid(RawGrid):
 
 
 if __name__=="__main__":
-    grid = OccupancyGrid(True, 0.7, 8)
+    grid = OccupancyGrid(True, 0.7, 16)
     # grid.calc_map(2)
     # grid.calc_map(4)
     # grid.calc_map(8)

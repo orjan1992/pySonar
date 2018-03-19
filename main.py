@@ -70,8 +70,12 @@ class MainWidget(QtGui.QWidget):
         # IMAGE Window
         self.img_item = pg.ImageItem(autoLevels=False)
 
-        if Settings.plot_type != 2:
-            colormap = pg.ColorMap(PlotSettings.steps, np.array(
+        if Settings.plot_type != 2 and Settings.update_type != 1:
+            colormap = pg.ColorMap(PlotSettings.steps_raw, np.array(
+                PlotSettings.colors))
+            self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
+        else:
+            colormap = pg.ColorMap(PlotSettings.steps_raw, np.array(
                 PlotSettings.colors))
             self.img_item.setLookupTable(colormap.getLookupTable(mode='byte'))
 
@@ -231,7 +235,7 @@ class MainWidget(QtGui.QWidget):
                 if self.binary_plot_on:
                     self.img_item.setImage(self.grid.get_binary_map(), levels=(0, 1), autoLevels=False)
                 else:
-                    self.img_item.setImage(self.grid.get_p(), levels=(-5.0, 5.0), autoLevels=False)
+                    self.img_item.setImage(self.grid.get_p(), levels=(0.0, 1.0), autoLevels=False)
             elif Settings.plot_type == 2:
                 im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
