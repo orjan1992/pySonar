@@ -49,6 +49,7 @@ class MainWidget(QtGui.QWidget):
     grid = None
     contour_list = []
     collision_stat = 0
+    thread_pool = QtCore.QThreadPool()
 
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
@@ -177,6 +178,10 @@ class MainWidget(QtGui.QWidget):
                 self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
                 raise NotImplemented
+            self.collision_worker = CollisionAvoidanceWorker(self.collision_avoidance)
+            self.collision_worker.setAutoDelete(False)
+            self.collision_worker.signals.finished.connect(self.collision_loop_finished)
+
             self.collision_avoidance_timer = QtCore.QTimer()
             self.collision_avoidance_timer.setSingleShot(True)
             self.collision_avoidance_timer.timeout.connect(self.collision_avoidance_loop)
@@ -276,10 +281,18 @@ class MainWidget(QtGui.QWidget):
 
     def collision_avoidance_loop(self):
         # TODO: faster loop when no object is in the way
-        self.collision_stat = self.collision_avoidance.main_loop(self.grid.reliable)
+        self.collision_worker.set_reliable(self.grid.reliable)
+        self.thread_pool.start(self.collision_worker)
+
+
+    @QtCore.pyqtSlot(int, name='collision_worker_finished')
+    def collision_loop_finished(self, status):
+        self.collision_stat = status
         if self.collision_stat == 2:
             self.map_widget.invalidate_wps()
-        self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
+            self.collision_avoidance_timer.start(0)
+        else:
+            self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -303,6 +316,27 @@ class MainWidget(QtGui.QWidget):
 
     def update_collision_margin(self):
         CollisionSettings.obstacle_margin = self.collision_margin_box.value()
+
+
+class CollisionAvoidanceWorker(QtCore.QRunnable):
+
+    def __init__(self, collision_avoidance):
+        super().__init__()
+        self.collision_avoidance = collision_avoidance
+        self.reliable = False
+        self.signals = CollisionAvoidanceWorkerSignals()
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        status = self.collision_avoidance.main_loop(self.reliable)
+        self.signals.finished.emit(status)
+
+    def set_reliable(self, reliable):
+        self.reliable = reliable
+
+
+class CollisionAvoidanceWorkerSignals(QtCore.QObject):
+    finished = QtCore.pyqtSignal(int, name='collision_worker_finished')
 
 
 if __name__ == '__main__':
