@@ -67,17 +67,17 @@ class CollisionAvoidance:
         if reliable:
             self.pos_and_obs_lock = True
             t0 = time()
-            res = 1
+            status = 1
             if self.check_collision_margins():
                 if not self.calc_new_wp():
                     logger.info('Collision danger: could not calculate feasible path')
-                    res = 2
+                    status = 2
                 logger.debug('collision loop time: {}'.format(time()-t0))
             else:
                 logger.debug('no collision danger')
-                res = 0
+                status = 0
             self.pos_and_obs_lock = False
-            return res
+            return status
 
     def remove_obsolete_wp(self, wp_list):
         i = 0

@@ -41,9 +41,6 @@ class MoosMsgs(QObject):
         self.waypoint_list = None
         self.waypoint_counter = None
 
-    def set_waypoints_callback(self, waypoints_callback):
-        self.waypoints_callback = waypoints_callback
-
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
 
