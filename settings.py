@@ -23,7 +23,7 @@ class Settings:
 class CollisionSettings:
     border_step = 30
     wp_as_gen_point = False
-    obstacle_margin = 3 # meter
+    obstacle_margin = 2 # meter
     loop_sleep = 0.001
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0
@@ -40,11 +40,13 @@ class CollisionSettings:
 
 class MapSettings:
     display_grid = True
+    show_collision_margins = True
     grid_dist = 10
     grid_pen = QPen(QColor(198, 198, 236))
     grid_center_pen = QPen(QColor(255, 0, 0))
 
     sonar_obstacle_pen = QPen(QColor(0, 0, 255))
+    sonar_collision_margin_pen = QPen(QColor(255, 0, 0))
 
     waypoint_size = 10.0
     waypoint_active_color = QColor(0, 255, 0, 255)
@@ -77,7 +79,10 @@ class GridSettings:
 
         binary_grid = False
         width = 1601
-        height = 801
+        if half_grid:
+            height = 801
+        else:
+            height = 1601
         min_set_pixels = 1601.0*801.0/3.0
         cell_factor = 16
 

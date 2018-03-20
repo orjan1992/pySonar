@@ -1,7 +1,7 @@
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-from settings import MapSettings
+from settings import *
 import math
 from coordinate_transformations import *
 
@@ -202,6 +202,23 @@ class MapWidget(QWidget):
             q_poly.setPen(MapSettings.sonar_obstacle_pen)
             self.scene.addItem(q_poly)
             self.obstacle_list.append(q_poly)
+
+        if MapSettings.show_collision_margins:
+            bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
+                                                     dtype=np.uint8), obstacles, -1, (255, 255, 255), -1)
+            k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / range).astype(int)
+            bin_map = cv2.dilate(bin_map, np.ones((k_size, k_size), dtype=np.uint8), iterations=1)
+            contours = cv2.findContours(bin_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
+            for contour in contours:
+                polygon = QPolygonF()
+                for p in contour:
+                    N, E = grid2NED(p[0][0], p[0][1], range, lat, long, psi)
+                    polygon.append(QPointF(E * 10.0, -N * 10.0))
+                q_poly = QGraphicsPolygonItem()
+                q_poly.setPolygon(polygon)
+                q_poly.setPen(MapSettings.sonar_collision_margin_pen)
+                self.scene.addItem(q_poly)
+                self.obstacle_list.append(q_poly)
 
 
 class MyQGraphicsView(QGraphicsView):

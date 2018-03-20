@@ -43,7 +43,8 @@ class RawGrid(object):
         if half_grid:
             self.i_max = int((RawGrid.RES / 2) * (1 + math.tan(math.pi / 90.0)))
         self.origin_j = self.origin_i = np.round((RawGrid.RES - 1) / 2).astype(int)
-        self.grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type) * p_zero
+        self.p_zero = p_zero
+        self.grid = np.full((self.i_max, self.j_max), self.p_zero, dtype=self.oLog_type)
         [self.i_max, self.j_max] = np.shape(self.grid)
         if not np.any(RawGrid.map != 0):
             # self.loadMap()
@@ -146,7 +147,7 @@ class RawGrid(object):
             self.last_distance = distance
         if factor == 1:
             return
-        new_grid = np.ones(shape=np.shape(self.grid), dtype=self.oLog_type) * self.p_log_zero
+        new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
         if factor < 1:
             # old distance > new distance
             new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
@@ -169,7 +170,7 @@ class RawGrid(object):
 
     def clear_grid(self):
         
-        self.grid = np.ones((self.i_max, self.j_max)) * self.p_log_zero
+        self.grid = np.full((self.i_max, self.j_max), self.p_zero)
         
         logger.info('Grid cleared')
 
@@ -212,7 +213,7 @@ class RawGrid(object):
         else:
             self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
         dpsi_grad = np.round(dpsi_grad).astype(int)
-        new_grid = np.ones((self.i_max, self.j_max), dtype=self.oLog_type)*self.p_log_zero
+        new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
         if dpsi_grad < 0:
             if GridSettings.half_grid:
                 for n in range(1600-dpsi_grad, 4801):

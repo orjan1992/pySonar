@@ -83,18 +83,16 @@ class MainWidget(QtGui.QWidget):
 
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
-        # if Settings.update_type == 1:
-        #     self.threshold_box.setMinimum(0)
-        #     self.threshold_box.setMaximum(6800)
-        #     self.threshold_box.setValue(3000)
-        #     self.threshold_box.setSingleStep(100)
-        # else:
-        #     self.threshold_box.setMinimum(0)
-        #     self.threshold_box.setMaximum(255)
-        #     self.threshold_box.setValue(PlotSettings.threshold)
         self.threshold_box.setMinimum(0)
         self.threshold_box.setMaximum(255)
         self.threshold_box.setValue(PlotSettings.threshold)
+
+        # Collision margin box
+        self.collision_margin_box = QtGui.QDoubleSpinBox()
+        self.collision_margin_box.setMinimum(0)
+        self.collision_margin_box.setValue(CollisionSettings.obstacle_margin)
+        self.collision_margin_box.setSingleStep(0.5)
+        self.collision_margin_box.valueChanged.connect(self.update_collision_margin)
 
         # binary plot
         self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
@@ -113,6 +111,7 @@ class MainWidget(QtGui.QWidget):
 
         # Adding items
         left_layout.addWidget(self.threshold_box)
+        left_layout.addWidget(self.collision_margin_box)
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
 
@@ -305,6 +304,9 @@ class MainWidget(QtGui.QWidget):
         else:
             self.binary_plot_button.text = "Set Binary mode"
         self.binary_plot_on = not self.binary_plot_on
+
+    def update_collision_margin(self):
+        CollisionSettings.obstacle_margin = self.collision_margin_box.value()
 
 
 if __name__ == '__main__':
