@@ -3,6 +3,7 @@ from PyQt5 import QtCore, QtGui
 import threading
 from copy import deepcopy
 import sys
+from time import strftime
 
 from settings import *
 from ogrid.rawGrid import RawGrid
@@ -11,7 +12,6 @@ from messages.UdpMessageClient import UdpMessageClient
 from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance
-import cv2
 import map
 
 # LOG and EXECPTION stuff
@@ -126,6 +126,9 @@ class MainWidget(QtGui.QWidget):
             right_layout.addWidget(self.map_widget, 0, 2, 1, 1)
         self.setLayout(main_layout)
 
+        if Settings.save_scan_lines:
+            self.scan_lines = []
+
         if Settings.hist_window:
             self.hist_window = pg.PlotWindow()
             self.histogram = pg.BarGraphItem(x=np.arange(10), y1=np.random.rand(10), width=0.3, brush='r')
@@ -207,6 +210,13 @@ class MainWidget(QtGui.QWidget):
         else:
             raise Exception('Invalid update type')
         self.plot_updated = True
+        if Settings.save_scan_lines:
+            self.scan_lines.append(msg.data)
+            if len(self.scan_lines) > 100:
+                np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")),
+                         scan_lines=np.array(self.scan_lines))
+                self.scan_lines = []
+
 
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
@@ -243,9 +253,9 @@ class MainWidget(QtGui.QWidget):
                     self.img_item.setImage(self.grid.get_p(), levels=(0.0, 1.0), autoLevels=False)
             elif Settings.plot_type == 2:
                 if Settings.update_type == 1:
-                    im, ellipses, contours = self.grid.get_obstacles()
+                    im, contours = self.grid.get_obstacles()
                 else:
-                    im, ellipses, contours = self.grid.adaptive_threshold(self.threshold_box.value())
+                    im, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                 # if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
                 #     for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
@@ -306,3 +316,5 @@ if __name__ == '__main__':
     app.exec_()
 
     window.login_widget.collision_avoidance.save_paths()
+    if Settings.save_scan_lines:
+        np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))

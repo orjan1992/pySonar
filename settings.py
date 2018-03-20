@@ -17,6 +17,7 @@ class Settings:
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
     save_paths = False
+    save_scan_lines = False
 
 
 class CollisionSettings:

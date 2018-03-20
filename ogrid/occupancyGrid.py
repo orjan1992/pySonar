@@ -86,16 +86,6 @@ class OccupancyGrid(RawGrid):
             logger.debug('Overflow when calculating probability')
         return p
 
-    def get_raw(self):
-        # self.update_pixels()
-        return self.grid
-
-    def update_pixels(self):
-        for i in range(0, self.RES, self.cellfactor):
-            for j in range(0, self.RES, self.cellfactor):
-                if self.grid[i, j] != self.grid[i+1, j+1]:
-                    self.grid[i:i+self.cellfactor, j:j+self.cellfactor] = self.grid[i, j]
-
     def auto_update_zhou(self, msg, threshold):
         self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
@@ -132,13 +122,14 @@ class OccupancyGrid(RawGrid):
         except IndexError:
             threshold = 255
             print('Could not find threshold')
-        # print('Threshold: {},\tgrad_max: {},\tval_max: {}'.format(threshold, grad[grad_max_ind], np.max(new_data)))
-        # ind_max = np.argmax(new_data)
+
+        # Update upper left corner of each occ grid cell
         for i in range(self.MAX_BINS):
             if new_data[i] > threshold:
                 self.update_cell(self.new_map[msg.bearing, i], 0.5 + self.o_zero)
             else:
                 self.update_cell(self.new_map[msg.bearing, i], -self.o_zero)
+        # Update the rest of the cells in one occ grid cell
         for cell in self.angle2cell[msg.bearing]:
             self.grid[cell[0]:cell[0] + self.cellfactor, cell[1]:cell[1] + self.cellfactor] = self.grid[cell[0], cell[1]]
 
@@ -180,7 +171,7 @@ class OccupancyGrid(RawGrid):
     def get_obstacles(self):
 
         thresh = (self.grid > self.binary_threshold).astype(dtype=np.uint8)
-        _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
+        contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
 
         # Removing small contours
         # TODO: Should min_area be dependent on range?
@@ -193,29 +184,10 @@ class OccupancyGrid(RawGrid):
         # dilating to join close contours
         # TODO: maybe introduce safety margin in this dilation
         im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
-        _, contours, _ = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)
-        im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).astype(np.uint8), cv2.COLORMAP_HOT)
+        contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
+        im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 2)
-        ellipses = list()
-        # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
-        for contour in contours:
-            if len(contour) > 4:
-                try:
-                    ellipse = cv2.fitEllipse(contour)
-                    # im = cv2.ellipse(im, ellipse, (255, 0, 0), 2)
-                    ellipses.append(ellipse)
-                except Exception as e:
-                    logger.error('{}Contour: {}\n'.format(e, contour))
-            # else:
-            #     try:
-            #         # rect = cv2.minAreaRect(contour)
-            #         # box = np.int32(cv2.boxPoints(rect))
-            #         # im = cv2.drawContours(im, [box], 0, (255, 0, 0), 2)
-            #         # ellipses.append(rect)
-            #     except Exception as e:
-            #         logger.error('{}Contour: {}\nRect: {}\nBox: {}\n'.format(e, contour, rect, box))
-
-        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), ellipses, contours
+        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
 if __name__=="__main__":
     grid = OccupancyGrid(True, 0.7, 16)

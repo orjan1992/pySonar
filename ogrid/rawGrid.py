@@ -202,26 +202,8 @@ class RawGrid(object):
         im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
         _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT)
-        ellipses = list()
-        # contours = [np.array([[[800, 800]], [[700, 600]], [[900, 600]], [[800, 400]], [[900, 400]]])]
-        for contour in contours:
-            if len(contour) > 4:
-                try:
-                    ellipse = cv2.fitEllipse(contour)
-                    im = cv2.ellipse(im, ellipse, (255, 0, 0), 2)
-                    ellipses.append(ellipse)
-                except Exception as e:
-                    logger.error('{}Contour: {}\n'.format(e, contour))
-            else:
-                try:
-                    rect = cv2.minAreaRect(contour)
-                    box = np.int32(cv2.boxPoints(rect))
-                    im = cv2.drawContours(im, [box], 0, (255, 0, 0), 2)
-                    # ellipses.append(rect)
-                except Exception as e:
-                    logger.error('{}Contour: {}\nRect: {}\nBox: {}\n'.format(e, contour, rect, box))
 
-        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), ellipses, contours
+        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
 
     def rot(self, dspi):
