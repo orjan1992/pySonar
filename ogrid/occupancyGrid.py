@@ -122,10 +122,10 @@ class OccupancyGrid(RawGrid):
             if grad_max_ind != 0:
                 threshold = new_data[grad_max_ind+1]
             else:
-                logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+                # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
                 return
         except IndexError:
-            logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+            # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
             return
 
         # Update upper left corner of each occ grid cell

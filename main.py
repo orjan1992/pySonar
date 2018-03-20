@@ -187,6 +187,10 @@ class MainWidget(QtGui.QWidget):
             self.collision_avoidance_timer.timeout.connect(self.collision_avoidance_loop)
             self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
+        self.grid_worker = GridWorker(self.grid)
+        self.grid_worker.setAutoDelete(False)
+        self.grid_worker.signals.finished.connect(self.grid_worker_finished)
+
         self.pos_update_timer.start(Settings.pos_update)
 
     def init_grid(self):
@@ -238,9 +242,18 @@ class MainWidget(QtGui.QWidget):
             self.last_pos_msg = deepcopy(msg)
             trans = self.grid.trans(diff.dx, diff.dy)
             rot = self.grid.rot(diff.dpsi)
-
             if trans or rot:
                 self.plot_updated = True
+
+            # if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount():
+            #     diff = (msg - self.last_pos_msg)
+            #     self.last_pos_msg = deepcopy(msg)
+            #
+            #     self.grid_worker.update(diff)
+            #     self.thread_pool.start(self.grid_worker, 6)
+            #     logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
+            # else:
+            #     logger.debug('Skipped iteration because of few available threads')
             self.pos_lock.release()
 
     def update_plot(self):
@@ -282,8 +295,8 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         # TODO: faster loop when no object is in the way
         self.collision_worker.set_reliable(self.grid.reliable)
-        self.thread_pool.start(self.collision_worker)
-
+        self.thread_pool.start(self.collision_worker, 6)
+        logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(int, name='collision_worker_finished')
     def collision_loop_finished(self, status):
@@ -293,6 +306,11 @@ class MainWidget(QtGui.QWidget):
             self.collision_avoidance_timer.start(0)
         else:
             self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
+
+    @QtCore.pyqtSlot(bool, name='grid_worker_finished')
+    def grid_worker_finished(self, status):
+        if status:
+            self.plot_updated = True
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -319,7 +337,6 @@ class MainWidget(QtGui.QWidget):
 
 
 class CollisionAvoidanceWorker(QtCore.QRunnable):
-
     def __init__(self, collision_avoidance):
         super().__init__()
         self.collision_avoidance = collision_avoidance
@@ -328,8 +345,11 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
 
     @QtCore.pyqtSlot()
     def run(self):
-        status = self.collision_avoidance.main_loop(self.reliable)
-        self.signals.finished.emit(status)
+        try:
+            status = self.collision_avoidance.main_loop(self.reliable)
+            self.signals.finished.emit(status)
+        except Exception as e:
+            logger.error('Collision Worker', e)
 
     def set_reliable(self, reliable):
         self.reliable = reliable
@@ -337,6 +357,29 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
 
 class CollisionAvoidanceWorkerSignals(QtCore.QObject):
     finished = QtCore.pyqtSignal(int, name='collision_worker_finished')
+
+
+class GridWorker(QtCore.QRunnable):
+    def __init__(self, grid):
+        super().__init__()
+        self.grid = grid
+        self.signals = GridWorkerSignals()
+
+    @QtCore.pyqtSlot()
+    def run(self):
+        try:
+            trans = self.grid.trans(self.diff.dx, self.diff.dy)
+            rot = self.grid.rot(self.diff.dpsi)
+            self.signals.finished.emit(trans or rot)
+            # print('Translate: {}\tRotate: {}'.format(trans, rot))
+        except Exception as e:
+            logger.error('Grid Worker', e)
+
+    def update(self, diff):
+        self.diff = diff
+
+class GridWorkerSignals(QtCore.QObject):
+    finished = QtCore.pyqtSignal(bool, name='grid_worker_finished')
 
 
 if __name__ == '__main__':
