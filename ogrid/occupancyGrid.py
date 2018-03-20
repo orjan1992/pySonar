@@ -5,17 +5,21 @@ import logging
 logger = logging.getLogger('OccupancyGrid')
 
 class OccupancyGrid(RawGrid):
-    def __init__(self, half_grid, p_m, cellfactor):
-        super().__init__(half_grid, p_m)
-        self.cellfactor = cellfactor
-        self.size = int((self.RES - 1) / cellfactor)
-        self.binary_threshold = np.log(GridSettings.binary_threshold/(1-GridSettings.binary_threshold))
+    def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
+        self.p_log_threshold = np.log(p_bin_threshold / (1 - p_bin_threshold))
+        self.p_log_zero = np.log(p_zero / (1 - p_zero))
+        self.p_log_occ = np.log(p_occ / (1 - p_occ))
+        self.p_log_free = np.log(p_free / (1 - p_free))
+        super().__init__(half_grid, self.p_log_zero)
+        self.reliable = True
+        self.cell_factor = cell_factor
+        self.size = int((self.RES - 1) / cell_factor)
         try:
-            with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cellfactor))) as data:
+            with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cell_factor))) as data:
                 self.new_map = data['new_map']
                 self.angle2cell = data['angle2cell']
         except Exception as e:
-            self.calc_map(cellfactor)
+            self.calc_map(cell_factor)
 
     def calc_map(self, factor):
         if factor % 2 != 0:
@@ -73,7 +77,7 @@ class OccupancyGrid(RawGrid):
         # np.savez('OGrid_data/occ_map_new_{}_1601.npz'.format(int(factor)), bin2grid_map=reduced_map)
 
     def update_cell(self, indices, value):
-        # self.grid[indices[0]:(indices[0] + self.cellfactor), indices[1]:(indices[1] + self.cellfactor)] += value
+        # self.grid[indices[0]:(indices[0] + self.cell_factor), indices[1]:(indices[1] + self.cell_factor)] += value
         self.grid[indices[0], indices[1]] += value
 
     def get_p(self):
@@ -118,20 +122,32 @@ class OccupancyGrid(RawGrid):
             if grad_max_ind != 0:
                 threshold = new_data[grad_max_ind+1]
             else:
-                threshold = 255
+                logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+                return
         except IndexError:
-            threshold = 255
-            print('Could not find threshold')
+            logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+            return
 
         # Update upper left corner of each occ grid cell
-        for i in range(self.MAX_BINS):
-            if new_data[i] > threshold:
-                self.update_cell(self.new_map[msg.bearing, i], 0.5 + self.o_zero)
-            else:
-                self.update_cell(self.new_map[msg.bearing, i], -self.o_zero)
+        # for i in range(self.MAX_BINS):
+        #     if new_data[i] > threshold:
+        #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
+        #     else:
+        #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
+
+        hit_ind = np.argmax(new_data > threshold)
+        if hit_ind != 0:
+            try:
+                for i in range(hit_ind - 1):
+                    self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
+                for i in range(hit_ind - 1, hit_ind + 2):
+                    self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
+            except IndexError:
+                pass
+
         # Update the rest of the cells in one occ grid cell
         for cell in self.angle2cell[msg.bearing]:
-            self.grid[cell[0]:cell[0] + self.cellfactor, cell[1]:cell[1] + self.cellfactor] = self.grid[cell[0], cell[1]]
+            self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
 
 
         # bearing_diff = msg.bearing - self.last_bearing
@@ -170,7 +186,7 @@ class OccupancyGrid(RawGrid):
 
     def get_obstacles(self):
 
-        thresh = (self.grid > self.binary_threshold).astype(dtype=np.uint8)
+        thresh = (self.grid > self.p_log_threshold).astype(dtype=np.uint8)
         contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
 
         # Removing small contours

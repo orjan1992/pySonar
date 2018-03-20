@@ -191,9 +191,10 @@ class MainWidget(QtGui.QWidget):
 
     def init_grid(self):
         if Settings.update_type == 1:
-            self.grid = OccupancyGrid(GridSettings.half_grid, GridSettings.p_inital, GridSettings.cell_factor)
+            self.grid = OccupancyGrid(GridSettings.half_grid, GridSettings.p_inital, GridSettings.p_occ,
+                                      GridSettings.p_free, GridSettings.p_binary_threshold, GridSettings.cell_factor)
         elif Settings.update_type == 0:
-            self.grid = RawGrid(GridSettings.half_grid, GridSettings.p_inital)
+            self.grid = RawGrid(GridSettings.half_grid)
 
     def clear_grid(self):
         self.grid.clear_grid()
@@ -257,9 +258,7 @@ class MainWidget(QtGui.QWidget):
                 else:
                     im, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
-                # if self.collision_avoidance.voronoi_wp_list is not None and len(self.collision_avoidance.voronoi_wp_list) > 0:
-                #     for wp0, wp1 in zip(self.collision_avoidance.voronoi_wp_list, self.collision_avoidance.voronoi_wp_list[1:]):
-                #         cv2.line(im, wp0, wp1, (255, 0, 0), 2)
+
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
                                                      self.last_pos_msg.long, self.last_pos_msg.psi)

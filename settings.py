@@ -70,8 +70,11 @@ class MapSettings:
 
 class GridSettings:
         half_grid = False
-        p_inital = 0
-        binary_threshold = 0.78
+        p_inital = 0.5
+        p_binary_threshold = 0.78
+        p_free = 0.3
+        p_occ = 0.9
+
         binary_grid = False
         width = 1601
         height = 801
