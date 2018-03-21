@@ -8,6 +8,7 @@ class OccupancyGrid(RawGrid):
     # counter = None
     # sign = None
 
+    # TODO: local occ grid with shape=(RES/cellFactor, RES/cellFactor) update to res with np.kron(occ, np.ones(factor, factor)
 
     def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
         self.p_log_threshold = np.log(p_bin_threshold / (1 - p_bin_threshold))
@@ -17,14 +18,25 @@ class OccupancyGrid(RawGrid):
         super().__init__(half_grid, self.p_log_zero)
         self.reliable = True
         self.cell_factor = cell_factor
-        self.kernel = kernel = np.ones((cell_factor, cell_factor), dtype=np.uint8)
+        self.size = int((self.RES - 1) // self.cell_factor)
+        self.kernel = np.ones((cell_factor, cell_factor), dtype=np.uint8)
         self.size = int((self.RES - 1) / cell_factor)
+        self.occ_grid = np.full((self.size, self.size), self.p_log_zero, dtype=self.oLog_type)
+        self.occ2raw_matrix = np.ones((cell_factor, cell_factor))
         try:
             with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cell_factor))) as data:
                 self.angle2cell = data['angle2cell']
                 self.angle2cell_rad = data['angle2cell_rad']
         except Exception as e:
             self.calc_map(cell_factor)
+
+    def occ2raw(self):
+        self.grid = np.kron(self.occ_grid, self.occ2raw_matrix)
+
+    def raw2occ(self):
+        for i in range(self.size):
+            for j in range(self.size):
+                self.occ_grid[i, j] = np.mean(self.grid[i:i+self.cell_factor, j:j+self.cell_factor])
 
     def calc_map(self, factor):
         if factor % 2 != 0:
@@ -204,7 +216,16 @@ class OccupancyGrid(RawGrid):
 
 if __name__=="__main__":
     grid = OccupancyGrid(True, 0.3, 0.9, 0.7, 0.75, 16)
-    # import matplotlib.pyplot as plt
+    grid.grid = np.random.random(np.shape(grid.grid))
+    grid.raw2occ()
+
+    import matplotlib.pyplot as plt
+    plt.figure(1)
+    plt.imshow(grid.occ_grid)
+    plt.figure(2)
+    plt.imshow(grid.grid)
+    plt.show()
+
     # plt.plot(grid.rad_map)
     # plt.show()
     # grid.calc_map(2)
