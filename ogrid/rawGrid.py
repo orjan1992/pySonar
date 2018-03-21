@@ -43,8 +43,8 @@ class RawGrid(object):
         if half_grid:
             self.i_max = int((RawGrid.RES / 2) * (1 + math.tan(math.pi / 90.0)))
         self.origin_j = self.origin_i = np.round((RawGrid.RES - 1) / 2).astype(int)
-        self.p_zero = p_zero
-        self.grid = np.full((self.i_max, self.j_max), self.p_zero, dtype=self.oLog_type)
+        self.p_log_zero = p_zero
+        self.grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
         [self.i_max, self.j_max] = np.shape(self.grid)
         if not np.any(RawGrid.map != 0):
             # self.loadMap()
@@ -170,7 +170,7 @@ class RawGrid(object):
 
     def clear_grid(self):
         
-        self.grid = np.full((self.i_max, self.j_max), self.p_zero)
+        self.grid = np.full((self.i_max, self.j_max), self.p_log_zero)
         
         logger.info('Grid cleared')
 
@@ -214,6 +214,7 @@ class RawGrid(object):
             self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
         dpsi_grad = np.round(dpsi_grad).astype(int)
         new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
+
         if dpsi_grad < 0:
             if GridSettings.half_grid:
                 for n in range(1600-dpsi_grad, 4801):
@@ -230,15 +231,31 @@ class RawGrid(object):
                         new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
             else:
                 for n in range(0, 6399):
+                    n_d = n+dpsi_grad
+                    if n_d > 6399:
+                        n_d = 6399 - n_d
                     for i in range(0, self.MAX_CELLS):
-                        n_d = n+dpsi_grad
-                        if n_d > 6399:
-                            n_d = 6399 - n_d
                         new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n_d, :, 0]]
-        
+
         self.grid = new_grid
-        
+
         return True
+
+    # def rot(self, dspi):
+    #     dpsi_grad = dspi * 3200 / np.pi + self.old_delta_psi
+    #
+    #     if abs(dpsi_grad) < 1:
+    #         self.old_delta_psi = dpsi_grad
+    #         return False
+    #     else:
+    #         self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
+    #     dpsi_grad = np.round(dpsi_grad).astype(int)
+    #     # new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
+    #
+    #     pol_grid = np.roll(self.grid.flat[RawGrid.map[:, :, 0]], -dpsi_grad, axis=0)
+    #     # np.roll(pol_grid, dpsi_grad, axis=0)
+    #     for i in range(RawGrid.MAX_CELLS):
+    #         self.grid.flat[RawGrid.map[:, :, i]] = pol_grid
 
     def trans(self, dx, dy):
         """
@@ -313,3 +330,26 @@ class RawGrid(object):
                 return False
         # self.grid = new_grid
         return True
+
+
+if __name__ == "__main__":
+    from copy import deepcopy
+    rot = np.pi*0.5/180.0
+    grida = RawGrid(False)
+    gridb = RawGrid(False)
+
+    grida.grid = np.random.random(np.shape(grida.grid))
+    gridb.grid = deepcopy(grida.grid)
+
+    for i in range(50):
+        grida.rot(rot)
+        gridb.rot_mat(rot)
+        if i % 10 == 0:
+            print(i)
+
+    import matplotlib.pyplot as plt
+    plt.figure(1)
+    plt.imshow(grida.grid)
+    plt.figure(2)
+    plt.imshow(gridb.grid)
+    plt.show()

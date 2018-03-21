@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger('OccupancyGrid')
 
 class OccupancyGrid(RawGrid):
+    # counter = None
+    # sign = None
+
+
     def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
         self.p_log_threshold = np.log(p_bin_threshold / (1 - p_bin_threshold))
         self.p_log_zero = np.log(p_zero / (1 - p_zero))
@@ -13,11 +17,12 @@ class OccupancyGrid(RawGrid):
         super().__init__(half_grid, self.p_log_zero)
         self.reliable = True
         self.cell_factor = cell_factor
+        self.kernel = kernel = np.ones((cell_factor, cell_factor), dtype=np.uint8)
         self.size = int((self.RES - 1) / cell_factor)
         try:
             with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cell_factor))) as data:
-                self.new_map = data['new_map']
                 self.angle2cell = data['angle2cell']
+                self.angle2cell_rad = data['angle2cell_rad']
         except Exception as e:
             self.calc_map(cell_factor)
 
@@ -25,10 +30,10 @@ class OccupancyGrid(RawGrid):
         if factor % 2 != 0:
             raise ValueError('Wrong size reduction')
         size = int((self.RES - 1) / factor)
-        new_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, 2), dtype=np.uint32)
+        f2 = factor // 2
         angle2cell = [[] for x in range(self.N_ANGLE_STEPS)]
+        angle2cell_rad = [[] for x in range(self.N_ANGLE_STEPS)]
         for i in range(np.shape(self.map)[0]):
-            print(i)
             for j in range(np.shape(self.map)[1]):
                 cell_list = []
                 for cell in self.map[i, j][self.map[i, j] != 0]:
@@ -43,38 +48,28 @@ class OccupancyGrid(RawGrid):
                         r = self.r_unit.flat[self.map[i, j][self.map[i, j] != 0]]
                         theta_grad = self.theta_grad.flat[self.map[i, j][self.map[i, j] != 0]]
                         cell_ind = np.argmin(np.abs(j-r)*6400 + np.abs(i - theta_grad))
-
-                    new_map[i, j, :] = cell_list[cell_ind]
                     if not cell_list[cell_ind] in angle2cell[i]:
                         angle2cell[i].append(cell_list[cell_ind])
+                        angle2cell_rad[i].append(((801 - cell_list[cell_ind][0] + f2)**2 + (cell_list[cell_ind][1] - 801 + f2)**2)**0.5)
+            angle2cell[i] = [x for _, x in sorted(zip(angle2cell_rad[i], angle2cell[i]))]
+            angle2cell_rad[i].sort()
+            print(i)
         print('Calculated map successfully')
-        np.savez('OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), new_map=new_map, angle2cell=angle2cell)
+        np.savez('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), angle2cell=angle2cell, angle2cell_rad=angle2cell_rad)
         print('Map saved')
+        self.angle2cell_rad = angle2cell_rad
+        self.angle2cell = angle2cell
 
-                #     new_map[i, j] = np.ravel_multi_index((cell_list[cell_ind][0], cell_list[cell_ind][1]), (size, size))
-                # elif len(cell_list) > 0:
-                #     new_map[i, j] = np.ravel_multi_index((cell_list[0][0], cell_list[0][1]), (size, size))
-        # print('Convert to small map')
-        # cell2grid_map = self.cell2grid_map
-        # new_map = self.new_map
-        # max_cells = 0
-        # counter = 0
-        # count_grid = np.zeros(np.shape(cell2grid_map))
-        # for i in range(size):
-        #     for j in range(size):
-        #         count_grid[i, j] = len(cell2grid_map[i][j])
-        #         if len(cell2grid_map[i][j]) > 64:
-        #             counter += 1
-        #         if len(cell2grid_map[i][j]) > max_cells:
-        #             max_cells = len(cell2grid_map[i][j])
-        # print('counter: {}'.format(counter))
-        # reduced_map = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, max_cells))
-        # for i in range(self.N_ANGLE_STEPS):
-        #     for j in range(self.MAX_BINS):
-        #         for k in range(np.shape(cell2grid_map.flat[new_map[i, j]])):
-        #             reduced_map[i, j, k] = cell2grid_map.flat[new_map[i, j]][k]
-        # print('Saving results')
-        # np.savez('OGrid_data/occ_map_new_{}_1601.npz'.format(int(factor)), bin2grid_map=reduced_map)
+    # def calc_cell_rad(self, factor):
+    #     self.rad_map = [[] for i in range(self.N_ANGLE_STEPS)]
+    #     f2 = factor // 2
+    #     for i in range(len(self.angle2cell)):
+    #         for j in range(len(self.angle2cell[i])):
+    #             self.rad_map[i].append(((801 - self.angle2cell[i][j][0] + f2)**2 + (self.angle2cell[i][j][1] - 801 + f2)**2)**0.5)
+    #     np.savez('ogrid/OGrid_data/occ_map_rad_{}_1601.npz'.format(int(factor)), angle2cell_rad=self.rad_map)
+
+
+
 
     def update_cell(self, indices, value):
         # self.grid[indices[0]:(indices[0] + self.cell_factor), indices[1]:(indices[1] + self.cell_factor)] += value
@@ -128,61 +123,63 @@ class OccupancyGrid(RawGrid):
             # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
             return
 
-        # Update upper left corner of each occ grid cell
-        # for i in range(self.MAX_BINS):
-        #     if new_data[i] > threshold:
-        #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
-        #     else:
-        #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
+        # if self.counter is None:
+        #     self.counter = 1
+        #     self.sign = 1
+        # if self.counter > 6398 or self.counter < 1:
+        #     self.sign = -self.sign
+        # self.counter += self.sign
+        # msg.bearing = self.counter
+        # new_data = np.zeros(800, dtype=np.uint8)
+        # new_data[700:720] = 255
+        # threshold = 200
 
         hit_ind = np.argmax(new_data > threshold)
-        if hit_ind != 0:
-            try:
-                for i in range(hit_ind - 1):
-                    self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
-                for i in range(hit_ind - 1, hit_ind + 2):
-                    self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
-            except IndexError:
-                pass
-
+        if hit_ind == 0:
+            for cell in self.angle2cell[msg.bearing]:
+                self.update_cell(cell, self.p_log_free - self.p_log_zero)
+        else:
+            for i in range(len(self.angle2cell_rad[msg.bearing])):
+                if self.angle2cell_rad[msg.bearing][i] < hit_ind:
+                    self.update_cell(self.angle2cell[msg.bearing][i], self.p_log_free - self.p_log_zero)
+                else:
+                    self.update_cell(self.angle2cell[msg.bearing][i], self.p_log_occ - self.p_log_zero)
+                    break
         # Update the rest of the cells in one occ grid cell
         for cell in self.angle2cell[msg.bearing]:
             self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
 
-
-        # bearing_diff = msg.bearing - self.last_bearing
-
-        # for i in range(self.MAX_BINS):
-
-
         # beam_half = 27
         # if msg.chan2:
         #     beam_half = 13
+        # bearing_low = msg.bearing - beam_half
+        # bearing_high = msg.bearing + beam_half
+        # hit_ind = np.argmax(new_data > threshold)
+        # if hit_ind != 0:
+        #     try:
+        #         for i in range(hit_ind - 1):
+        #             self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
+        #             self.update_cell(self.new_map[bearing_low, i], self.p_log_free - self.p_log_zero)
+        #             self.update_cell(self.new_map[bearing_high, i], self.p_log_free - self.p_log_zero)
+        #         for i in range(hit_ind - 1, hit_ind + 2):
+        #             self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
+        #             self.update_cell(self.new_map[bearing_low, i], self.p_log_occ + self.p_log_zero)
+        #             self.update_cell(self.new_map[bearing_high, i], self.p_log_occ + self.p_log_zero)
+        #     except IndexError:
+        #         pass
+        # # else:
+        # #     for i in range(self.MAX_BINS):
+        # #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
+        # #         self.update_cell(self.new_map[bearing_low, i], self.p_log_free - self.p_log_zero)
+        # #         self.update_cell(self.new_map[bearing_high, i], self.p_log_free - self.p_log_zero)
         #
-        # if math.fabs(bearing_diff) <= msg.step:
-        #     if bearing_diff > 0:
-        #         value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
-        #         for n in range(self.last_bearing, msg.bearing + 1):
-        #             for i in range(0, self.MAX_CELLS):
-        #                 self.grid.flat[RawGrid.map[n, :, i]] += new_data + (n - self.last_bearing) * value_gain
-        #         for n in range(msg.bearing + 1, msg.bearing + beam_half):
-        #             for i in range(0, self.MAX_CELLS):
-        #                 self.grid.flat[RawGrid.map[n, :, i]] += new_data
-        #     else:
-        #         value_gain = (new_data.astype(float) - self.last_data) / (-bearing_diff)
-        #         for n in range(msg.bearing, self.last_bearing + 1):
-        #             for i in range(0, self.MAX_CELLS):
-        #                 self.grid.flat[RawGrid.map[n, :, i]] += new_data + (n - msg.bearing) * value_gain
-        #         for n in range(msg.bearing - beam_half, msg.bearing):
-        #             for i in range(0, self.MAX_CELLS):
-        #                 self.grid.flat[RawGrid.map[n, :, i]] += new_data
-        # else:
-        #     for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
-        #         for i in range(0, self.MAX_CELLS):
-        #             self.grid.flat[RawGrid.map[n, :, i]] += new_data
-        #
-        # self.last_bearing = msg.bearing
-        # self.last_data = new_data
+        # # Update the rest of the cells in one occ grid cell
+        # for cell in self.angle2cell[msg.bearing]:
+        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
+        # for cell in self.angle2cell[bearing_low]:
+        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
+        # for cell in self.angle2cell[bearing_high]:
+        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
 
     def get_obstacles(self):
 
@@ -199,14 +196,17 @@ class OccupancyGrid(RawGrid):
 
         # dilating to join close contours
         # TODO: maybe introduce safety margin in this dilation
-        im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
+        im3 = cv2.dilate(im2, self.kernel, iterations=FeatureExtraction.iterations)
         contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
         im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 2)
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
 if __name__=="__main__":
-    grid = OccupancyGrid(True, 0.7, 16)
+    grid = OccupancyGrid(True, 0.3, 0.9, 0.7, 0.75, 16)
+    # import matplotlib.pyplot as plt
+    # plt.plot(grid.rad_map)
+    # plt.show()
     # grid.calc_map(2)
     # grid.calc_map(4)
     # grid.calc_map(8)
