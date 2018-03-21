@@ -113,7 +113,8 @@ class RawGrid(object):
         beam_half = 27
         if msg.chan2:
             beam_half = 13
-        
+
+        self.lock.acquire()
         if math.fabs(bearing_diff) <= msg.step:
             if bearing_diff > 0:
                 value_gain = (new_data.astype(float) - self.last_data) / bearing_diff
@@ -135,7 +136,9 @@ class RawGrid(object):
             for n in range(msg.bearing - beam_half, msg.bearing + beam_half):
                 for i in range(0, self.MAX_CELLS):
                     self.grid.flat[RawGrid.map[n, :, i]] = new_data
-        
+
+        self.lock.release()
+
         self.last_bearing = msg.bearing
         self.last_data = new_data
 
@@ -163,14 +166,16 @@ class RawGrid(object):
                                       factor + self.origin_j)).astype(dtype=int),
                             (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
                                       factor + self.origin_i)).astype(dtype=int))]
-        
+        self.lock.acquire()
         self.grid = new_grid
+        self.lock.release()
         
         self.last_distance = distance
 
     def clear_grid(self):
-        
+        self.lock.acquire()
         self.grid = np.full((self.i_max, self.j_max), self.p_log_zero)
+        self.lock.release()
         
         logger.info('Grid cleared')
 
@@ -236,9 +241,9 @@ class RawGrid(object):
                         n_d = 6399 - n_d
                     for i in range(0, self.MAX_CELLS):
                         new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n_d, :, 0]]
-
+        self.lock.acquire()
         self.grid = new_grid
-
+        self.lock.release()
         return True
 
     # def rot(self, dspi):
@@ -275,6 +280,7 @@ class RawGrid(object):
 
         # move
         # new_grid = np.ones((self.i_max, self.j_max))*self.p_log_zero
+        self.lock.acquire()
         if dx_int > 0:
             if dy_int > 0:
                 try:
@@ -329,6 +335,7 @@ class RawGrid(object):
             else:
                 return False
         # self.grid = new_grid
+        self.lock.release()
         return True
 
 

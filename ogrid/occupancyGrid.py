@@ -133,7 +133,7 @@ class OccupancyGrid(RawGrid):
         # new_data = np.zeros(800, dtype=np.uint8)
         # new_data[700:720] = 255
         # threshold = 200
-
+        self.lock.acquire()
         hit_ind = np.argmax(new_data > threshold)
         if hit_ind == 0:
             for cell in self.angle2cell[msg.bearing]:
@@ -148,7 +148,7 @@ class OccupancyGrid(RawGrid):
         # Update the rest of the cells in one occ grid cell
         for cell in self.angle2cell[msg.bearing]:
             self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
-
+        self.lock.release()
         # beam_half = 27
         # if msg.chan2:
         #     beam_half = 13
