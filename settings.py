@@ -24,6 +24,7 @@ class CollisionSettings:
     border_step = 30
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
+    vehicle_margin = 1 # meter
     loop_sleep = 0.001
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0

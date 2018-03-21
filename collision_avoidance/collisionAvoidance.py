@@ -101,11 +101,13 @@ class CollisionAvoidance:
 
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
+            line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
                 NE, constrained = constrainNED2range(self.waypoint_list[i], old_wp,
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
-                lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp, (255, 255, 255), 1)
+                lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp,
+                               (255, 255, 255), line_width)
                 old_wp = NE
                 grid_old_wp = grid_wp
                 if np.any(np.logical_and(self.bin_map, lin)):
