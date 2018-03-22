@@ -21,9 +21,10 @@ if __name__ == '__main__':
     im2 = cv2.drawContours(np.zeros(np.shape(im), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
     im3 = cv2.dilate(im2, np.ones((11, 11), dtype=np.uint8), iterations=1)
     im4, contours, hierarchy = cv2.findContours(im3, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    im5 = cv2.drawContours(im4, new_contours, -1, (255, 255, 255), -1)
     for contour in contours:
         ellipse = cv2.fitEllipse(contour)
-        im = cv2.ellipse(im, ellipse, (255, 0, 0), 1)
+        im5 = cv2.ellipse(im5, ellipse, (255, 0, 0), 1)
 
-    cv2.imshow('test', im)
+    cv2.imshow('test', im5)
     cv2.waitKey()

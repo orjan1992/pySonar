@@ -8,7 +8,7 @@ from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from messages.sonarMsg import SonarMsg
 from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
-from readLogFile.readLogFile import ReadLogFile
+from readLogFile.readLogFilesdfsdfsdfsd import ReadLogFile
 
 csv = 0
 if csv:

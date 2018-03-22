@@ -7,11 +7,20 @@ import numpy as np
 from datetime import datetime, timedelta
 from os import walk
 
-from messages.sonarMsg import SonarMsg
-from messages.posMsg import PosMsg
+# from messages.sonarMsg import SonarMsg
+# from messages.posMsg import PosMsg
 from readLogFile.helperFunctions import Wrap2pi, getTimeCsv, get_time_csv_file_name
 import logging; logger = logging.getLogger('readLogFile.ReadCsvFile')
 
+
+class SonarMsg:
+    def __init__(self):
+        print('inti')
+
+
+class PosMsg:
+    def __init__(self):
+        print('inti')
 
 class ReadCsvFile(object):
     """
@@ -109,22 +118,24 @@ class ReadCsvFile(object):
         # print(bArray)
         # print(bArray[0])
         length = len(bArray)
-        if bArray[0] != self.SONAR_START:
+        if bArray[0] == self.SONAR_START:
             for i in range(0, length):
-                if bArray[i] == self.LINE_FEED and i < length and bArray[i+1] == self.SONAR_START:
-                    self.curSonarMsg = b''.join([self.curSonarMsg, bArray[:(i+1)]])
-                    returnMsg = self.parseSonarMsg()
-                    self.curSonarMsg = bArray[(i+1):length]
-                    self.curSonarMsgTime = msg[0]['time']
-                    return returnMsg
-                if bArray[i] == self.LINE_FEED and i == length:
-                    self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
-                    returnMsg = self.parseSonarMsg()
-                    # TODO not correct time
-                    self.curSonarMsgTime = msg[0]['time']
-                    self.curSonarMsg = b''
-                    return returnMsg
-        self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
+                self.curSonarMsg = bArray
+                return self.parseSonarMsg()
+        #         if bArray[i] == self.LINE_FEED and i < length and bArray[i+1] == self.SONAR_START:
+        #             self.curSonarMsg = b''.join([self.curSonarMsg, bArray[:(i+1)]])
+        #             returnMsg = self.parseSonarMsg()
+        #             self.curSonarMsg = bArray[(i+1):length]
+        #             self.curSonarMsgTime = msg[0]['time']
+        #             return returnMsg
+        #         if bArray[i] == self.LINE_FEED and i == length:
+        #             self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
+        #             returnMsg = self.parseSonarMsg()
+        #             # TODO not correct time
+        #             self.curSonarMsgTime = msg[0]['time']
+        #             self.curSonarMsg = b''
+        #             return returnMsg
+        # self.curSonarMsg = b''.join([self.curSonarMsg, bArray])
         return 0
 
     def parseSonarMsg(self):
@@ -139,15 +150,16 @@ class ReadCsvFile(object):
                 logger.error('Sonar msg error: hex {} \t word {}\t len(bytestring) {}'.format(hexLength, wordLength, len(self.curSonarMsg)))
                 # should return some error
                 return 0
-            if (hexLength[0] + 6) < len(self.curSonarMsg):
-                logger.info('Sonar msg error, probably started new file with'
-                            ' incomplete message: hex {} \t word {}\t len(bytestring) {}'.format(hexLength, wordLength,
-                                                                                              len(self.curSonarMsg)))
-                return 0
-            msg = SonarMsg(getTimeCsv(self.curSonarMsgTime))
+            # if (hexLength[0] + 6) < len(self.curSonarMsg):
+            #     logger.info('Sonar msg error, probably started new file with'
+            #                 ' incomplete message: hex {} \t word {}\t len(bytestring) {}'.format(hexLength, wordLength,
+            #                                                                                   len(self.curSonarMsg)))
+                # return 0
+            # msg = SonarMsg(getTimeCsv(self.curSonarMsgTime))
+            msg = SonarMsg()
             msg.txNode = self.curSonarMsg[7]
             msg.rxNode = self.curSonarMsg[8]
-            # self.curSonarMsg[9] Byte Count of attached message that follows this byte.
+            # self.curSonarMsg[9] Byte Count of attached message that follows msg byte.
             # Set to 0 (zero) in ‘mtHeadData’ reply to indicate Multi-packet mode NOT used by device.
             msg.type = self.curSonarMsg[10]
             if self.curSonarMsg[11] != 128:  #Message Sequence Bitset (see below).
@@ -194,10 +206,39 @@ class ReadCsvFile(object):
                 if self.curSonarMsg[hexLength[0]+5] != 10:
                     logger.error('No end of message')
                     return 0
+            elif msg.type == 19:
+                (msg.hdCtrl, msg.hdType, msg.TxN1, msg.TxN2, msg.RxN1, msg.RxN2,
+                 msg.pulseLen, msg.RangeScale, msg.leftLim, msg.rightLim,
+                 msg.adSpan, msg.adLow, msg.igainLow, msg.igainHigh,
+                 msg.slopeLow, msg.slopeHigh, msg.moTime, msg.step,
+                 msg.adInterval, msg.nBins, msg.maxAdBuf, msg.lockout,
+                 msg.minorAxis, msg.majorAxis, msg.ctl2, msg.scanZ) = struct.unpack('<HBIIIIHHHHBBBBHHBBHHHHHBBH', self.curSonarMsg[14:65])
+                msg.Adc8on = (msg.hdCtrl & 1) == 1
+                msg.Cont = (msg.hdCtrl & (1 << 1)) != 0
+                msg.Scanright = (msg.hdCtrl & (1 << 2)) != 0
+                msg.Invert = (msg.hdCtrl & (1 << 3)) != 0
+                msg.Motoff = (msg.hdCtrl & (1 << 4)) != 0
+                msg.Txoff = (msg.hdCtrl & (1 << 5)) != 0
+                msg.Chan2 = (msg.hdCtrl & (1 << 7)) != 0
+                msg.Raw = (msg.hdCtrl & (1 << 8)) != 0
+                msg.Hasmot = (msg.hdCtrl & (1 << 9)) != 0
+                msg.Applyoffset = (msg.hdCtrl & (1 << 10)) != 0
+                msg.Pingpong = (msg.hdCtrl & (1 << 11)) != 0
+                msg.StareLLim = (msg.hdCtrl & (1 << 12)) != 0
+                msg.ReplyASL = (msg.hdCtrl & (1 << 13)) != 0
+                msg.ReplyThr = (msg.hdCtrl & (1 << 14)) != 0
+                msg.IgnoreSensor = (msg.hdCtrl & (1 << 15)) != 0
             else:
                 logger.error('Other Sonar messagetypes not implemented. Msg type: %i' % msg.type)
                 raise NotImplementedError('Other Sonar messagetypes not implemented. Msg type: %i' % msg.type)
             self.messagesReturned += 1
             return msg
 
-
+if __name__ == "__main__":
+    reader = ReadCsvFile('D:/Downloads/tmp/new logs/new.csv', 4001, 999, False)
+    a = reader.read_next_msg()
+    b = reader.read_next_msg()
+    c = reader.read_next_msg()
+    print(vars(a))
+    print(vars(b))
+    print(vars(c))

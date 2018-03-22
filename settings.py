@@ -77,6 +77,7 @@ class GridSettings:
         p_binary_threshold = 0.78
         p_free = 0.3
         p_occ = 0.9
+        hit_factor = 5
 
         binary_grid = False
         width = 1601

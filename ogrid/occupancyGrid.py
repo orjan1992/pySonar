@@ -7,7 +7,8 @@ logger = logging.getLogger('OccupancyGrid')
 class OccupancyGrid(RawGrid):
     # counter = None
     # sign = None
-
+    occ_map = np.zeros((6400), dtype=object)
+    contour_as_line_list = []
     # TODO: local occ grid with shape=(RES/cellFactor, RES/cellFactor) update to res with np.kron(occ, np.ones(factor, factor)
 
     def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
@@ -20,8 +21,8 @@ class OccupancyGrid(RawGrid):
         self.cell_factor = cell_factor
         self.size = int((self.RES - 1) // self.cell_factor)
         self.kernel = np.ones((cell_factor, cell_factor), dtype=np.uint8)
-        self.size = int((self.RES - 1) / cell_factor)
-        self.occ_grid = np.full((self.size, self.size), self.p_log_zero, dtype=self.oLog_type)
+        self.occ_map_range = np.zeros((self.size, self.size))
+        self.occ_map_theta = np.zeros(self.size, self.size)  # TODO: Should be in 1/16 grad
         self.occ2raw_matrix = np.ones((cell_factor, cell_factor))
         try:
             with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cell_factor))) as data:
@@ -30,18 +31,19 @@ class OccupancyGrid(RawGrid):
         except Exception as e:
             self.calc_map(cell_factor)
 
-    def occ2raw(self):
-        self.grid = np.kron(self.occ_grid, self.occ2raw_matrix)
+    def occ2raw(self, occ_grid):
+        self.grid += np.kron(occ_grid, self.occ2raw_matrix)
 
     def raw2occ(self):
+        occ_grid = np.ones((self.size, self.size), dtype=self.oLog_type)
         for i in range(self.size):
             for j in range(self.size):
-                self.occ_grid[i, j] = np.mean(self.grid[i:i+self.cell_factor, j:j+self.cell_factor])
+                occ_grid[i, j] = np.mean(self.grid[i:i+self.cell_factor, j:j+self.cell_factor])
+        return occ_grid
 
     def calc_map(self, factor):
         if factor % 2 != 0:
             raise ValueError('Wrong size reduction')
-        size = int((self.RES - 1) / factor)
         f2 = factor // 2
         angle2cell = [[] for x in range(self.N_ANGLE_STEPS)]
         angle2cell_rad = [[] for x in range(self.N_ANGLE_STEPS)]
@@ -80,7 +82,42 @@ class OccupancyGrid(RawGrid):
     #             self.rad_map[i].append(((801 - self.angle2cell[i][j][0] + f2)**2 + (self.angle2cell[i][j][1] - 801 + f2)**2)**0.5)
     #     np.savez('ogrid/OGrid_data/occ_map_rad_{}_1601.npz'.format(int(factor)), angle2cell_rad=self.rad_map)
 
+    def calc_occ_map(self, factor):
+        # TODO: Should have all cells in cone. sort by bin and left to right
+        if factor % 2 != 0:
+            raise ValueError('Wrong size reduction')
+        size = int((self.RES - 1) / factor)
+        f2 = factor // 2
+        angle2cell = [[] for x in range(self.N_ANGLE_STEPS)]
+        angle2cell_rad = [[] for x in range(self.N_ANGLE_STEPS)]
+        for i in range(np.shape(self.map)[0]):
+            for j in range(np.shape(self.map)[1]):
+                cell_list = []
+                for cell in self.map[i, j][self.map[i, j] != 0]:
+                    row, col = np.unravel_index(cell, (self.RES, self.RES))
+                    new_row = int(row // factor)
+                    new_col = int(col // factor)
 
+                    cell_list.append((new_row, new_col))
+                if len(cell_list) > 0:
+                    cell_ind = 0
+                    if len(cell_list) > 1:
+                        r = self.r_unit.flat[self.map[i, j][self.map[i, j] != 0]]
+                        theta_grad = self.theta_grad.flat[self.map[i, j][self.map[i, j] != 0]]
+                        cell_ind = np.argmin(np.abs(j - r) * 6400 + np.abs(i - theta_grad))
+                    if not cell_list[cell_ind] in angle2cell[i]:
+                        angle2cell[i].append(cell_list[cell_ind])
+                        angle2cell_rad[i].append(((801 - cell_list[cell_ind][0] + f2) ** 2 + (
+                                    cell_list[cell_ind][1] - 801 + f2) ** 2) ** 0.5)
+            angle2cell[i] = [x for _, x in sorted(zip(angle2cell_rad[i], angle2cell[i]))]
+            angle2cell_rad[i].sort()
+            print(i)
+        print('Calculated map successfully')
+        np.savez('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), angle2cell=angle2cell,
+                 angle2cell_rad=angle2cell_rad)
+        print('Map saved')
+        self.angle2cell_rad = angle2cell_rad
+        self.angle2cell = angle2cell
 
 
     def update_cell(self, indices, value):
@@ -97,7 +134,55 @@ class OccupancyGrid(RawGrid):
             logger.debug('Overflow when calculating probability')
         return p
 
-    def auto_update_zhou(self, msg, threshold):
+    def update_occ_zhou(self, msg, threshold):
+        occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+        new_data = self.interpolate_bins(msg)
+        hit_ind = np.argmax(new_data > threshold)
+
+        # TODO: Calculate incident angle
+        theta_grad = msg.bearing*3200.0/np.pi
+        sonar_line = ((self.origin_i, self.origin_j), (int(801 - 1132.78*np.sin(theta_grad)), int(1132.78*np.cos(theta_grad) - 801)))
+        for line in self.contour_as_line_list:
+            # TODO: cv2.intersect
+            # cv2.intersectConvexConvex()
+            theta_i = 0.5
+
+        # TODO: Def k and h and mu
+        k = h = mu = 1
+
+        if hit_ind == 0:
+            for cell in self.occ_map[msg.bearing]:
+                occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
+        else:
+            hit_ind -= GridSettings.hit_factor
+            i_max = len(self.occ_map[msg.bearing])
+            i = 0
+            exit_loop = False
+            # alpha = 1.5*np.pi/180
+            # if msg.chan2:
+            #     alpha *= 0.5
+            # p_d_a = np.sin(k * h * np.sin(alpha) / 2)
+            # p_max =
+            while i < i_max:
+                for j in range(len(self.occ_map[msg.bearing][i])):
+                    # TODO: Maybe extend range by a factor
+                    if self.occ_map_range.flat[self.occ_map[msg.bearing][i][j]] < hit_ind:
+                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = self.p_log_free - self.p_log_zero
+                    else:
+                        alpha = np.abs(self.occ_map_theta.flat[self.occ_map[msg.bearing][i][j]] - msg.bearing)
+                        P_DI = np.sin(k * h * np.sin(alpha) / 2)
+                        P_TS = mu * np.sin(theta_i)**2
+                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = P_DI*P_TS
+                        # TODO: calculate prob
+                        if not exit_loop:
+                            i_max = np.min(i + GridSettings.hit_factor, i_max)
+                            exit_loop = True
+                i += 1
+        self.occ2raw(occ_grid)
+
+    def calc_incident_angle(self, angle):
+
+    def interpolate_bins(self, msg):
         self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
@@ -122,7 +207,11 @@ class OccupancyGrid(RawGrid):
                     for k in range(i, j):
                         new_data[k] = val * (k - i + 1) + new_data[i - 1]
                         updated[k] = True
+        return new_data
+
+    def auto_update_zhou(self, msg, threshold):
         # Try new threshold method
+        new_data = self.interpolate_bins(msg)
         grad = np.gradient(new_data.astype(float))
         grad_max_ind = np.argmax(grad > threshold)
         try:
@@ -210,6 +299,9 @@ class OccupancyGrid(RawGrid):
         # TODO: maybe introduce safety margin in this dilation
         im3 = cv2.dilate(im2, self.kernel, iterations=FeatureExtraction.iterations)
         contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
+        self.contour_as_line_list.clear()
+        for contour in contours:
+            self.contour_as_line_list.append(cv2.fitLine(contour[0]))
         im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 2)
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
