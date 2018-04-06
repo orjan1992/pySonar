@@ -190,40 +190,29 @@ class OccupancyGrid(RawGrid):
         i = np.argmax(np.all(coord_sign != np.roll(coord_sign, 1, axis=0), axis=1))
         if coord_sign[i, 0] == 0 and coord_sign[i, 1] == 0:
             if i + 1 < np.shape(coord_sign)[0]:
-                return wrap2twopi(angle - np.arctan2((contour[i + 2, 1] - contour[i, 1]),
-                                                     -(contour[i + 2, 0] - contour[i, 0]))),\
-                       contour[i, :], contour[i + 2, :]
+                if i - 1 > -1:
+                    c1 = contour[i - 1, :]
+                    c2 = contour[i + 1, :]
+                else:
+                    c1 = contour[-1, :]
+                    c2 = contour[i + 1, :]
             else:
-                return wrap2twopi(angle - np.arctan2((contour[0, 1] - contour[i, 1]),
-                                                     -(contour[0, 0] - contour[i, 0]))),\
-                       contour[i, :], contour[0, :]
+                c1 = contour[0, :]
+                c2 = contour[i - 1, :]
         else:
             if i + 1 < np.shape(coord_sign)[0]:
-                return wrap2twopi(angle - np.arctan2((contour[i + 1, 1] - contour[i, 1]),
-                                                     -(contour[i + 1, 0] - contour[i, 0]))),\
-                       contour[i, :], contour[i + 1, :]
+                c1 = contour[i, :]
+                c2 = contour[i + 1, :]
             else:
-                return wrap2twopi(angle - np.arctan2((contour[0, 1] - contour[i, 1]),
-                                                     -(contour[0, 0] - contour[i, 0]))),\
-                       contour[i, :], contour[0, :]
-
-        # p1 = coord_sign[-1, :]
-        # for i in range(np.shape(coord_sign)[0]):
-        #     p2 = coord_sign[i, :]
-        #     if p1[0] != p2[0] and p1[1] != p2[1]:
-        #         if p2[0] == 0 and p2[1] == 0:
-        #             if i < np.shape(coord_sign)[0] - 1:
-        #                 p3 = coord_sign[i+1, :]
-        #             else:
-        #                 p3 = coord_sign[0, :]
-        #                 # Negative because of inverse coordinate system, x/y to get angle between y axis and line
-        #             return wrap2twopi(angle - np.arctan2((p3[1] - p1[1]), -(p3[0] - p1[0]))), p1, p3
-        #         else:
-        #             return wrap2twopi(angle - np.arctan2((p2[1] - p1[1]), -(p2[0] - p1[0]))), p1, p2
-        #     p1 = p2
+                c1 = contour[i, :]
+                c2 = contour[0, :]
+        c_angle = np.arctan2((c2[1] - c1[1]), -(c2[0] - c1[0]))
+        print(c_angle*180.0/np.pi)
+        return wrap2twopi(angle - np.pi - c_angle), c1, c2
 
     def check_scan_line_intersection(self, angle):
         angle_binary = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
+        # TODO: find outer coordinate
         cv2.line(angle_binary, (self.origin_i, self.origin_j),
                  (int(801 - 801 * np.sin(angle)), int(801 * np.cos(angle) + 801)), (1, 1, 1), 1)
         if np.any(np.logical_and(self.bin_map, angle_binary)):
@@ -374,6 +363,7 @@ class OccupancyGrid(RawGrid):
 
 if __name__=="__main__":
     import time
+    import matplotlib.pyplot as plt
     grid = OccupancyGrid(True, 0.3, 0.9, 0.7, 0.75, 16)
     a = np.load('collision_avoidance/test.npz')['olog']
     grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
@@ -384,15 +374,10 @@ if __name__=="__main__":
     # for c in countours:
     #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
     #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
-    angle = 4500.0*np.pi / 3200
+    angle = 4502.0*np.pi / 3200
     id, point = grid.check_scan_line_intersection(angle)
     cv2.line(im, (801, 801), (int(801 - 801*np.sin(angle)), int(801*np.cos(angle) + 801)), (0, 0, 255), 5)
-    a = np.zeros(100)
-    for i in range(100):
-        t1 = time.time()
-        int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
-        a[i] = time.time() - t1
-    print(np.mean(a)*10**6)
+    int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
 
     # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
     # for contour in countours:
@@ -402,6 +387,8 @@ if __name__=="__main__":
     # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
     cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
     cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
-    cv2.imshow('sdf', im)
-    cv2.waitKey()
+    # cv2.imshow('sdf', im)
+    # cv2.waitKey()
+    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+    plt.show()
     print(int_angle*180/np.pi)

@@ -3,7 +3,7 @@ from struct import unpack
 
 import numpy as np
 
-from messages.sonarMsg import SonarMsg
+from messages.udpMsg import SonarMsg
 from readLogFile.helperFunctions import Wrap2pi, getTimeLog
 
 

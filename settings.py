@@ -4,15 +4,15 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 
 class Settings:
     # 0 == udp, 1 == MOOS
-    input_source = 1
+    input_source = 0
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
-    update_type = 1
-    pos_update = 1000.0/60.0  # ms
+    update_type = 0
+    pos_update = 10000000000  # 1000.0/60.0  # ms
     hist_window = False
-    collision_avoidance = True
-    show_map = True
+    collision_avoidance = False
+    show_map = False
     show_voronoi_plot = False
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
@@ -94,7 +94,11 @@ class FeatureExtraction:
     min_area = 30
 
 class ConnectionSettings:
-        sonar_port = 5555
+        sonar_port = 4001
+        pos_port = 4005
+        wp_port = 5000
+        wp_ip = None
+        use_nmea_checksum = True
 
 
 class PlotSettings:

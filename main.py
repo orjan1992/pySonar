@@ -8,8 +8,10 @@ from time import strftime
 from settings import *
 from ogrid.rawGrid import RawGrid
 from ogrid.occupancyGrid import OccupancyGrid
-from messages.UdpMessageClient import UdpMessageClient
-from messages.moosMsgs import MoosMsgs
+if Settings.input_source == 0:
+    from messages.udpClient import UdpSonarClient, UdpNmeaClient
+elif Settings.input_source == 1:
+    from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance
 import map
@@ -54,12 +56,14 @@ class MainWidget(QtGui.QWidget):
     def __init__(self, parent=None):
         super(MainWidget, self).__init__(parent)
 
-        if Settings.input_source == 0:
-            raise NotImplemented
-            self.last_pos_msg = None
-        elif Settings.input_source == 1:
-            self.last_pos_msg = MoosPosMsg()
-            self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
+        # if Settings.input_source == 0:
+        #     raise NotImplemented
+        #     self.last_pos_msg = None
+        # elif Settings.input_source == 1:
+        #     self.last_pos_msg = MoosPosMsg()
+        #     self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
+        self.last_pos_msg = MoosPosMsg()
+        self.last_pos_diff = MoosPosMsgDiff(0, 0, 0)
 
         main_layout = QtGui.QHBoxLayout()  # Main layout
         left_layout = QtGui.QVBoxLayout()
@@ -145,9 +149,12 @@ class MainWidget(QtGui.QWidget):
 
         self.init_grid()
         if Settings.input_source == 0:
-            self.udp_client = UdpMessageClient(ConnectionSettings.sonar_port, self.new_sonar_msg)
-            client_thread = threading.Thread(target=self.udp_client.connect, daemon=True)
-            client_thread.start()
+            self.udp_sonar_client = UdpSonarClient(None, ConnectionSettings.sonar_port)
+            self.udp_sonar_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
+            self.udp_pos_client = UdpNmeaClient(None, ConnectionSettings.pos_port)
+            self.udp_wp_client = UdpNmeaClient(ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
+            # client_thread = threading.Thread(target=self.udp_sonar_client.connect, daemon=True)
+            # client_thread.start()
         elif Settings.input_source == 1:
             self.moos_msg_client = MoosMsgs(self.new_sonar_msg)
             self.moos_msg_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
@@ -177,7 +184,10 @@ class MainWidget(QtGui.QWidget):
                     self.collision_avoidance = CollisionAvoidance(self.moos_msg_client)
                 self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
-                raise NotImplemented
+                if Settings.show_voronoi_plot:
+                    self.collision_avoidance = CollisionAvoidance(self.udp_sonar_client, self.voronoi_plot_item)
+                else:
+                    self.collision_avoidance = CollisionAvoidance(self.udp_sonar_client)
             self.collision_worker = CollisionAvoidanceWorker(self.collision_avoidance)
             self.collision_worker.setAutoDelete(False)
             self.collision_worker.signals.finished.connect(self.collision_loop_finished)
@@ -226,7 +236,7 @@ class MainWidget(QtGui.QWidget):
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
             if Settings.input_source == 0:
-                raise NotImplemented
+                msg = self.udp_pos_client.cur_pos_msg
             else:
                 msg = self.moos_msg_client.cur_pos_msg
             if self.last_pos_msg is None:
@@ -270,7 +280,8 @@ class MainWidget(QtGui.QWidget):
                     im, contours = self.grid.get_obstacles()
                 else:
                     im, contours = self.grid.adaptive_threshold(self.threshold_box.value())
-                self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
+                if Settings.collision_avoidance:
+                    self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
 
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
@@ -389,6 +400,7 @@ if __name__ == '__main__':
     window.show()
     app.exec_()
 
-    window.login_widget.collision_avoidance.save_paths()
+    if Settings.collision_avoidance:
+        window.login_widget.collision_avoidance.save_paths()
     if Settings.save_scan_lines:
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))

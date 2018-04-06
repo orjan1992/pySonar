@@ -2,7 +2,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from math import pi
 
-from messages.sonarMsg import SonarMsg
+from messages.udpMsg import SonarMsg
 from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFilesdfsdfsdfsd import ReadLogFile

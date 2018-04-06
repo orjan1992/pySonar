@@ -5,7 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
-from messages.sonarMsg import SonarMsg
+from messages.udpMsg import SonarMsg
 from ogrid.rawGrid import RawGrid
 from readLogFile.readCsvFile import ReadCsvFile
 from readLogFile.readLogFilesdfsdfsdfsd import ReadLogFile
