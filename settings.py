@@ -6,7 +6,7 @@ class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 0
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
-    plot_type = 2
+    plot_type = 0
     # 0 == raw update, 1 == zhou update
     update_type = 0
     pos_update = 1000.0/60.0  # ms
@@ -96,7 +96,8 @@ class FeatureExtraction:
 
 class ConnectionSettings:
         sonar_port = 4001
-        pos_port = 4005
+        # pos_port = 4005
+        pos_port = 40010
         wp_port = 5000
         wp_ip = None
         use_nmea_checksum = False

@@ -9,7 +9,7 @@ from settings import *
 from ogrid.rawGrid import RawGrid
 from ogrid.occupancyGrid import OccupancyGrid
 if Settings.input_source == 0:
-    from messages.udpClient import UdpSonarClient, UdpNmeaClient
+    from messages.udpClient_py import UdpClient
 elif Settings.input_source == 1:
     from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
@@ -149,12 +149,14 @@ class MainWidget(QtGui.QWidget):
 
         self.init_grid()
         if Settings.input_source == 0:
-            self.udp_sonar_client = UdpSonarClient(None, ConnectionSettings.sonar_port)
-            self.udp_sonar_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
-            self.udp_pos_client = UdpNmeaClient(None, ConnectionSettings.pos_port)
-            self.udp_wp_client = UdpNmeaClient(ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
-            # client_thread = threading.Thread(target=self.udp_sonar_client.connect, daemon=True)
-            # client_thread.start()
+            self.udp_client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port,
+                                        ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
+            self.udp_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
+            self.udp_client.set_sonar_callback(self.new_sonar_msg)
+            self.udp_client.start()
+            # self.udp_thread = threading.Thread(target=self.udp_client.start)
+            # self.udp_thread.setDaemon(True)
+            # self.udp_thread.start()
         elif Settings.input_source == 1:
             self.moos_msg_client = MoosMsgs(self.new_sonar_msg)
             self.moos_msg_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
@@ -221,8 +223,8 @@ class MainWidget(QtGui.QWidget):
         if Settings.update_type == 0:
             self.grid.update_raw(msg)
         elif Settings.update_type == 1:
-            # self.grid.auto_update_zhou(msg, self.threshold_box.value())
-            self.grid.update_occ_zhou(msg, self.threshold_box.value())
+            self.grid.auto_update_zhou(msg, self.threshold_box.value())
+            # self.grid.update_occ_zhou(msg, self.threshold_box.value())
         else:
             raise Exception('Invalid update type')
         self.plot_updated = True
@@ -237,7 +239,7 @@ class MainWidget(QtGui.QWidget):
     def new_pos_msg(self):
         if self.pos_lock.acquire(blocking=False):
             if Settings.input_source == 0:
-                msg = self.udp_pos_client.cur_pos_msg
+                msg = self.udp_client.cur_pos_msg
                 if msg is None:
                     self.pos_lock.release()
                     return

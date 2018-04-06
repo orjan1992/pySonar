@@ -85,7 +85,6 @@ class RawGrid(object):
         return self.grid
 
     def update_raw(self, msg):
-        print(len(msg.data))
         self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         if GridSettings.scale_raw_data:
