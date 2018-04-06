@@ -174,7 +174,7 @@ class OccupancyGrid(RawGrid):
                         alpha = np.abs(self.occ_map_theta.flat[self.occ_map[msg.bearing][i][j]] - msg.bearing)
                         P_DI = np.sin(k * h * np.sin(alpha) / 2)
                         P_TS = mu * np.sin(theta_i)**2
-                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = P_DI*P_TS
+                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = self.p_log_occ - self.p_log_zero  # P_DI*P_TS
                         # TODO: calculate prob
                         if not exit_loop:
                             i_max = np.min(i + GridSettings.hit_factor, i_max)

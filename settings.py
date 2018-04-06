@@ -9,7 +9,7 @@ class Settings:
     plot_type = 2
     # 0 == raw update, 1 == zhou update
     update_type = 0
-    pos_update = 10000000000  # 1000.0/60.0  # ms
+    pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = False
     show_map = False
@@ -72,21 +72,22 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
-        half_grid = False
-        p_inital = 0.5
-        p_binary_threshold = 0.78
-        p_free = 0.3
-        p_occ = 0.9
-        hit_factor = 5
+    half_grid = False
+    p_inital = 0.5
+    p_binary_threshold = 0.78
+    p_free = 0.3
+    p_occ = 0.9
+    hit_factor = 5
 
-        binary_grid = False
-        width = 1601
-        if half_grid:
-            height = 801
-        else:
-            height = 1601
-        min_set_pixels = 1601.0*801.0/3.0
-        cell_factor = 16
+    binary_grid = False
+    width = 1601
+    if half_grid:
+        height = 801
+    else:
+        height = 1601
+    min_set_pixels = 1601.0*801.0/3.0
+    cell_factor = 16
+    scale_raw_data = True
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
@@ -98,7 +99,7 @@ class ConnectionSettings:
         pos_port = 4005
         wp_port = 5000
         wp_ip = None
-        use_nmea_checksum = True
+        use_nmea_checksum = False
 
 
 class PlotSettings:

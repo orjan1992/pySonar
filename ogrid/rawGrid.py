@@ -85,9 +85,13 @@ class RawGrid(object):
         return self.grid
 
     def update_raw(self, msg):
+        print(len(msg.data))
         self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
-        new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
+        if GridSettings.scale_raw_data:
+            new_data = np.zeros(self.MAX_BINS, dtype=np.int)
+        else:
+            new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
         updated = np.zeros(self.MAX_BINS, dtype=np.bool)
         try:
             for i in range(0, msg.dbytes):
@@ -108,6 +112,9 @@ class RawGrid(object):
                     for k in range(i, j):
                         new_data[k] = val * (k - i + 1) + new_data[i - 1]
                         updated[k] = True
+
+        if GridSettings.scale_raw_data:
+            new_data = np.clip(((new_data - msg.ad_low)*255.0/msg.ad_span), 0, 255).astype(np.uint8)
 
         bearing_diff = msg.bearing - self.last_bearing
         beam_half = 27

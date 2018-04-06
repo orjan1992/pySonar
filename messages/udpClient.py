@@ -64,10 +64,12 @@ class UdpNmeaClient(UdpClient):
         datagram = self.server.receiveDatagram()
         # string = datagram.data().decode('ascii')
         data = bytearray(datagram.data())
-        self.cur_pos_msg = UdpPosMsg(data)
+        msg = UdpPosMsg(data)
+        if not msg.error:
+            self.cur_pos_msg = msg
 
     def sendMsg(value):
-        datagram = QNetworkDatagram()
+        # datagram = QNetworkDatagram(const QByteArray &data, const QHostAddress &destinationAddress = QHostAddress(), quint16 port = 0)
         raise NotImplemented
 
 
