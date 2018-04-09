@@ -37,7 +37,13 @@ class OccupancyGrid(RawGrid):
             self.calc_occ_map(cell_factor)
 
     def occ2raw(self, occ_grid):
-        self.grid[:-1, :-1] += np.kron(occ_grid, self.occ2raw_matrix)
+        nonzero = np.nonzero(occ_grid)
+        y1 = np.min(nonzero[0])
+        y2 = np.max(nonzero[0]) + 1
+        x1 = np.min(nonzero[1])
+        x2 = np.max(nonzero[1]) + 1
+        self.grid[y1 * self.cell_factor:y2 * self.cell_factor, x1 * self.cell_factor:x2 * self.cell_factor] += np.kron(
+            occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
 
     def raw2occ(self):
         occ_grid = np.ones((self.size, self.size), dtype=self.oLog_type)
