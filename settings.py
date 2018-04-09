@@ -8,7 +8,7 @@ class Settings:
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 0
     # 0 == raw update, 1 == zhou update
-    update_type = 0
+    update_type = 1
     pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = False

@@ -8,7 +8,6 @@ logger = logging.getLogger('OccupancyGrid')
 class OccupancyGrid(RawGrid):
     # counter = None
     # sign = None
-    occ_map = np.zeros((RawGrid.N_ANGLE_STEPS), dtype=object)
     contour_as_line_list = []
     bin_map = np.zeros((RawGrid.i_max, RawGrid.j_max), dtype=np.uint8)
     # TODO: local occ grid with shape=(RES/cellFactor, RES/cellFactor) update to res with np.kron(occ, np.ones(factor, factor)
@@ -27,14 +26,14 @@ class OccupancyGrid(RawGrid):
         self.occ_map_theta = np.zeros((self.size, self.size))  # TODO: Should be in 1/16 grad
         self.occ2raw_matrix = np.ones((cell_factor, cell_factor))
         try:
-            with np.load('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(cell_factor))) as data:
+            with np.load('ogrid/OGrid_data/occ_map_{}.npz'.format(int(cell_factor))) as data:
                 self.angle2cell = data['angle2cell']
                 self.angle2cell_rad = data['angle2cell_rad']
         except Exception as e:
-            self.calc_map(cell_factor)
+            self.calc_occ_map(cell_factor)
 
     def occ2raw(self, occ_grid):
-        self.grid += np.kron(occ_grid, self.occ2raw_matrix)
+        self.grid[:-1, :-1] += np.kron(occ_grid, self.occ2raw_matrix)
 
     def raw2occ(self):
         occ_grid = np.ones((self.size, self.size), dtype=self.oLog_type)
@@ -113,9 +112,10 @@ class OccupancyGrid(RawGrid):
                                     cell_list[cell_ind][1] - 801 + f2) ** 2) ** 0.5)
             angle2cell[i] = [x for _, x in sorted(zip(angle2cell_rad[i], angle2cell[i]))]
             angle2cell_rad[i].sort()
+            angle2cell[i] = np.ravel_multi_index(np.array(angle2cell[i]).T, (size, size))
             print(i)
         print('Calculated map successfully')
-        np.savez('ogrid/OGrid_data/occ_map_{}_1601.npz'.format(int(factor)), angle2cell=angle2cell,
+        np.savez('ogrid/OGrid_data/occ_map_{}.npz'.format(int(factor)), angle2cell=angle2cell,
                  angle2cell_rad=angle2cell_rad)
         print('Map saved')
         self.angle2cell_rad = angle2cell_rad
@@ -137,50 +137,54 @@ class OccupancyGrid(RawGrid):
         return p
 
     def update_occ_zhou(self, msg, threshold):
-        occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
-        new_data = self.interpolate_bins(msg)
-        hit_ind = np.argmax(new_data > threshold)
+        try:
+            occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+            new_data = self.interpolate_bins(msg)
+            hit_ind = np.argmax(new_data > threshold)
 
-        # TODO: Calculate incident angle
-        theta_grad = msg.bearing*3200.0/np.pi
-        sonar_line = ((self.origin_i, self.origin_j), (int(801 - 1132.78*np.sin(theta_grad)), int(1132.78*np.cos(theta_grad) - 801)))
-        for line in self.contour_as_line_list:
-            # TODO: cv2.intersect
-            # cv2.intersectConvexConvex()
-            theta_i = 0.5
+            # TODO: Calculate incident angle
+            theta_grad = msg.bearing*3200.0/np.pi
+            sonar_line = ((self.origin_i, self.origin_j), (int(801 - 1132.78*np.sin(theta_grad)), int(1132.78*np.cos(theta_grad) - 801)))
+            for line in self.contour_as_line_list:
+                # TODO: cv2.intersect
+                # cv2.intersectConvexConvex()
+                theta_i = np.pi
 
-        # TODO: Def k and h and mu
-        k = h = mu = 1
+            # TODO: Def k and h and mu
+            k = h = mu = 1
+            theta_i = np.pi
 
-        if hit_ind == 0:
-            for cell in self.occ_map[msg.bearing]:
-                occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
-        else:
-            hit_ind -= GridSettings.hit_factor
-            i_max = len(self.occ_map[msg.bearing])
-            i = 0
-            exit_loop = False
-            # alpha = 1.5*np.pi/180
-            # if msg.chan2:
-            #     alpha *= 0.5
-            # p_d_a = np.sin(k * h * np.sin(alpha) / 2)
-            # p_max =
-            while i < i_max:
-                for j in range(len(self.occ_map[msg.bearing][i])):
+            if hit_ind == 0:
+                for cell in self.angle2cell[msg.bearing]:
+                    occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
+            else:
+                hit_ind -= GridSettings.hit_factor
+                i_max = len(self.angle2cell[msg.bearing])
+                i = 0
+                exit_loop = False
+                # alpha = 1.5*np.pi/180
+                # if msg.chan2:
+                #     alpha *= 0.5
+                # p_d_a = np.sin(k * h * np.sin(alpha) / 2)
+                # p_max =
+                while i < i_max:
                     # TODO: Maybe extend range by a factor
-                    if self.occ_map_range.flat[self.occ_map[msg.bearing][i][j]] < hit_ind:
-                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = self.p_log_free - self.p_log_zero
+                    if self.occ_map_range.flat[self.angle2cell[msg.bearing][i]] < hit_ind:
+                        occ_grid.flat[self.angle2cell[msg.bearing][i]] = self.p_log_free - self.p_log_zero
                     else:
-                        alpha = np.abs(self.occ_map_theta.flat[self.occ_map[msg.bearing][i][j]] - msg.bearing)
+                        alpha = np.abs(self.occ_map_theta.flat[self.angle2cell[msg.bearing][i]] - msg.bearing)
                         P_DI = np.sin(k * h * np.sin(alpha) / 2)
                         P_TS = mu * np.sin(theta_i)**2
-                        occ_grid.flat[self.occ_map[msg.bearing][i][j]] = self.p_log_occ - self.p_log_zero  # P_DI*P_TS
+                        occ_grid.flat[self.angle2cell[msg.bearing][i]] = self.p_log_occ - self.p_log_zero  # P_DI*P_TS
                         # TODO: calculate prob
                         if not exit_loop:
-                            i_max = np.min(i + GridSettings.hit_factor, i_max)
+                            i_max = np.min([i + GridSettings.hit_factor, i_max])
                             exit_loop = True
-                i += 1
-        self.occ2raw(occ_grid)
+                    i += 1
+            self.occ2raw(occ_grid)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
     def calc_incident_angle(self, angle, contour_id, point):
         # TODO: Fix angle to 0 deg at north
@@ -364,31 +368,47 @@ class OccupancyGrid(RawGrid):
 if __name__=="__main__":
     import time
     import matplotlib.pyplot as plt
-    grid = OccupancyGrid(True, 0.3, 0.9, 0.7, 0.75, 16)
-    a = np.load('collision_avoidance/test.npz')['olog']
-    grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
-    im, countours = grid.get_obstacles()
+    from messages.moosSonarMsg import MoosSonarMsg
+    grid = OccupancyGrid(False, 0.3, 0.9, 0.7, 0.75, 16)
+    scanline = np.zeros(800)
+    scanline[500] = 255
+    msg = MoosSonarMsg()
+    msg.data = scanline
+    msg.dbytes = msg.length = 800
+    msg.range_scale = 20
+    for i in range(1600, 4800, 5):
+        occ = np.zeros((grid.size, grid.size), grid.oLog_type)
+        occ.flat[grid.angle2cell[i]] = 1
+        grid.occ2raw(occ)
+        # grid.update_occ_zhou(msg, 1)
+        plt.imshow(grid.grid)
+        plt.show()
+        grid.grid = np.zeros((1601, 1601), grid.oLog_type)
 
-    l_list = []
-    # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
-    # for c in countours:
-    #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
-    #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
-    angle = 4502.0*np.pi / 3200
-    id, point = grid.check_scan_line_intersection(angle)
-    cv2.line(im, (801, 801), (int(801 - 801*np.sin(angle)), int(801*np.cos(angle) + 801)), (0, 0, 255), 5)
-    int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
-
-    # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
-    # for contour in countours:
-    #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
-    #     for p in contour:
-    #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
-    # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
-    cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
-    cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
-    # cv2.imshow('sdf', im)
-    # cv2.waitKey()
-    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
-    plt.show()
-    print(int_angle*180/np.pi)
+    # a = np.load('collision_avoidance/test.npz')['olog']
+    # grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
+    # im, countours = grid.get_obstacles()
+    #
+    # l_list = []
+    # # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
+    # # for c in countours:
+    # #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
+    # #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
+    # angle = 4502.0*np.pi / 3200
+    # id, point = grid.check_scan_line_intersection(angle)
+    # cv2.line(im, (801, 801), (int(801 - 801*np.sin(angle)), int(801*np.cos(angle) + 801)), (0, 0, 255), 5)
+    # int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
+    #
+    # # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
+    # # for contour in countours:
+    # #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
+    # #     for p in contour:
+    # #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
+    # # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
+    # cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
+    # cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
+    # # cv2.imshow('sdf', im)
+    # # cv2.waitKey()
+    # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+    # plt.show()
+    # print(int_angle*180/np.pi)
