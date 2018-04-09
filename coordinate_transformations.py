@@ -136,13 +136,19 @@ def sat2uint(val, sat):
     else:
         return int(val)
 
-def wrap2twopi(angle):
-    # TODO: handle n*2*pi
-    if angle > 2 * np.pi:
-        angle -= np.pi * 2
-    if angle < 0:
-        angle += np.pi * 2
-    return angle
+def wrapTo2Pi(angle):
+    positiveInput = (angle > 0)
+    angle = angle % 2 * np.pi
+    if angle == 0 and positiveInput:
+        return 2*np.pi
+    else:
+        return angle
+
+def wrapToPi(angle):
+    if angle < -np.pi or np.pi < angle:
+        return wrapTo2Pi(angle + np.pi) - np.pi
+    else:
+        return angle
 
 
 if __name__ == '__main__':

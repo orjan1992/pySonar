@@ -1,7 +1,7 @@
 from ogrid.rawGrid import RawGrid
 import numpy as np
 from settings import *
-from coordinate_transformations import wrap2twopi
+from coordinate_transformations import wrapTo2Pi, wrapToPi
 import logging
 logger = logging.getLogger('OccupancyGrid')
 
@@ -187,11 +187,29 @@ class OccupancyGrid(RawGrid):
             traceback.print_exc()
 
     def calc_incident_angle(self, angle, contour_id, point):
+        """
+
+        :param angle: scanline angle 0 deg straight up. in radians
+        :param contour_id: id of intersection contour
+        :param point: intersection point (x, y)
+        :return:
+        """
         # TODO: Fix angle to 0 deg at north
         contour = self.contours[contour_id]
         contour = np.reshape(contour, (len(contour), 2))
         coord_sign = np.sign(contour - point)
-        i = np.argmax(np.all(coord_sign != np.roll(coord_sign, 1, axis=0), axis=1))
+        coord_sign_rolled = np.roll(coord_sign, 1, axis=0)
+        i = np.argmax(np.all(coord_sign != coord_sign_rolled, axis=1))
+        if i == 0 and not np.all(coord_sign[0, :] != coord_sign[-1, :]):
+            eq0 = coord_sign[:, 0] == 0
+            change_sign = coord_sign[:, 1] != coord_sign_rolled[:, 1]
+            i = np.argmax(np.all(np.array([eq0.T, change_sign.T]).T, axis=1))
+            if i == 0 and not coord_sign[0, 1] != coord_sign[-1, 1]:
+                eq0 = coord_sign[:, 1] == 0
+                change_sign = coord_sign[:, 0] != coord_sign_rolled[:, 0]
+                i = np.argmax(np.all(np.array([change_sign.T, eq0.T]).T, axis=1))
+                if i == 0 and not coord_sign[0, 0] != coord_sign[-1, 0]:
+                    raise RuntimeWarning('Could not find intersecting contour')
         if coord_sign[i, 0] == 0 and coord_sign[i, 1] == 0:
             if i + 1 < np.shape(coord_sign)[0]:
                 if i - 1 > -1:
@@ -210,15 +228,20 @@ class OccupancyGrid(RawGrid):
             else:
                 c1 = contour[i, :]
                 c2 = contour[0, :]
-        c_angle = np.arctan2((c2[1] - c1[1]), -(c2[0] - c1[0]))
-        print(c_angle*180.0/np.pi)
-        return wrap2twopi(angle - np.pi - c_angle), c1, c2
+        c_angle = np.arctan2((c2[0] - c1[0]), -(c2[1] - c1[1]))  # cv2 (x, y) => arctan(x / y)
+        print('contour_angle: {},\tline_angle: {},\tincident_angle: {}'.format(c_angle * 180.0 / np.pi, angle * 180.0 / np.pi, wrapToPi(angle - c_angle) * 180.0 / np.pi))
+        return wrapTo2Pi(angle - c_angle), c1, c2
 
     def check_scan_line_intersection(self, angle):
+        '''
+        intersection between scanline and contour
+        :param angle: scanline angle(0 deg straight up)
+        :return: intersecting contour id, (intersecion point(x, y))
+        '''
         angle_binary = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
         # TODO: find outer coordinate
         cv2.line(angle_binary, (self.origin_i, self.origin_j),
-                 (int(801 - 801 * np.sin(angle)), int(801 * np.cos(angle) + 801)), (1, 1, 1), 1)
+                 (int(801*(1+np.sin(angle))), int(801*(1-np.cos(angle)))), (1, 1, 1), 1)  # cv2.line(im, (x, y), (x,y)
         if np.any(np.logical_and(self.bin_map, angle_binary)):
             for i in range(len(self.contours)):
                 contour_binary = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
@@ -228,13 +251,13 @@ class OccupancyGrid(RawGrid):
                     points = np.array(np.nonzero(intersection_mat))
                     if angle < 0:
                         tmp = points[:, np.argmax(points[1, :])]
-                        return i, np.array([tmp[1], tmp[0]])
+                        return i, np.flip(tmp.T, 0)
                     elif angle > 0:
                         tmp = points[:, np.argmin(points[1, :])]
-                        return i, np.array([tmp[1], tmp[0]])
+                        return i, np.flip(tmp.T, 0)
                     else:
                         tmp = points[:, np.argmin(points[0, :])]
-                        return i, np.array([tmp[1], tmp[0]])
+                        return i, np.flip(tmp.T, 0)
         return -1, None
 
     def interpolate_bins(self, msg):
@@ -278,17 +301,6 @@ class OccupancyGrid(RawGrid):
         except IndexError:
             # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
             return
-
-        # if self.counter is None:
-        #     self.counter = 1
-        #     self.sign = 1
-        # if self.counter > 6398 or self.counter < 1:
-        #     self.sign = -self.sign
-        # self.counter += self.sign
-        # msg.bearing = self.counter
-        # new_data = np.zeros(800, dtype=np.uint8)
-        # new_data[700:720] = 255
-        # threshold = 200
         self.lock.acquire()
         hit_ind = np.argmax(new_data > threshold)
         if hit_ind == 0:
@@ -305,37 +317,6 @@ class OccupancyGrid(RawGrid):
         for cell in self.angle2cell[msg.bearing]:
             self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
         self.lock.release()
-        # beam_half = 27
-        # if msg.chan2:
-        #     beam_half = 13
-        # bearing_low = msg.bearing - beam_half
-        # bearing_high = msg.bearing + beam_half
-        # hit_ind = np.argmax(new_data > threshold)
-        # if hit_ind != 0:
-        #     try:
-        #         for i in range(hit_ind - 1):
-        #             self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
-        #             self.update_cell(self.new_map[bearing_low, i], self.p_log_free - self.p_log_zero)
-        #             self.update_cell(self.new_map[bearing_high, i], self.p_log_free - self.p_log_zero)
-        #         for i in range(hit_ind - 1, hit_ind + 2):
-        #             self.update_cell(self.new_map[msg.bearing, i], self.p_log_occ + self.p_log_zero)
-        #             self.update_cell(self.new_map[bearing_low, i], self.p_log_occ + self.p_log_zero)
-        #             self.update_cell(self.new_map[bearing_high, i], self.p_log_occ + self.p_log_zero)
-        #     except IndexError:
-        #         pass
-        # # else:
-        # #     for i in range(self.MAX_BINS):
-        # #         self.update_cell(self.new_map[msg.bearing, i], self.p_log_free - self.p_log_zero)
-        # #         self.update_cell(self.new_map[bearing_low, i], self.p_log_free - self.p_log_zero)
-        # #         self.update_cell(self.new_map[bearing_high, i], self.p_log_free - self.p_log_zero)
-        #
-        # # Update the rest of the cells in one occ grid cell
-        # for cell in self.angle2cell[msg.bearing]:
-        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
-        # for cell in self.angle2cell[bearing_low]:
-        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
-        # for cell in self.angle2cell[bearing_high]:
-        #     self.grid[cell[0]:cell[0] + self.cell_factor, cell[1]:cell[1] + self.cell_factor] = self.grid[cell[0], cell[1]]
 
     def get_obstacles(self):
 
@@ -370,45 +351,47 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
     from messages.moosSonarMsg import MoosSonarMsg
     grid = OccupancyGrid(False, 0.3, 0.9, 0.7, 0.75, 16)
-    scanline = np.zeros(800)
-    scanline[500] = 255
-    msg = MoosSonarMsg()
-    msg.data = scanline
-    msg.dbytes = msg.length = 800
-    msg.range_scale = 20
-    for i in range(1600, 4800, 5):
-        occ = np.zeros((grid.size, grid.size), grid.oLog_type)
-        occ.flat[grid.angle2cell[i]] = 1
-        grid.occ2raw(occ)
-        # grid.update_occ_zhou(msg, 1)
-        plt.imshow(grid.grid)
-        plt.show()
-        grid.grid = np.zeros((1601, 1601), grid.oLog_type)
+    # scanline = np.zeros(800)
+    # scanline[500] = 255
+    # msg = MoosSonarMsg()
+    # msg.data = scanline
+    # msg.dbytes = msg.length = 800
+    # msg.range_scale = 20
+    # for i in range(1600, 4800, 5):
+    #     occ = np.zeros((grid.size, grid.size), grid.oLog_type)
+    #     occ.flat[grid.angle2cell[i]] = 1
+    #     grid.occ2raw(occ)
+    #     # grid.update_occ_zhou(msg, 1)
+    #     plt.imshow(grid.grid)
+    #     plt.show()
+    #     grid.grid = np.zeros((1601, 1601), grid.oLog_type)
 
-    # a = np.load('collision_avoidance/test.npz')['olog']
-    # grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
-    # im, countours = grid.get_obstacles()
-    #
-    # l_list = []
-    # # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
-    # # for c in countours:
-    # #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
-    # #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
-    # angle = 4502.0*np.pi / 3200
-    # id, point = grid.check_scan_line_intersection(angle)
-    # cv2.line(im, (801, 801), (int(801 - 801*np.sin(angle)), int(801*np.cos(angle) + 801)), (0, 0, 255), 5)
-    # int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
-    #
-    # # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
-    # # for contour in countours:
-    # #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
-    # #     for p in contour:
-    # #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
-    # # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
-    # cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
-    # cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
-    # # cv2.imshow('sdf', im)
-    # # cv2.waitKey()
-    # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
-    # plt.show()
-    # print(int_angle*180/np.pi)
+    a = np.load('collision_avoidance/test.npz')['olog']
+    grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
+    im, countours = grid.get_obstacles()
+
+    l_list = []
+    # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
+    # for c in countours:
+    #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
+    #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
+    angle = 2750.0*np.pi / 3200 - np.pi
+    id, point = grid.check_scan_line_intersection(angle)
+    cv2.line(im, (801, 801), (int(801*(1+np.sin(angle))), int(801*(1-np.cos(angle)))), (0, 0, 255), 5)
+    try:
+        int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
+
+        # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
+        # for contour in countours:
+        #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
+        #     for p in contour:
+        #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
+        # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
+        cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
+        cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
+    except:
+        pass
+    # cv2.imshow('sdf', im)
+    # cv2.waitKey()
+    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+    plt.show()
