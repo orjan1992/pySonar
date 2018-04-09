@@ -68,9 +68,13 @@ class MtHeadData(Sensor):
                  self.bearing, self.dbytes) = struct.unpack('<HHHBHH', byte_array[33:44])
 
                 if self.adc8on:
+                    if byte_array.nbytes < 44+self.dbytes:
+                        raise UncompleteMsgException
                     self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
                 else:
-                    tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(hex_length[0] + 5)])
+                    if byte_array.nbytes < 44+self.dbytes:
+                        raise UncompleteMsgException
+                    tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(44 + self.dbytes)])
                     self.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)
                     for i in range(0, len(tmp)):
                         self.data[2 * i] = (self.data[i] & 240) >> 4  # 4 first bytes
@@ -92,9 +96,12 @@ class MtHeadData(Sensor):
             self.bearing_rad = wrap2pi((self.bearing * self.GRAD2RAD + pi))
             self.step_rad = self.step * self.GRAD2RAD
             self.range_scale_m = self.range_scale * 0.1
+        except UncompleteMsgException:
+            raise UncompleteMsgException
         except OtherMsgTypeException:
             raise OtherMsgTypeException
-        except Exception:
+        except Exception as e:
+            print(e)
             raise CorruptMsgException
 
 class UdpPosMsg(Sensor):

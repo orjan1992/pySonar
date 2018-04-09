@@ -22,10 +22,12 @@ class UdpClient(QObject):
         self.wp_port = wp_port
 
         self.buffer_lock = threading.Lock()
+        self.sonar_update_thread = None
 
         self.sonar_server = socketserver.UDPServer(('0.0.0.0', sonar_port), handler_factory(self.parse_sonar_msg))
         self.sonar_thread = threading.Thread(target=self.sonar_server.serve_forever)
         self.sonar_thread.setDaemon(True)
+
 
         self.pos_server = socketserver.UDPServer(('0.0.0.0', pos_port), handler_factory(self.parse_pos_msg))
         self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
@@ -46,9 +48,14 @@ class UdpClient(QObject):
             if tmp[i] == 0x40:
                 try:
                     msg = MtHeadData(tmp[i:len(tmp)])
-                    # self.new_msg_signal.send(self, msg=last_message)
-                    # self.signal_new_sonar_msg.emit(msg)
+
+                    # self.buffer_lock.acquire(blocking=True)
+                    # self.sonar_update_thread = threading.Thread(target=self.sonar_callback, args=[msg])
+                    # self.sonar_update_thread.start()
+                    # self.buffer_lock.release()
+
                     self.sonar_callback(msg)
+
                     self.buffer = io.BytesIO()
                 except CorruptMsgException:
                     self.buffer = io.BytesIO()

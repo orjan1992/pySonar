@@ -87,7 +87,7 @@ class GridSettings:
         height = 1601
     min_set_pixels = 1601.0*801.0/3.0
     cell_factor = 16
-    scale_raw_data = True
+    scale_raw_data = False
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
