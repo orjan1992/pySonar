@@ -1,14 +1,15 @@
 from ogrid.rawGrid import RawGrid
 import numpy as np
 from settings import *
-from coordinate_transformations import wrapTo2Pi, wrapToPi
+from coordinate_transformations import wrapTo2Pi, wrapToPi, wrapToPiHalf
 import logging
 logger = logging.getLogger('OccupancyGrid')
 
 class OccupancyGrid(RawGrid):
     # counter = None
     # sign = None
-    contour_as_line_list = []
+    contours = None
+    dummy = 1
     bin_map = np.zeros((RawGrid.i_max, RawGrid.j_max), dtype=np.uint8)
     # TODO: local occ grid with shape=(RES/cellFactor, RES/cellFactor) update to res with np.kron(occ, np.ones(factor, factor)
 
@@ -137,22 +138,33 @@ class OccupancyGrid(RawGrid):
         return p
 
     def update_occ_zhou(self, msg, threshold):
+        print(self.dummy)
+        self.dummy += 1
         try:
             occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
             new_data = self.interpolate_bins(msg)
+            grad = np.gradient(new_data.astype(float))
+            grad_max_ind = np.argmax(grad > threshold)
+            try:
+                if grad_max_ind != 0:
+                    threshold = new_data[grad_max_ind + 1]
+                else:
+                    # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+                    return
+            except IndexError:
+                # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+                return
             hit_ind = np.argmax(new_data > threshold)
 
-            # TODO: Calculate incident angle
-            theta_grad = msg.bearing*3200.0/np.pi
-            sonar_line = ((self.origin_i, self.origin_j), (int(801 - 1132.78*np.sin(theta_grad)), int(1132.78*np.cos(theta_grad) - 801)))
-            for line in self.contour_as_line_list:
-                # TODO: cv2.intersect
-                # cv2.intersectConvexConvex()
+            if self.contours is not None:
+                # TODO: Calculate incident angle
+                theta_rad = msg.bearing*3200.0/np.pi - np.pi
+                id, point = self.check_scan_line_intersection(theta_rad)
+                theta_i, p1, p2 = self.calc_incident_angle(theta_rad, id, point)
+            else:
                 theta_i = np.pi
-
             # TODO: Def k and h and mu
             k = h = mu = 1
-            theta_i = np.pi
 
             if hit_ind == 0:
                 for cell in self.angle2cell[msg.bearing]:
@@ -181,7 +193,10 @@ class OccupancyGrid(RawGrid):
                             i_max = np.min([i + GridSettings.hit_factor, i_max])
                             exit_loop = True
                     i += 1
+
+            self.lock.acquire()
             self.occ2raw(occ_grid)
+            self.lock.release()
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -229,7 +244,7 @@ class OccupancyGrid(RawGrid):
                 c1 = contour[i, :]
                 c2 = contour[0, :]
         c_angle = np.arctan2((c2[0] - c1[0]), -(c2[1] - c1[1]))  # cv2 (x, y) => arctan(x / y)
-        print('contour_angle: {},\tline_angle: {},\tincident_angle: {}'.format(c_angle * 180.0 / np.pi, angle * 180.0 / np.pi, wrapToPi(angle - c_angle) * 180.0 / np.pi))
+        print('contour_angle: {},\tline_angle: {},\tincident_angle: {}'.format(c_angle * 180.0 / np.pi, angle * 180.0 / np.pi, wrapToPiHalf(angle - c_angle) * 180.0 / np.pi))
         return wrapTo2Pi(angle - c_angle), c1, c2
 
     def check_scan_line_intersection(self, angle):
@@ -375,7 +390,7 @@ if __name__=="__main__":
     # for c in countours:
     #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
     #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
-    angle = 2750.0*np.pi / 3200 - np.pi
+    angle = 2600.0*np.pi / 3200 - np.pi
     id, point = grid.check_scan_line_intersection(angle)
     cv2.line(im, (801, 801), (int(801*(1+np.sin(angle))), int(801*(1-np.cos(angle)))), (0, 0, 255), 5)
     try:
@@ -395,3 +410,4 @@ if __name__=="__main__":
     # cv2.waitKey()
     plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
     plt.show()
+    a = 1

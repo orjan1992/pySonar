@@ -150,6 +150,13 @@ def wrapToPi(angle):
     else:
         return angle
 
+def wrapToPiHalf(angle):
+    angle = np.abs(wrapToPi(angle))
+    if angle > np.pi/2:
+        return np.pi - angle
+    else:
+        return angle
+
 
 if __name__ == '__main__':
     N_veh = 3.51
