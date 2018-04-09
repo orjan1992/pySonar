@@ -152,7 +152,7 @@ class OccupancyGrid(RawGrid):
             except IndexError:
                 # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
                 threshold = 256
-            hit_ind = np.argmax(new_data > threshold)
+            hit_ind = np.argmax(new_data >= threshold)
 
             theta_rad = msg.bearing * np.pi / 3200.0
 
@@ -175,11 +175,7 @@ class OccupancyGrid(RawGrid):
                 else:
                     theta_i = np.pi / 2
                 # TODO: Def k and h and mu
-                mu = 1
-                if msg.chan2:
-                    kh = 0.5445427266222308
-                else:
-                    kh = 0.2722713633111154
+
 
                 hit_ind_low = hit_ind - GridSettings.hit_factor
                 hit_ind_high = hit_ind + GridSettings.hit_factor
@@ -194,14 +190,39 @@ class OccupancyGrid(RawGrid):
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
 
-                    P_TS = mu * np.sin(theta_i) ** 2
+                    theta_max = theta_i+1.5*np.pi/180.0
+                    if theta_max > np.pi/2:
+                        theta_max = np.pi/2
+                    theta_min = theta_i-1.5*np.pi/180.0
+                    if theta_min < 0:
+                        theta_min = 0
+                    alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
+                    alpha_min = np.min(alpha)
+                    alpha_max = np.max(alpha)
+                    P_DI_min_high = np.sin(0.5 * GridSettings.kh_high * np.sin(alpha_max)) / (
+                            0.5 * GridSettings.kh_high * np.sin(alpha_max))
+                    P_DI_max_high = np.sin(0.5 * GridSettings.kh_high * np.sin(alpha_min)) / (
+                            0.5 * GridSettings.kh_high * np.sin(alpha_min))
+
+
+                    P_min = (GridSettings.mu * np.sin(theta_min)**2)*P_DI_min_high
+                    P_max = (GridSettings.mu * np.sin(theta_max)**2)*P_DI_max_high
+                    if (GridSettings.mu * np.sin(theta_min)**2) >(GridSettings.mu * np.sin(theta_max)**2):
+                        a = 1
+                    P_max_min_2 = 2*(P_max - P_min)
+
                     for i in range(ind0, ind1):
                         alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
-                        tmp = kh * np.sin(alpha) / 2
-                        P_DI = np.sin(tmp) / tmp
-                        # print(P_DI*P_TS)
-                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = P_DI * P_TS + 0.5
+                        tmp = GridSettings.kh_high * np.sin(alpha) / 2
+                        P = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
+                        p = (P-P_min)/P_max_min_2 + 0.5
+                        log_p = np.log(p / (1-p))
+                        # print('p: {}\tp_log: {}'.format(p, log_p))
+                        if p > 1 or p < 0:
+                            print(p)
+                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = log_p
                 else:
+                    # TODO: same as for high
                     ind0 = np.argmax(self.angle2cell_rad_low[msg.bearing] > hit_ind_low)
                     ind1 = np.argmax(self.angle2cell_rad_low[msg.bearing] >= hit_ind_low)
                     for i in range(ind0):
@@ -213,31 +234,6 @@ class OccupancyGrid(RawGrid):
                         P_DI = np.sin(kh * np.sin(alpha) / 2)
                         # print(P_DI*P_TS)
                         occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI * P_TS + 0.5
-                    
-                # for i in range(i_max):
-                #     # TODO: Maybe extend range by a factor
-                #     if msg.chan2:
-                #         if self.angle2cell_rad_high[msg.bearing][i] < hit_ind_low:
-                #             occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                #         else:
-                #             alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
-                #             P_DI = np.sin(k * h * np.sin(alpha) / 2)
-                #             P_TS = mu * np.sin(theta_i)**2
-                #             occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
-                #             # TODO: calculate prob
-                #             if self.angle2cell_rad_high[msg.bearing][i] > hit_ind_high:
-                #                 break
-                #     else:
-                #         if self.angle2cell_rad_low[msg.bearing][i] < hit_ind_low:
-                #             occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                #         else:
-                #             alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
-                #             P_DI = np.sin(k * h * np.sin(alpha) / 2)
-                #             P_TS = mu * np.sin(theta_i)**2
-                #             occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
-                #             # TODO: calculate prob
-                #             if self.angle2cell_rad_low[msg.bearing][i] > hit_ind_high:
-                #                 break
 
             self.lock.acquire()
             self.occ2raw(occ_grid)

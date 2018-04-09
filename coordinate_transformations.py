@@ -136,38 +136,68 @@ def sat2uint(val, sat):
     else:
         return int(val)
 
+# def wrapTo2Pi(angle):
+#     positiveInput = (angle > 0)
+#     angle = angle % 2 * np.pi
+#     if angle == 0 and positiveInput:
+#         return 2*np.pi
+#     else:
+#         return angle
+#
+# def wrapToPi(angle):
+#     if angle < -np.pi or np.pi < angle:
+#         return wrapTo2Pi(angle + np.pi) - np.pi
+#     else:
+#         return angle
+#
+# def wrapToPiHalf(angle):
+#     angle = np.abs(wrapToPi(angle))
+#     if angle > np.pi/2:
+#         return np.pi - angle
+#     else:
+#         return angle
+
 def wrapTo2Pi(angle):
+    if angle is None:
+        return
     positiveInput = (angle > 0)
-    angle = angle % 2 * np.pi
-    if angle == 0 and positiveInput:
-        return 2*np.pi
-    else:
-        return angle
+    angle = np.remainder(angle, 2 * np.pi)
+    mask = np.logical_and(angle == 0, positiveInput)
+    if np.any(mask):
+        angle[mask] = 2*np.pi
+    return angle
 
 def wrapToPi(angle):
-    if angle < -np.pi or np.pi < angle:
-        return wrapTo2Pi(angle + np.pi) - np.pi
-    else:
-        return angle
+    if angle is None:
+        return
+    mask = np.logical_or(angle < -np.pi, angle > np.pi)
+    if np.any(mask):
+        angle[mask] = wrapTo2Pi(angle[mask] + np.pi) - np.pi
+    return angle
 
 def wrapToPiHalf(angle):
+    if angle is None:
+        return
     angle = np.abs(wrapToPi(angle))
-    if angle > np.pi/2:
-        return np.pi - angle
-    else:
-        return angle
-
+    mask = angle > np.pi / 2
+    if np.any(mask):
+        angle[mask] = np.pi - angle[mask]
+    return angle
 
 if __name__ == '__main__':
-    N_veh = 3.51
-    E_veh = 4.3
-    psi = np.pi/6
-    x_veh = 1.67
-    y_veh = 1.57
-    range = 1.57
-    # N, E = vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
+    # N_veh = 3.51
+    # E_veh = 4.3
+    # psi = np.pi/6
+    # x_veh = 1.67
+    # y_veh = 1.57
+    # range = 1.57
+    # # N, E = vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
+    # # print_args(N=N, E=E)
+    # # x_veh, y_veh = NED2vehicle(N, E, N_veh, E_veh, psi)
+    # # print_args(x_veh=x_veh, y_veh=y_veh)
+    # N, E = grid2NED(801, 801, 30, N_veh, E_veh, psi)
     # print_args(N=N, E=E)
-    # x_veh, y_veh = NED2vehicle(N, E, N_veh, E_veh, psi)
-    # print_args(x_veh=x_veh, y_veh=y_veh)
-    N, E = grid2NED(801, 801, 30, N_veh, E_veh, psi)
-    print_args(N=N, E=E)
+    a = np.array([-7.0, 8.0, 10.0])
+    b = npWrapToPi(a)
+    print(b)
+    print(npWrap2PiHalf(b))

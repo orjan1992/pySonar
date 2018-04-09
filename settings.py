@@ -8,7 +8,7 @@ class Settings:
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
-    update_type = 0
+    update_type = 1
     pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = False
@@ -91,6 +91,18 @@ class GridSettings:
     min_set_pixels = 1601.0*801.0/3.0
     cell_factor = 16
     scale_raw_data = False
+
+    # zhou model
+    kh_high = 0.5445427266222308
+    P_DI_min_high = np.sin(0.5 * kh_high * np.sin(1.5 * np.pi / 180.0)) / (0.5 * kh_high * np.sin(1.5 * np.pi / 180.0))
+    P_DI_max_high = np.sin(0.5 * kh_high * np.sin(0.000000001)) / (0.5 * kh_high * np.sin(0.000000001))
+
+    kh_low = 0.2722713633111154
+    P_DI_min_low = np.sin(0.5 * kh_low * np.sin(3 * np.pi / 180.0)) / (0.5 * kh_low * np.sin(3 * np.pi / 180.0))
+    P_DI_max_low = np.sin(0.5 * kh_low * np.sin(0.000000001)) / (0.5 * kh_low * np.sin(0.000000001))
+
+    mu = 1
+
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
