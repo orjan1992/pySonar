@@ -4,11 +4,11 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 
 class Settings:
     # 0 == udp, 1 == MOOS
-    input_source = 0
+    input_source = 1
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
-    plot_type = 1
+    plot_type = 2
     # 0 == raw update, 1 == zhou update
-    update_type = 1
+    update_type = 0
     pos_update = 1000.0/60.0  # ms
     hist_window = False
     collision_avoidance = False
@@ -80,7 +80,7 @@ class GridSettings:
     p_binary_threshold = 0.78
     p_free = 0.3
     p_occ = 0.9
-    hit_factor = 5
+    hit_factor = 50
 
     binary_grid = False
     width = 1601

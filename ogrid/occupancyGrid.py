@@ -11,7 +11,6 @@ class OccupancyGrid(RawGrid):
     contours = None
     dummy = 1
     bin_map = np.zeros((RawGrid.i_max, RawGrid.j_max), dtype=np.uint8)
-    # TODO: local occ grid with shape=(RES/cellFactor, RES/cellFactor) update to res with np.kron(occ, np.ones(factor, factor)
 
     def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
         self.p_log_threshold = np.log(p_bin_threshold / (1 - p_bin_threshold))
@@ -30,7 +29,10 @@ class OccupancyGrid(RawGrid):
                 self.angle2cell_rad_low = data['angle2cell_rad_low']
                 self.angle2cell_high = data['angle2cell_high']
                 self.angle2cell_rad_high = data['angle2cell_rad_high']
+                # TODO: Probably something wrong with half of these angles
                 self.occ_map_theta = data['angles']
+                # for i in range(self.N_ANGLE_STEPS):
+                #     print(wrapToPi(np.mean(-self.occ_map_theta.flat[self.angle2cell_high[i]]) - i*np.pi/3200.0))
         except Exception as e:
             self.calc_occ_map(cell_factor)
 
@@ -110,19 +112,14 @@ class OccupancyGrid(RawGrid):
             low_ranges[i] = range_map.flat[low_indices[i]]
         print('Calculated map successfully')
         np.savez('ogrid/OGrid_data/occ_map_{}.npz'.format(int(factor)), angle2cell_low=low_indices,
-                 angle2cell_rad_low=low_ranges, angle2cell_high=high_indices, angle2cell_rad_high=high_indices,
+                 angle2cell_rad_low=low_ranges, angle2cell_high=high_indices, angle2cell_rad_high=high_ranges,
                  angles=self.theta[np.meshgrid(np.arange(factor/2, 1601-factor/2, factor, np.int),
                                                 np.arange(factor/2, 1601-factor/2, factor, np.int))])
         print('Map saved')
         self.angle2cell_low = low_indices
         self.angle2cell_rad_low = low_ranges
         self.angle2cell_high = high_indices
-        self.angle2cell_rad_high = high_indices
-
-
-    def update_cell(self, indices, value):
-        # self.grid[indices[0]:(indices[0] + self.cell_factor), indices[1]:(indices[1] + self.cell_factor)] += value
-        self.grid[indices[0], indices[1]] += value
+        self.angle2cell_rad_high = high_ranges
 
     def get_p(self):
         try:
@@ -154,7 +151,7 @@ class OccupancyGrid(RawGrid):
             theta_rad = msg.bearing * np.pi / 3200.0
 
 
-            print('hit_ind: {},\tthresh: {}'.format(hit_ind, threshold))
+            # print('hit_ind: {},\tthresh: {}'.format(hit_ind, threshold))
             if hit_ind == 0:
                 if msg.chan2:
                     for cell in self.angle2cell_high[msg.bearing]:
@@ -164,13 +161,19 @@ class OccupancyGrid(RawGrid):
                         occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
             else:
                 if self.contours is not None:
-                    # TODO: Calculate incident angle
-                    id, point = self.check_scan_line_intersection(theta_rad - np.pi)
-                    theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, id, point)
+                    contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
+                    if contour is not None:
+                        theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
+                    else:
+                        theta_i = np.pi / 2
                 else:
                     theta_i = np.pi / 2
                 # TODO: Def k and h and mu
-                k = h = mu = 1
+                mu = 1
+                if msg.chan2:
+                    kh = 0.5445427266222308
+                else:
+                    kh = 0.2722713633111154
 
                 hit_ind_low = hit_ind - GridSettings.hit_factor
                 hit_ind_high = hit_ind + GridSettings.hit_factor
@@ -179,30 +182,56 @@ class OccupancyGrid(RawGrid):
                 else:
                     i_max = len(self.angle2cell_low[msg.bearing])
 
-                for i in range(i_max):
-                    # TODO: Maybe extend range by a factor
-                    if msg.chan2:
-                        if self.angle2cell_rad_high[msg.bearing][i] < hit_ind_low:
-                            occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                        else:
-                            alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
-                            P_DI = np.sin(k * h * np.sin(alpha) / 2)
-                            P_TS = mu * np.sin(theta_i)**2
-                            occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
-                            # TODO: calculate prob
-                            if self.angle2cell_rad_high[msg.bearing][i] > hit_ind_high:
-                                break
-                    else:
-                        if self.angle2cell_rad_low[msg.bearing][i] < hit_ind_low:
-                            occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                        else:
-                            alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
-                            P_DI = np.sin(k * h * np.sin(alpha) / 2)
-                            P_TS = mu * np.sin(theta_i)**2
-                            occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
-                            # TODO: calculate prob
-                            if self.angle2cell_rad_low[msg.bearing][i] > hit_ind_high:
-                                break
+                if msg.chan2:
+                    ind0 = np.argmax(self.angle2cell_rad_high[msg.bearing] > hit_ind_low)
+                    ind1 = np.argmax(self.angle2cell_rad_high[msg.bearing] >= hit_ind_high)
+                    for i in range(ind0):
+                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
+
+                    P_TS = mu * np.sin(theta_i) ** 2
+                    for i in range(ind0, ind1):
+                        alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
+                        tmp = kh * np.sin(alpha) / 2
+                        P_DI = np.sin(tmp) / tmp
+                        # print(P_DI*P_TS)
+                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = P_DI * P_TS + 0.5
+                else:
+                    ind0 = np.argmax(self.angle2cell_rad_low[msg.bearing] > hit_ind_low)
+                    ind1 = np.argmax(self.angle2cell_rad_low[msg.bearing] >= hit_ind_low)
+                    for i in range(ind0):
+                        occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
+
+                    P_TS = mu * np.sin(theta_i) ** 2
+                    for i in range(ind0, ind1):
+                        alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
+                        P_DI = np.sin(kh * np.sin(alpha) / 2)
+                        # print(P_DI*P_TS)
+                        occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI * P_TS + 0.5
+                    
+                # for i in range(i_max):
+                #     # TODO: Maybe extend range by a factor
+                #     if msg.chan2:
+                #         if self.angle2cell_rad_high[msg.bearing][i] < hit_ind_low:
+                #             occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
+                #         else:
+                #             alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
+                #             P_DI = np.sin(k * h * np.sin(alpha) / 2)
+                #             P_TS = mu * np.sin(theta_i)**2
+                #             occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
+                #             # TODO: calculate prob
+                #             if self.angle2cell_rad_high[msg.bearing][i] > hit_ind_high:
+                #                 break
+                #     else:
+                #         if self.angle2cell_rad_low[msg.bearing][i] < hit_ind_low:
+                #             occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
+                #         else:
+                #             alpha = np.abs(self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
+                #             P_DI = np.sin(k * h * np.sin(alpha) / 2)
+                #             P_TS = mu * np.sin(theta_i)**2
+                #             occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI*P_TS + 0.5  #self.p_log_occ - self.p_log_zero
+                #             # TODO: calculate prob
+                #             if self.angle2cell_rad_low[msg.bearing][i] > hit_ind_high:
+                #                 break
 
             self.lock.acquire()
             self.occ2raw(occ_grid)
@@ -211,16 +240,15 @@ class OccupancyGrid(RawGrid):
             import traceback
             traceback.print_exc()
 
-    def calc_incident_angle(self, angle, contour_id, point):
+    def calc_incident_angle(self, angle, contour, point):
         """
 
         :param angle: scanline angle 0 deg straight up. in radians
-        :param contour_id: id of intersection contour
+        :param contour: id of intersection contour
         :param point: intersection point (x, y)
         :return:
         """
         # TODO: Fix angle to 0 deg at north
-        contour = self.contours[contour_id]
         contour = np.reshape(contour, (len(contour), 2))
         coord_sign = np.sign(contour - point)
         coord_sign_rolled = np.roll(coord_sign, 1, axis=0)
@@ -254,14 +282,14 @@ class OccupancyGrid(RawGrid):
                 c1 = contour[i, :]
                 c2 = contour[0, :]
         c_angle = np.arctan2((c2[0] - c1[0]), -(c2[1] - c1[1]))  # cv2 (x, y) => arctan(x / y)
-        print('contour_angle: {},\tline_angle: {},\tincident_angle: {}'.format(c_angle * 180.0 / np.pi, angle * 180.0 / np.pi, wrapToPiHalf(angle - c_angle) * 180.0 / np.pi))
-        return wrapTo2Pi(angle - c_angle), c1, c2
+        # print('contour_angle: {},\tline_angle: {},\tincident_angle: {}'.format(c_angle * 180.0 / np.pi, angle * 180.0 / np.pi, wrapToPiHalf(angle - c_angle) * 180.0 / np.pi))
+        return wrapToPiHalf(angle - c_angle), c1, c2
 
     def check_scan_line_intersection(self, angle):
         '''
         intersection between scanline and contour
         :param angle: scanline angle(0 deg straight up)
-        :return: intersecting contour id, (intersecion point(x, y))
+        :return: intersecting contour, (intersecion point(x, y))
         '''
         angle_binary = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
         # TODO: find outer coordinate
@@ -276,14 +304,14 @@ class OccupancyGrid(RawGrid):
                     points = np.array(np.nonzero(intersection_mat))
                     if angle < 0:
                         tmp = points[:, np.argmax(points[1, :])]
-                        return i, np.flip(tmp.T, 0)
+                        return self.contours[i], np.flip(tmp.T, 0)
                     elif angle > 0:
                         tmp = points[:, np.argmin(points[1, :])]
-                        return i, np.flip(tmp.T, 0)
+                        return self.contours[i], np.flip(tmp.T, 0)
                     else:
                         tmp = points[:, np.argmin(points[0, :])]
-                        return i, np.flip(tmp.T, 0)
-        return -1, None
+                        return self.contours[i], np.flip(tmp.T, 0)
+        return None, None
 
     def interpolate_bins(self, msg):
         self.range_scale = msg.range_scale
@@ -345,48 +373,42 @@ if __name__=="__main__":
     import matplotlib.pyplot as plt
     from messages.moosSonarMsg import MoosSonarMsg
     grid = OccupancyGrid(False, 0.3, 0.9, 0.7, 0.75, 16)
-    # scanline = np.zeros(800)
-    # scanline[500] = 255
-    # msg = MoosSonarMsg()
-    # msg.data = scanline
-    # msg.dbytes = msg.length = 800
-    # msg.range_scale = 20
-    # for i in range(1600, 4800, 5):
-    #     occ = np.zeros((grid.size, grid.size), grid.oLog_type)
-    #     occ.flat[grid.angle2cell[i]] = 1
-    #     grid.occ2raw(occ)
-    #     # grid.update_occ_zhou(msg, 1)
-    #     plt.imshow(grid.grid)
-    #     plt.show()
-    #     grid.grid = np.zeros((1601, 1601), grid.oLog_type)
 
-    a = np.load('collision_avoidance/test.npz')['olog']
-    grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
-    im, countours = grid.get_obstacles()
+    def test():
+        occ = np.zeros((grid.size, grid.size), grid.oLog_type)
+        grid.occ2raw(occ)
 
-    l_list = []
-    # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
-    # for c in countours:
-    #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
-    #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
-    angle = 2600.0*np.pi / 3200 - np.pi
-    id, point = grid.check_scan_line_intersection(angle)
-    cv2.line(im, (801, 801), (int(801*(1+np.sin(angle))), int(801*(1-np.cos(angle)))), (0, 0, 255), 5)
-    try:
-        int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
+    for i in range(100):
+        test()
+        print(i)
 
-        # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
-        # for contour in countours:
-        #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
-        #     for p in contour:
-        #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
-        # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
-        cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
-        cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
-    except:
-        pass
-    # cv2.imshow('sdf', im)
-    # cv2.waitKey()
-    plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
-    plt.show()
-    a = 1
+    # a = np.load('collision_avoidance/test.npz')['olog']
+    # grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
+    # im, countours = grid.get_obstacles()
+    #
+    # l_list = []
+    # # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
+    # # for c in countours:
+    # #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
+    # #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
+    # angle = 2600.0*np.pi / 3200 - np.pi
+    # id, point = grid.check_scan_line_intersection(angle)
+    # cv2.line(im, (801, 801), (int(801*(1+np.sin(angle))), int(801*(1-np.cos(angle)))), (0, 0, 255), 5)
+    # try:
+    #     int_angle, p1, p2 = grid.calc_incident_angle(angle, id, point)
+    #
+    #     # cv2.circle(im, (point[0], point[1]), 10, (0, 255, 0), 3)
+    #     # for contour in countours:
+    #     #     # cv2.drawContours(im, [np.int0(cv2.boxPoints(cv2.minAreaRect(contour)))], 0, (0, 0, 255), 1)
+    #     #     for p in contour:
+    #     #         cv2.circle(im, (p[0][0], p[0][1]), 5, (255, 0, 0), 5)
+    #     # cv2.drawContours(im, countours, id, (0, 0, 255), 5)
+    #     cv2.circle(im, (point[0], point[1]), 5, (255, 0, 0), 2)
+    #     cv2.line(im, (p1[0], p1[1]), (p2[0], p2[1]), (255, 0, 0), 5)
+    # except:
+    #     pass
+    # # cv2.imshow('sdf', im)
+    # # cv2.waitKey()
+    # plt.imshow(cv2.cvtColor(im, cv2.COLOR_BGR2RGB))
+    # plt.show()
+    # a = 1
