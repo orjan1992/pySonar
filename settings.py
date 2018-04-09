@@ -19,6 +19,9 @@ class Settings:
     save_paths = False
     save_scan_lines = False
 
+    button_height = 30
+    button_width = 200
+
 
 class CollisionSettings:
     border_step = 30

@@ -115,10 +115,18 @@ class MainWidget(QtGui.QWidget):
         self.clear_grid_button.clicked.connect(self.clear_grid)
 
         # Adding items
+        self.threshold_box.setMaximumSize(Settings.button_width, Settings.button_height)
+        self.collision_margin_box.setMaximumSize(Settings.button_width, Settings.button_height)
+        self.binary_plot_button.setMaximumSize(Settings.button_width, Settings.button_height)
+        self.clear_grid_button.setMaximumSize(Settings.button_width, Settings.button_height)
+
         left_layout.addWidget(self.threshold_box)
         left_layout.addWidget(self.collision_margin_box)
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
+        # left_layout.setGeometry(QtCore.QRect(0, 0, 200, 10**6))
+        # left_layout.SizeHint(QtCore.QRect(0, 0,))
+        # print(left_layout.maximumSize(200, 0))
 
         right_layout.addWidget(graphics_view, 0, 0, 1, 2)
 
