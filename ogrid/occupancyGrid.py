@@ -159,6 +159,7 @@ class OccupancyGrid(RawGrid):
 
             # print('hit_ind: {},\tthresh: {}'.format(hit_ind, threshold))
             if hit_ind == 0:
+                # No hit
                 if msg.chan2:
                     for cell in self.angle2cell_high[msg.bearing]:
                         occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
@@ -166,14 +167,14 @@ class OccupancyGrid(RawGrid):
                     for cell in self.angle2cell_low[msg.bearing]:
                         occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
             else:
+                # Hit
+                obstacle_in_line = False
                 if self.contours is not None:
                     contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
                     if contour is not None:
                         theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
-                    else:
-                        theta_i = np.pi / 2
-                else:
-                    theta_i = np.pi / 2
+                        obstacle_in_line = True
+
 
                 hit_ind_low = hit_ind - GridSettings.hit_factor
                 hit_ind_high = hit_ind + GridSettings.hit_factor
@@ -191,20 +192,23 @@ class OccupancyGrid(RawGrid):
                         ind0 = 0
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                    P = np.zeros(ind1-ind0)
-
-                    for i in range(ind0, ind1):
-                        alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
-                        tmp = GridSettings.kh_high * np.sin(alpha) / 2
-                        P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
-                    P_max = np.max(P)
-                    P_min = np.min(P)
-                    P_max_min_2 = 2*(P_max-P_min)
-                    for i in range(ind0, ind1):
-                        p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
-                        if p < 0 or p > 1:
-                            logger.error('Probability is invalid. p={}'.format(p))
-                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = np.log(p / (1-p))
+                    if obstacle_in_line:
+                        P = np.zeros(ind1-ind0)
+                        for i in range(ind0, ind1):
+                            alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
+                            tmp = GridSettings.kh_high * np.sin(alpha) / 2
+                            P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
+                        P_max = np.max(P)
+                        P_min = np.min(P)
+                        P_max_min_2 = 2*(P_max-P_min)
+                        for i in range(ind0, ind1):
+                            p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
+                            if p < 0 or p > 1:
+                                logger.error('Probability is invalid. p={}'.format(p))
+                            occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = np.log(p / (1-p))
+                    else:
+                        for i in range(ind0, ind1):
+                            occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_occ - self.p_log_zero
 
                 else:
                     ind0 = np.argmax(self.angle2cell_rad_low[msg.bearing] > hit_ind_low)
@@ -215,23 +219,27 @@ class OccupancyGrid(RawGrid):
                         ind0 = 0
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-                    P = np.zeros(ind1-ind0)
+                    if obstacle_in_line:
+                        P = np.zeros(ind1-ind0)
 
-                    for i in range(ind0, ind1):
-                        alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
-                        tmp = GridSettings.kh_low * np.sin(alpha) / 2
-                        P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
-                    try:
-                        P_max = np.max(P)
-                        P_min = np.min(P)
-                        P_max_min_2 = 2*(P_max-P_min)
                         for i in range(ind0, ind1):
-                            p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
-                            if p < 0 or p > 1:
-                                logger.error('Probability is invalid. p={}'.format(p))
-                            occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
-                    except ValueError:
-                        pass
+                            alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
+                            tmp = GridSettings.kh_low * np.sin(alpha) / 2
+                            P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
+                        try:
+                            P_max = np.max(P)
+                            P_min = np.min(P)
+                            P_max_min_2 = 2*(P_max-P_min)
+                            for i in range(ind0, ind1):
+                                p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
+                                if p < 0 or p > 1:
+                                    logger.error('Probability is invalid. p={}'.format(p))
+                                occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
+                        except ValueError:
+                            pass
+                    else:
+                        for i in range(ind0, ind1):
+                            occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_occ - self.p_log_zero
 
             self.lock.acquire()
             self.occ2raw(occ_grid)

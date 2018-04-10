@@ -76,7 +76,7 @@ class MapSettings:
 
 class GridSettings:
     half_grid = False
-    p_inital = 0.5
+    p_inital = 0.35
     p_binary_threshold = 0.78
     p_free = 0.3
     p_occ = 0.9
@@ -94,12 +94,12 @@ class GridSettings:
 
     # zhou model
     kh_high = 0.5445427266222308
-    P_DI_min_high = np.sin(0.5 * kh_high * np.sin(1.5 * np.pi / 180.0)) / (0.5 * kh_high * np.sin(1.5 * np.pi / 180.0))
-    P_DI_max_high = np.sin(0.5 * kh_high * np.sin(0.000000001)) / (0.5 * kh_high * np.sin(0.000000001))
+    # P_DI_min_high = np.sin(0.5 * kh_high * np.sin(1.5 * np.pi / 180.0)) / (0.5 * kh_high * np.sin(1.5 * np.pi / 180.0))
+    # P_DI_max_high = np.sin(0.5 * kh_high * np.sin(0.000000001)) / (0.5 * kh_high * np.sin(0.000000001))
 
     kh_low = 0.2722713633111154
-    P_DI_min_low = np.sin(0.5 * kh_low * np.sin(3 * np.pi / 180.0)) / (0.5 * kh_low * np.sin(3 * np.pi / 180.0))
-    P_DI_max_low = np.sin(0.5 * kh_low * np.sin(0.000000001)) / (0.5 * kh_low * np.sin(0.000000001))
+    # P_DI_min_low = np.sin(0.5 * kh_low * np.sin(3 * np.pi / 180.0)) / (0.5 * kh_low * np.sin(3 * np.pi / 180.0))
+    # P_DI_max_low = np.sin(0.5 * kh_low * np.sin(0.000000001)) / (0.5 * kh_low * np.sin(0.000000001))
 
     mu = 1
 
