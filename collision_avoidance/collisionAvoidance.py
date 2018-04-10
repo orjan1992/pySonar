@@ -14,6 +14,7 @@ logger = logging.getLogger('Collision_avoidance')
 # logger.addHandler(console)
 
 class CollisionAvoidance:
+    # TODO: Should be redesigned to keep waypoint list WP = [lat, long, alt/depth?], surge speed
     save_counter = 0
     pos_and_obs_lock = False
 

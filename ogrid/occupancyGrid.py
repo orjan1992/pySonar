@@ -185,10 +185,12 @@ class OccupancyGrid(RawGrid):
                 if msg.chan2:
                     ind0 = np.argmax(self.angle2cell_rad_high[msg.bearing] > hit_ind_low)
                     ind1 = np.argmax(self.angle2cell_rad_high[msg.bearing] >= hit_ind_high)
-                    for i in range(ind0):
-                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
                     if ind1 == 0:
                         ind1 = len(self.angle2cell_rad_high[msg.bearing])
+                    if hit_ind_low < 0:
+                        ind0 = 0
+                    for i in range(ind0):
+                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
                     P = np.zeros(ind1-ind0)
 
                     for i in range(ind0, ind1):
@@ -206,7 +208,11 @@ class OccupancyGrid(RawGrid):
 
                 else:
                     ind0 = np.argmax(self.angle2cell_rad_low[msg.bearing] > hit_ind_low)
-                    ind1 = np.argmax(self.angle2cell_rad_low[msg.bearing] >= hit_ind_low)
+                    ind1 = np.argmax(self.angle2cell_rad_low[msg.bearing] >= hit_ind_high)
+                    if ind1 == 0:
+                        ind1 = len(self.angle2cell_rad_low[msg.bearing])
+                    if hit_ind_low < 0:
+                        ind0 = 0
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
                     P = np.zeros(ind1-ind0)
@@ -215,14 +221,17 @@ class OccupancyGrid(RawGrid):
                         alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
                         tmp = GridSettings.kh_low * np.sin(alpha) / 2
                         P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
-                    P_max = np.max(P)
-                    P_min = np.min(P)
-                    P_max_min_2 = 2*(P_max-P_min)
-                    for i in range(ind0, ind1):
-                        p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
-                        if p < 0 or p > 1:
-                            logger.error('Probability is invalid. p={}'.format(p))
-                        occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
+                    try:
+                        P_max = np.max(P)
+                        P_min = np.min(P)
+                        P_max_min_2 = 2*(P_max-P_min)
+                        for i in range(ind0, ind1):
+                            p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
+                            if p < 0 or p > 1:
+                                logger.error('Probability is invalid. p={}'.format(p))
+                            occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
+                    except ValueError:
+                        pass
 
             self.lock.acquire()
             self.occ2raw(occ_grid)
