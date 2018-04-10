@@ -174,8 +174,6 @@ class OccupancyGrid(RawGrid):
                         theta_i = np.pi / 2
                 else:
                     theta_i = np.pi / 2
-                # TODO: Def k and h and mu
-
 
                 hit_ind_low = hit_ind - GridSettings.hit_factor
                 hit_ind_high = hit_ind + GridSettings.hit_factor
@@ -189,51 +187,42 @@ class OccupancyGrid(RawGrid):
                     ind1 = np.argmax(self.angle2cell_rad_high[msg.bearing] >= hit_ind_high)
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_free - self.p_log_zero
-
-                    theta_max = theta_i+1.5*np.pi/180.0
-                    if theta_max > np.pi/2:
-                        theta_max = np.pi/2
-                    theta_min = theta_i-1.5*np.pi/180.0
-                    if theta_min < 0:
-                        theta_min = 0
-                    alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
-                    alpha_min = np.min(alpha)
-                    alpha_max = np.max(alpha)
-                    P_DI_min_high = np.sin(0.5 * GridSettings.kh_high * np.sin(alpha_max)) / (
-                            0.5 * GridSettings.kh_high * np.sin(alpha_max))
-                    P_DI_max_high = np.sin(0.5 * GridSettings.kh_high * np.sin(alpha_min)) / (
-                            0.5 * GridSettings.kh_high * np.sin(alpha_min))
-
-
-                    P_min = (GridSettings.mu * np.sin(theta_min)**2)*P_DI_min_high
-                    P_max = (GridSettings.mu * np.sin(theta_max)**2)*P_DI_max_high
-                    if (GridSettings.mu * np.sin(theta_min)**2) >(GridSettings.mu * np.sin(theta_max)**2):
-                        a = 1
-                    P_max_min_2 = 2*(P_max - P_min)
+                    if ind1 == 0:
+                        ind1 = len(self.angle2cell_rad_high[msg.bearing])
+                    P = np.zeros(ind1-ind0)
 
                     for i in range(ind0, ind1):
                         alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][i]] - theta_rad)
                         tmp = GridSettings.kh_high * np.sin(alpha) / 2
-                        P = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
-                        p = (P-P_min)/P_max_min_2 + 0.5
-                        log_p = np.log(p / (1-p))
-                        # print('p: {}\tp_log: {}'.format(p, log_p))
-                        if p > 1 or p < 0:
-                            print(p)
-                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = log_p
+                        P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
+                    P_max = np.max(P)
+                    P_min = np.min(P)
+                    P_max_min_2 = 2*(P_max-P_min)
+                    for i in range(ind0, ind1):
+                        p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
+                        if p < 0 or p > 1:
+                            logger.error('Probability is invalid. p={}'.format(p))
+                        occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = np.log(p / (1-p))
+
                 else:
-                    # TODO: same as for high
                     ind0 = np.argmax(self.angle2cell_rad_low[msg.bearing] > hit_ind_low)
                     ind1 = np.argmax(self.angle2cell_rad_low[msg.bearing] >= hit_ind_low)
                     for i in range(ind0):
                         occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = self.p_log_free - self.p_log_zero
+                    P = np.zeros(ind1-ind0)
 
-                    P_TS = mu * np.sin(theta_i) ** 2
                     for i in range(ind0, ind1):
                         alpha = wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][i]] - theta_rad)
-                        P_DI = np.sin(kh * np.sin(alpha) / 2)
-                        # print(P_DI*P_TS)
-                        occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = P_DI * P_TS + 0.5
+                        tmp = GridSettings.kh_low * np.sin(alpha) / 2
+                        P[i - ind0] = (np.sin(tmp) / tmp)*(GridSettings.mu * np.sin(theta_i+alpha)**2)
+                    P_max = np.max(P)
+                    P_min = np.min(P)
+                    P_max_min_2 = 2*(P_max-P_min)
+                    for i in range(ind0, ind1):
+                        p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
+                        if p < 0 or p > 1:
+                            logger.error('Probability is invalid. p={}'.format(p))
+                        occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
 
             self.lock.acquire()
             self.occ2raw(occ_grid)

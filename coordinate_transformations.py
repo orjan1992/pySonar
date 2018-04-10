@@ -164,7 +164,10 @@ def wrapTo2Pi(angle):
     angle = np.remainder(angle, 2 * np.pi)
     mask = np.logical_and(angle == 0, positiveInput)
     if np.any(mask):
-        angle[mask] = 2*np.pi
+        try:
+            angle[mask] = 2*np.pi
+        except TypeError:
+            angle = 2*np.pi
     return angle
 
 def wrapToPi(angle):
@@ -172,7 +175,10 @@ def wrapToPi(angle):
         return
     mask = np.logical_or(angle < -np.pi, angle > np.pi)
     if np.any(mask):
-        angle[mask] = wrapTo2Pi(angle[mask] + np.pi) - np.pi
+        try:
+            angle[mask] = wrapTo2Pi(angle[mask] + np.pi) - np.pi
+        except TypeError:
+            angle = wrapTo2Pi(angle + np.pi) - np.pi
     return angle
 
 def wrapToPiHalf(angle):
@@ -181,7 +187,10 @@ def wrapToPiHalf(angle):
     angle = np.abs(wrapToPi(angle))
     mask = angle > np.pi / 2
     if np.any(mask):
-        angle[mask] = np.pi - angle[mask]
+        try:
+            angle[mask] = np.pi - angle[mask]
+        except TypeError:
+            angle = np.pi - angle
     return angle
 
 if __name__ == '__main__':
@@ -198,6 +207,6 @@ if __name__ == '__main__':
     # N, E = grid2NED(801, 801, 30, N_veh, E_veh, psi)
     # print_args(N=N, E=E)
     a = np.array([-7.0, 8.0, 10.0])
-    b = npWrapToPi(a)
+    b = wrapToPi(a)
     print(b)
-    print(npWrap2PiHalf(b))
+    print(wrap2PiHalf(b))
