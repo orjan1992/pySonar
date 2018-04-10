@@ -5,6 +5,7 @@ import numpy as np
 from math import pi, sin, cos, sqrt, atan2
 import re
 from settings import ConnectionSettings
+from enum import Enum
 
 from messages.sensor import Sensor
 logger = logging.getLogger('SonarMsg')
@@ -184,8 +185,113 @@ class UdpPosMsgDiff:
         return 'dx: {},\tdy: {}\t, dpsi: {}'.format(self.dx, self.dy, self.dpsi * 180 / pi)
 
 
-def wrap2pi(angle):
-    return (angle + pi) % (2 * pi) - pi
+class AutoPilotBinary:
+    sid = 0
+    msg_id = 0
+    payload = None
+
+    def compile(self):
+        if self.payload is None:
+            return struct.pack('ihh', len(self.payload), self.sid, self.msg_id)
+        else:
+            msg = bytearray(8+len(self.payload))
+            msg[:8] = struct.pack('ihh', len(self.payload), self.sid, self.msg_id)
+            msg[8:] = self.payload
+            return msg
+
+    @staticmethod
+    def parse(msg):
+        try:
+            length, sid, msg_id = struct.unpack('ihh', msg[:8])
+        except struct.error:
+            raise CorruptMsgException
+        except IndexError:
+            raise CorruptMsgException
+        if msg_id == 18:
+            try:
+                return AutoPilotRemoteControlRequestReply(msg[8:], length, sid, msg_id)
+            except IndexError:
+                raise CorruptMsgException
+        else:
+            raise OtherMsgTypeException
+
+
+class AutoPilotCommand(AutoPilotBinary):
+    msg_id = 2
+
+    def __init__(self, option, sid=0):
+        self.sid = sid
+        self.payload = struct.pack('i', option.value)
+
+class AutoPilotCommandOptions(Enum):
+    NONE = 0
+    START = 1
+    STOP = 2
+    SAVE = 3
+    CLEAR_WPS = 6
+
+class AutoPilotTrackingSpeed(AutoPilotBinary):
+    msg_id = 3
+
+    def __init__(self, speed, sid=0):
+        self.sid = sid
+        self.payload = struct.pack('f', speed)
+
+class AutoPilotAddWaypoints(AutoPilotBinary):
+    msg_id = 4
+
+    def __init__(self, wp_list, sid=0):
+        """
+
+        :param wp_list: list of (N, E, D)
+        :param sid:
+        """
+        self.sid = sid
+        self.payload = bytearray(4 * (1 + 3 * len(wp_list)))
+        self.payload[:4] = struct.pack('i', len(wp_list))
+        for i in range(len(wp_list)):
+            self.payload[4 + i*12:4 + (i+1)*12] = struct.pack('fff', wp_list[i][0], wp_list[i][1], wp_list[i][2])
+
+
+class AutoPilotTrackingConfig(AutoPilotBinary):
+    msg_id = 11
+
+    def __init__(self, roa, braking_zone, gain_speed, lookahead, gain_path, cornering_speed, sid=0):
+        self.sid = sid
+        self.payload = struct.pack('ffffff', roa, braking_zone, gain_path, lookahead, gain_path, cornering_speed)
+
+class AutoPilotGuidanceMode(AutoPilotBinary):
+    msg_id = 14
+
+    def __init__(self, mode, sid=0):
+        self.sid = sid
+        self.payload = struct.pack('i', mode.value)
+
+class AutoPilotGuidanceModeOptions(Enum):
+    NONE = 0
+    STATION_KEEPING = 1
+    CIRCULAR_INSPECTION_MODE = 3
+    PATH_FOLLOWING = 5
+
+class AutoPilotRemoteControlRequest(AutoPilotBinary):
+    msg_id = 17
+
+    def __init__(self, sid):
+        self.sid = sid
+
+class AutoPilotRemoteControlRequestReply(AutoPilotBinary):
+    msg_id = 18
+    acquired = False
+
+    def __init__(self, msg, length, sid, msg_id):
+        if len(msg) != length or msg_id != self.msg_id:
+            raise CorruptMsgException
+        try:
+            self.token, status = struct.unpack('hB', msg)
+            if self.token > 0 and status == 1:
+                self.acquired = True
+        except struct.error:
+            raise CorruptMsgException
 
 
 class UncompleteMsgException(Exception):
@@ -198,3 +304,11 @@ class CorruptMsgException(Exception):
 
 class OtherMsgTypeException(Exception):
     pass
+
+
+if __name__ == '__main__':
+    wp_list = [[5.0, 20.0, 12], [2.0, 2.0, 1.0]]
+    msg = AutoPilot_AddWaypoints(wp_list, 10)
+    a = msg.compile()
+    b = struct.unpack('IHHIffffff', a)
+    print(b)

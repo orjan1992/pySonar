@@ -14,6 +14,7 @@ class UdpClient(QObject):
     buffer = io.BytesIO()
     cur_pos_msg = None
     sonar_callback = None
+    autopilot_sid = 0
 
     def __init__(self, sonar_port, pos_port, wp_ip, wp_port):
         super().__init__()
@@ -29,14 +30,20 @@ class UdpClient(QObject):
         self.sonar_thread = threading.Thread(target=self.sonar_server.serve_forever)
         self.sonar_thread.setDaemon(True)
 
-
         self.pos_server = socketserver.UDPServer(('0.0.0.0', pos_port), handler_factory(self.parse_pos_msg))
         self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
         self.pos_thread.setDaemon(True)
 
+        self.autopilot_server = socketserver.UDPServer((wp_ip, wp_port), handler_factory(self.parse_autopilot_msg))
+        self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
+        self.autopilot_thread.setDaemon(True)
+
+        self.autopilot_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
     def start(self):
         self.sonar_thread.start()
         self.pos_thread.start()
+        self.autopilot_thread.start()
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -72,10 +79,28 @@ class UdpClient(QObject):
                 break
         # self.buffer_lock.release()
 
+    def send_autopilot_msg(self, msg):
+        if self.autopilot_sid != 0:
+            msg.sid = self.autopilot_sid
+        self.autopilot_socket.sendto(msg.compile(), (self.wp_ip, self.wp_port))
+
     def parse_pos_msg(self, data, socket):
         msg = UdpPosMsg(data)
         if not msg.error:
             self.cur_pos_msg = msg
+
+    def parse_autopilot_msg(self, data, socket):
+        try:
+            msg = AutoPilotBinary.parse(data)
+            if msg is AutoPilotRemoteControlRequestReply:
+                if msg.acquired:
+                    self.autopilot_sid = msg.token
+            else:
+                raise NotImplemented
+        except OtherMsgTypeException:
+            logger.debug('Unknown msg from autopilot server')
+        except CorruptMsgException:
+            logger.debug('Corrupt msg from autopilot server')
 
 class Handler(socketserver.BaseRequestHandler):
     """ One instance per connection. """
@@ -92,6 +117,11 @@ def handler_factory(callback):
     def createHandler(*args, **keys):
         return Handler(callback, *args, **keys)
     return createHandler
+
+
+if __name__ == '__main__':
+    from settings import ConnectionSettings
+    client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port, ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
 
 
 
