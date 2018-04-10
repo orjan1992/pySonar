@@ -56,15 +56,19 @@ class UdpClient(QObject):
                     # self.buffer_lock.release()
 
                     self.sonar_callback(msg)
-
+                    tmp = None
                     self.buffer = io.BytesIO()
                 except CorruptMsgException:
+                    logger.error('Corrupt msg')
                     self.buffer = io.BytesIO()
                 except OtherMsgTypeException:
                     self.buffer = io.BytesIO()
-                    print("Other msg type")
+                    logger.debug('Other sonar msg')
                 except UncompleteMsgException:
                     pass
+                except Exception as e:
+                    # self.buffer_lock.release()
+                    raise e
                 break
         # self.buffer_lock.release()
 

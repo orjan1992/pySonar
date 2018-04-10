@@ -33,7 +33,7 @@ class RawGrid(object):
     y_mesh_unit = np.zeros((RES, RES))
     map = np.zeros((N_ANGLE_STEPS, MAX_BINS, MAX_CELLS), dtype=np.uint32)
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
-    last_distance = 0
+    last_distance = None
     range_scale = 1.0
     last_dx = 0
     last_dy = 0
@@ -85,6 +85,8 @@ class RawGrid(object):
         return self.grid
 
     def update_raw(self, msg):
+        if msg.bearing > 6399 or msg.bearing < 0:
+            return
         self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         if GridSettings.scale_raw_data:
@@ -149,32 +151,38 @@ class RawGrid(object):
         self.last_data = new_data
 
     def update_distance(self, distance):
+        # TODO: fix negative indexes
         try:
             factor = distance / self.last_distance
+        except TypeError:
+            factor = 1
+            self.last_distance = distance
         except ZeroDivisionError:
             factor = 1
             self.last_distance = distance
         if factor == 1:
             return
-        new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
-        if factor < 1:
-            # old distance > new distance
-            new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
-                                                       factor + self.origin_j)).astype(dtype=int),
-                                             (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
-                                                       factor + self.origin_i)).astype(dtype=int))]
-        else:
-            # old distance < new distance
-            i_lim = int(round(0.5 * self.i_max / factor))
-            j_lim = int(round(0.5 * self.j_max / factor))
-            new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
-                np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
-                                      factor + self.origin_j)).astype(dtype=int),
-                            (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
-                                      factor + self.origin_i)).astype(dtype=int))]
-        self.lock.acquire()
-        self.grid = new_grid
-        self.lock.release()
+        # if factor < 0:
+        #     print('distance: {},\told_distance: {}'.format(distance, self.last_distance))
+        # new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
+        # if factor < 1:
+        #     # old distance > new distance
+        #     new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
+        #                                                factor + self.origin_j)).astype(dtype=int),
+        #                                      (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
+        #                                                factor + self.origin_i)).astype(dtype=int))]
+        # else:
+        #     # old distance < new distance
+        #     i_lim = int(round(0.5 * self.i_max / factor))
+        #     j_lim = int(round(0.5 * self.j_max / factor))
+        #     new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
+        #         np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
+        #                               factor + self.origin_j)).astype(dtype=int),
+        #                     (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
+        #                               factor + self.origin_i)).astype(dtype=int))]
+        # self.lock.acquire()
+        # self.grid = new_grid
+        # self.lock.release()
         
         self.last_distance = distance
 
@@ -191,7 +199,7 @@ class RawGrid(object):
         # Check if more than half of pixels is set
         self.reliable = hist[0] > GridSettings.min_set_pixels
         grad = np.gradient(hist[1:])
-        i = np.argmax(np.abs(grad) < threshold)
+        i = np.argmax(np.abs(grad) > threshold)
 
         # threshold based on gradient
         thresh = cv2.threshold(self.grid.astype(np.uint8), i, 255, cv2.THRESH_BINARY)[1]
@@ -210,7 +218,7 @@ class RawGrid(object):
         im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
         _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT)
-
+        im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
 

@@ -90,7 +90,7 @@ class GridSettings:
         height = 1601
     min_set_pixels = 1601.0*801.0/3.0
     cell_factor = 16
-    scale_raw_data = False
+    scale_raw_data = True
 
     # zhou model
     kh_high = 0.5445427266222308
@@ -111,8 +111,8 @@ class FeatureExtraction:
 
 class ConnectionSettings:
         sonar_port = 4001
-        # pos_port = 4005
-        pos_port = 40010
+        pos_port = 4005
+        # pos_port = 40010
         wp_port = 5000
         wp_ip = None
         use_nmea_checksum = False
@@ -124,4 +124,4 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 10
+        threshold = 50

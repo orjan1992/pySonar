@@ -24,7 +24,7 @@ class MtHeadData(Sensor):
             hex_length = struct.unpack('H', hex_length)
             word_length = struct.unpack('H', byte_array[5:7])
             if hex_length != word_length:
-                raise CorruptMsgException
+                raise CorruptMsgException('from hex_length != word_length')
 
             self.sid = byte_array[7]
             self.did = byte_array[8]
@@ -69,7 +69,7 @@ class MtHeadData(Sensor):
 
                 if self.adc8on:
                     if byte_array.nbytes < 44+self.dbytes:
-                        raise UncompleteMsgException
+                        raise UncompleteMsgException("To few databytes")
                     self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
                 else:
                     if byte_array.nbytes < 44+self.dbytes:
@@ -81,28 +81,30 @@ class MtHeadData(Sensor):
                         self.data[2 * i + 1] = self.data[i] & 15  # 4 last bytes
 
                 # Convert to similar format as moosmsg
-                # self.range_scale *= 0.1
+                self.range_scale *= 0.1
                 self.length = self.dbytes
                 self.time = 0
             except UncompleteMsgException:
+                raise UncompleteMsgException
+            except binascii.Error:
                 raise UncompleteMsgException
             # if byte_array[44 + self.dbytes] != 10:
             #     logger.error('No end of message')
             #     raise CorruptMsgException
 
             # redefining vessel x as 0 deg and vessel starboard as +90
-            self.right_lim_rad = wrap2pi((self.r_lim * self.GRAD2RAD + pi))
-            self.left_lim_rad = wrap2pi((self.l_lim * self.GRAD2RAD + pi))
-            self.bearing_rad = wrap2pi((self.bearing * self.GRAD2RAD + pi))
-            self.step_rad = self.step * self.GRAD2RAD
-            self.range_scale_m = self.range_scale * 0.1
-        except UncompleteMsgException:
-            raise UncompleteMsgException
-        except OtherMsgTypeException:
-            raise OtherMsgTypeException
-        except Exception as e:
-            print(e)
-            raise CorruptMsgException
+            # self.right_lim_rad = wrap2pi((self.r_lim * self.GRAD2RAD + pi))
+            # self.left_lim_rad = wrap2pi((self.l_lim * self.GRAD2RAD + pi))
+            # self.bearing_rad = wrap2pi((self.bearing * self.GRAD2RAD + pi))
+            # self.step_rad = self.step * self.GRAD2RAD
+            # self.range_scale_m = self.range_scale * 0.1
+        except IndexError:
+            raise UncompleteMsgException("Index error")
+        except struct.error:
+            raise UncompleteMsgException("Struct error")
+        # except Exception as e:
+        #     print(e)
+        #     raise CorruptMsgException
 
 class UdpPosMsg(Sensor):
 

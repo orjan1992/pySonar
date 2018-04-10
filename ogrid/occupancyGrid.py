@@ -138,6 +138,9 @@ class OccupancyGrid(RawGrid):
         return p
 
     def update_occ_zhou(self, msg, threshold):
+        if msg.bearing < 0 or msg.bearing > 6399:
+            print(msg.bearing)
+            return
         try:
             occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
             new_data = self.interpolate_bins(msg)
@@ -205,7 +208,10 @@ class OccupancyGrid(RawGrid):
                             p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
                             if p < 0 or p > 1:
                                 logger.error('Probability is invalid. p={}'.format(p))
-                            occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = np.log(p / (1-p))
+                            if 1 - p != 0:
+                                occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = np.log(p / (1-p))
+                            else:
+                                occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = 5 * np.sign(p - 0.5)
                     else:
                         for i in range(ind0, ind1):
                             occ_grid.flat[self.angle2cell_high[msg.bearing][i]] = self.p_log_occ - self.p_log_zero
@@ -234,7 +240,10 @@ class OccupancyGrid(RawGrid):
                                 p = (P[i - ind0] - P_min)/P_max_min_2 + 0.5
                                 if p < 0 or p > 1:
                                     logger.error('Probability is invalid. p={}'.format(p))
-                                occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
+                                if 1-p != 0:
+                                    occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = np.log(p / (1-p))
+                                else:
+                                    occ_grid.flat[self.angle2cell_low[msg.bearing][i]] = 5 * np.sign(p - 0.5)
                         except ValueError:
                             pass
                     else:
@@ -382,20 +391,20 @@ if __name__=="__main__":
     from messages.moosSonarMsg import MoosSonarMsg
     grid = OccupancyGrid(False, 0.3, 0.9, 0.7, 0.75, 16)
 
-    def test():
-        occ = np.zeros((grid.size, grid.size), grid.oLog_type)
-        grid.occ2raw(occ)
-
-    for i in range(100):
-        test()
-        print(i)
-
-    # a = np.load('collision_avoidance/test.npz')['olog']
-    # grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
-    # im, countours = grid.get_obstacles()
+    # def test():
+    #     occ = np.zeros((grid.size, grid.size), grid.oLog_type)
+    #     grid.occ2raw(occ)
     #
-    # l_list = []
-    # # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
+    # for i in range(100):
+    #     test()
+    #     print(i)
+
+    a = np.load('collision_avoidance/test.npz')['olog']
+    grid.grid[:np.shape(a)[0], :np.shape(a)[1]] = a/8.0 -2
+    im, countours = grid.get_obstacles()
+
+    l_list = []
+    # map = np.zeros((grid.i_max, grid.j_max), dtype=np.uint8)
     # # for c in countours:
     # #     line = cv2.fitLine(c[0], cv2.DIST_L2, 0, 1, 0.1)
     # #     cv2.line(map, (line[0], line[3]), (line[1], line[3]), (255, 255, 255), 1)
