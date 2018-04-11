@@ -363,16 +363,17 @@ class OccupancyGrid(RawGrid):
         contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
 
         # Removing small contours
-        # TODO: Should min_area be dependent on range?
+        min_area = FeatureExtraction.min_area * self.range_scale
         new_contours = list()
         for contour in contours:
-            if cv2.contourArea(contour) > FeatureExtraction.min_area:
+            if cv2.contourArea(contour) > min_area:
                 new_contours.append(contour)
         im2 = cv2.drawContours(np.zeros(np.shape(self.grid), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
 
-        # dilating to join close contours
-        # TODO: maybe introduce safety margin in this dilation
-        im3 = cv2.dilate(im2, self.kernel, iterations=FeatureExtraction.iterations)
+        # dilating to join close contours and use safety margin
+        k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range_scale).astype(int)
+        im3 = cv2.dilate(im2, np.ones((k_size, k_size), dtype=np.uint8), iterations=1)
+        # im3 = cv2.dilate(im2, self.kernel, iterations=FeatureExtraction.iterations)
         self.contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
         self.bin_map = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
 

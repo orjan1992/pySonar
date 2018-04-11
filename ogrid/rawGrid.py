@@ -4,7 +4,7 @@ import logging
 import cv2
 from settings import FeatureExtraction
 import threading
-from settings import GridSettings
+from settings import GridSettings, CollisionSettings
 
 logger = logging.getLogger('RawGrid')
 
@@ -206,16 +206,16 @@ class RawGrid(object):
         _, contours, _ = cv2.findContours(thresh, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
 
         # Removing small contours
-        # TODO: Should min_area be dependent on range?
+        min_area = FeatureExtraction.min_area * self.range_scale
         new_contours = list()
         for contour in contours:
-            if cv2.contourArea(contour) > FeatureExtraction.min_area:
+            if cv2.contourArea(contour) > min_area:
                 new_contours.append(contour)
         im2 = cv2.drawContours(np.zeros(np.shape(self.grid), dtype=np.uint8), new_contours, -1, (255, 255, 255), 1)
 
         # dilating to join close contours
-        # TODO: maybe introduce safety margin in this dilation
-        im3 = cv2.dilate(im2, FeatureExtraction.kernel, iterations=FeatureExtraction.iterations)
+        k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range_scale).astype(int)
+        im3 = cv2.dilate(im2, np.ones((k_size, k_size), dtype=np.uint8), iterations=1)
         _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)

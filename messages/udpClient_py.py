@@ -34,7 +34,7 @@ class UdpClient(QObject):
         self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
         self.pos_thread.setDaemon(True)
 
-        self.autopilot_server = socketserver.UDPServer((wp_ip, wp_port), handler_factory(self.parse_autopilot_msg))
+        self.autopilot_server = socketserver.UDPServer(('0.0.0.0', wp_port), handler_factory(self.parse_autopilot_msg))
         self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
         self.autopilot_thread.setDaemon(True)
 

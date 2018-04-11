@@ -67,42 +67,49 @@ class PathPlanner:
 
 
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    import cv2
     path_planner = PathPlanner('collision_avoidance/Mapfiles/Snorre B WGS84/Installation_line')
+    c = path_planner.gen_contour_list()
+    im = cv2.drawContours(np.zeros((path_planner.range[0].astype(int), path_planner.range[1].astype(int))), c, -1, (255, 255, 255), 1)
+    plt.imshow(im)
+    plt.gca().invert_yaxis()
+    plt.show()
     # wp1 = (458000 - 100, 6821650 - 200)
     # wp2 = (458080, 6821780)
-    wp1 = (994 + path_planner.offset[0].astype(np.int64), 933 + path_planner.offset[1].astype(np.int64))
-    wp2 = (993 + path_planner.offset[0].astype(np.int64), 983 + path_planner.offset[1].astype(np.int64))
-    qt = False
-    if qt:
-        app = QtGui.QApplication([])
-        p1 = pg.plot()
-        # vp = path_planner.find_new_wp(wp1, wp2, p1)
-
-        p1.setXRange(0, path_planner.range[0])
-        p1.setYRange(0, path_planner.range[1])
-        path_planner.plot(p1)
-        p1.show()
-
-        app.exec_()
-    else:
-        from scipy.spatial import voronoi_plot_2d
-        import matplotlib.pyplot as plt
-        a = path_planner.gen_contour_list()
-        import cv2
-        im = cv2.drawContours(np.zeros((path_planner.range[0].astype(np.int64), path_planner.range[1].astype(np.int64), 3), dtype=np.uint8), a, -1, (255, 0, 0), 1)
-        plt.imshow(im)
-        plt.gca().invert_yaxis()
-        plt.show()
-        wps = path_planner.find_new_wp(wp1, wp2)
-        for i in range(len(wps)-1):
-            cv2.line(im, wps[i], wps[i+1], (0, 0, 255), 1)
-        wp1_norm = (wp1[0] - path_planner.offset[0].astype(np.int64), wp1[1] - path_planner.offset[1].astype(np.int64))
-        wp2_norm = (wp2[0] - path_planner.offset[0].astype(np.int64), wp2[1] - path_planner.offset[1].astype(np.int64))
-        cv2.circle(im, wp1_norm, 50, (0, 255, 0))
-        cv2.circle(im, wp2_norm, 100, (0, 255, 0))
-        plt.imshow(im)
-        plt.gca().invert_yaxis()
-        plt.show()
-
-        #
-        b = 1
+    # wp1 = (994 + path_planner.offset[0].astype(np.int64), 933 + path_planner.offset[1].astype(np.int64))
+    # wp2 = (993 + path_planner.offset[0].astype(np.int64), 983 + path_planner.offset[1].astype(np.int64))
+    # qt = False
+    # if qt:
+    #     app = QtGui.QApplication([])
+    #     p1 = pg.plot()
+    #     # vp = path_planner.find_new_wp(wp1, wp2, p1)
+    #
+    #     p1.setXRange(0, path_planner.range[0])
+    #     p1.setYRange(0, path_planner.range[1])
+    #     path_planner.plot(p1)
+    #     p1.show()
+    #
+    #     app.exec_()
+    # else:
+    #     from scipy.spatial import voronoi_plot_2d
+    #     import matplotlib.pyplot as plt
+    #     a = path_planner.gen_contour_list()
+    #     import cv2
+    #     im = cv2.drawContours(np.zeros((path_planner.range[0].astype(np.int64), path_planner.range[1].astype(np.int64), 3), dtype=np.uint8), a, -1, (255, 0, 0), 1)
+    #     plt.imshow(im)
+    #     plt.gca().invert_yaxis()
+    #     plt.show()
+    #     wps = path_planner.find_new_wp(wp1, wp2)
+    #     for i in range(len(wps)-1):
+    #         cv2.line(im, wps[i], wps[i+1], (0, 0, 255), 1)
+    #     wp1_norm = (wp1[0] - path_planner.offset[0].astype(np.int64), wp1[1] - path_planner.offset[1].astype(np.int64))
+    #     wp2_norm = (wp2[0] - path_planner.offset[0].astype(np.int64), wp2[1] - path_planner.offset[1].astype(np.int64))
+    #     cv2.circle(im, wp1_norm, 50, (0, 255, 0))
+    #     cv2.circle(im, wp2_norm, 100, (0, 255, 0))
+    #     plt.imshow(im)
+    #     plt.gca().invert_yaxis()
+    #     plt.show()
+    #
+    #     #
+    #     b = 1
