@@ -31,8 +31,6 @@ class OccupancyGrid(RawGrid):
                 self.angle2cell_rad_high = data['angle2cell_rad_high']
                 # TODO: Probably something wrong with half of these angles
                 self.occ_map_theta = data['angles']
-                # for i in range(self.N_ANGLE_STEPS):
-                #     print(wrapToPi(np.mean(-self.occ_map_theta.flat[self.angle2cell_high[i]]) - i*np.pi/3200.0))
         except Exception as e:
             self.calc_occ_map(cell_factor)
 
@@ -116,6 +114,10 @@ class OccupancyGrid(RawGrid):
                     low_freq = np.union1d(low_freq, angle2cell[j + 1 - self.N_ANGLE_STEPS])
             low_indices[i] = sorted(low_freq, key=get_range)
             low_ranges[i] = range_map.flat[low_indices[i]]
+
+        for i in range(self.N_ANGLE_STEPS):
+            low_indices[i] = np.array(low_indices[i])
+            high_indices[i] = np.array(high_indices[i])
         print('Calculated map successfully')
         np.savez('ogrid/OGrid_data/occ_map_{}.npz'.format(int(factor)), angle2cell_low=low_indices,
                  angle2cell_rad_low=low_ranges, angle2cell_high=high_indices, angle2cell_rad_high=high_ranges,
@@ -184,14 +186,12 @@ class OccupancyGrid(RawGrid):
                 data_ind_high = data_ind + GridSettings.hit_factor
 
                 if msg.chan2:
-                    cell_ind = np.logical_and(self.angle2cell_rad_high[msg.bearing] > data_ind_low,
-                                              self.angle2cell_rad_high[msg.bearing] < data_ind_high)
+                    cell_ind = np.logical_and(self.angle2cell_rad_high[msg.bearing] > data_ind_low, self.angle2cell_rad_high[msg.bearing] < data_ind_high)
                     cell_not_ind = np.logical_not(cell_ind)
 
                     occ_grid.flat[self.angle2cell_high[msg.bearing][cell_not_ind]] = self.p_log_free - self.p_log_zero
                     if obstacle_in_line:
-                        alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][cell_ind]]
-                                          - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
+                        alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[msg.bearing][cell_ind]] - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
                         tmp = GridSettings.kh_high * np.sin(alpha) / 2
                         p = (np.sin(tmp) / tmp) * (GridSettings.mu * np.sin(theta_i + alpha) ** 2)
 
@@ -209,11 +209,18 @@ class OccupancyGrid(RawGrid):
                     else:
                         occ_grid.flat[self.angle2cell_high[msg.bearing][cell_ind]] = self.p_log_occ - self.p_log_zero
                 else:
-                    cell_ind = np.logical_and(self.angle2cell_rad_low[msg.bearing] > data_ind_low,
-                                              self.angle2cell_rad_low[msg.bearing] < data_ind_high)
+                    cell_ind = False
+                    for i in range(len(data_ind)):
+                        cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_low[msg.bearing] > data_ind_low[i],
+                                                                self.angle2cell_rad_low[msg.bearing] < data_ind_high[i]),
+                                                 cell_ind)
+                    # cell_not_ind = np.nonzero(np.logical_not(cell_ind))
+                    # cell_ind = np.nonzero(cell_ind)
                     cell_not_ind = np.logical_not(cell_ind)
-
-                    occ_grid.flat[self.angle2cell_low[msg.bearing][cell_not_ind]] = self.p_log_free - self.p_log_zero
+                    try:
+                        occ_grid.flat[self.angle2cell_low[msg.bearing][cell_not_ind]] = self.p_log_free - self.p_log_zero
+                    except TypeError:
+                        a = 1
                     if obstacle_in_line:
                         alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[msg.bearing][cell_ind]]
                                           - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
