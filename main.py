@@ -233,6 +233,7 @@ class MainWidget(QtGui.QWidget):
         elif Settings.update_type == 1:
             # self.grid.auto_update_zhou(msg, self.threshold_box.value())
             self.grid.update_occ_zhou(msg, self.threshold_box.value())
+            # self.grid.new_occ_update(msg, self.threshold_box.value())
         else:
             raise Exception('Invalid update type')
         self.plot_updated = True
