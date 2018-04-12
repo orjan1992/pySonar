@@ -41,68 +41,59 @@ class MtHeadData(Sensor):
             if byte_array[12] != self.sid:
                 logger.info('Sonar msg error: Tx1 != Tx2')
                 raise CorruptMsgException
-            try:
-                (self.total_count, self.device_type, self.head_status,
-                 self.sweep_code, self.hd_ctrl, self.range_scale) = struct.unpack('<HBBBHH', byte_array[13:22])
 
-                self.adc8on = (self.hd_ctrl & 1) == 1
-                self.cont = (self.hd_ctrl & (1 << 1)) != 0
-                self.scan_right = (self.hd_ctrl & (1 << 2)) != 0
-                self.invert = (self.hd_ctrl & (1 << 3)) != 0
-                # self.mot_off = (self.hd_ctrl & (1 << 4)) != 0
-                # self.tx_off = (self.hd_ctrl & (1 << 5)) != 0
-                # Spare bit
-                self.chan2 = (self.hd_ctrl & (1 << 7)) != 0
-                # self.raw = (self.hd_ctrl & (1 << 8)) != 0
-                # self.has_mot = (self.hd_ctrl & (1 << 9)) != 0
-                # self.apply_offset = (self.hd_ctrl & (1 << 10)) != 0
-                self.ping_pong = (self.hd_ctrl & (1 << 11)) != 0
-                self.stare_l_lim = (self.hd_ctrl & (1 << 12)) != 0
-                # self.reply_asl = (self.hd_ctrl & (1 << 13)) != 0
-                # self.reply_thr = (self.hd_ctrl & (1 << 14)) != 0
-                # self.ignore_sensor = (self.hd_ctrl & (1 << 15)) != 0
+            (self.total_count, self.device_type, self.head_status,
+             self.sweep_code, self.hd_ctrl, self.range_scale) = struct.unpack('<HBBBHH', byte_array[13:22])
 
-                # 7 bytes, TxN = 4byte, gain = 1byte, slope = 2byte
-                (self.ad_span, self.ad_low) = struct.unpack('<BB', byte_array[29:31])
-                # 2bytes, heading offset
-                (self.ad_interval, self.l_lim, self.r_lim, self.step,
-                 self.bearing, self.dbytes) = struct.unpack('<HHHBHH', byte_array[33:44])
+            self.adc8on = (self.hd_ctrl & 1) == 1
+            self.cont = (self.hd_ctrl & (1 << 1)) != 0
+            self.scan_right = (self.hd_ctrl & (1 << 2)) != 0
+            self.invert = (self.hd_ctrl & (1 << 3)) != 0
+            # self.mot_off = (self.hd_ctrl & (1 << 4)) != 0
+            # self.tx_off = (self.hd_ctrl & (1 << 5)) != 0
+            # Spare bit
+            self.chan2 = (self.hd_ctrl & (1 << 7)) != 0
+            # self.raw = (self.hd_ctrl & (1 << 8)) != 0
+            # self.has_mot = (self.hd_ctrl & (1 << 9)) != 0
+            # self.apply_offset = (self.hd_ctrl & (1 << 10)) != 0
+            self.ping_pong = (self.hd_ctrl & (1 << 11)) != 0
+            self.stare_l_lim = (self.hd_ctrl & (1 << 12)) != 0
+            # self.reply_asl = (self.hd_ctrl & (1 << 13)) != 0
+            # self.reply_thr = (self.hd_ctrl & (1 << 14)) != 0
+            # self.ignore_sensor = (self.hd_ctrl & (1 << 15)) != 0
 
-                if self.adc8on:
-                    if byte_array.nbytes < 44+self.dbytes:
-                        raise UncompleteMsgException("To few databytes")
-                    self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
-                else:
-                    if byte_array.nbytes < 44+self.dbytes:
-                        raise UncompleteMsgException
-                    tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(44 + self.dbytes)])
-                    self.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)
-                    for i in range(0, len(tmp)):
-                        self.data[2 * i] = (self.data[i] & 240) >> 4  # 4 first bytes
-                        self.data[2 * i + 1] = self.data[i] & 15  # 4 last bytes
+            # 7 bytes, TxN = 4byte, gain = 1byte, slope = 2byte
+            (self.ad_span, self.ad_low) = struct.unpack('<BB', byte_array[29:31])
+            # 2bytes, heading offset
+            (self.ad_interval, self.l_lim, self.r_lim, self.step,
+             self.bearing, self.dbytes) = struct.unpack('<HHHBHH', byte_array[33:44])
 
-                # Convert to similar format as moosmsg
-                self.range_scale *= 0.1
-                self.length = self.dbytes
-                self.time = 0
-            except UncompleteMsgException:
-                raise UncompleteMsgException
-            except binascii.Error:
-                raise UncompleteMsgException
-            # if byte_array[44 + self.dbytes] != 10:
+            if self.adc8on:
+                if byte_array.nbytes < 44+self.dbytes:
+                    raise UncompleteMsgException("To few databytes")
+                self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
+            else:
+                if byte_array.nbytes < 44+self.dbytes:
+                    raise UncompleteMsgException
+                tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(44 + self.dbytes)])
+                self.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)
+                for i in range(0, len(tmp)):
+                    self.data[2 * i] = (self.data[i] & 240) >> 4  # 4 first bytes
+                    self.data[2 * i + 1] = self.data[i] & 15  # 4 last bytes
+
+            # Convert to similar format as moosmsg
+            self.range_scale *= 0.1
+            self.length = self.dbytes
+            # self.time = 0
+            # if byte_array[43 + self.dbytes] != 10:
             #     logger.error('No end of message')
             #     raise CorruptMsgException
-
-            # redefining vessel x as 0 deg and vessel starboard as +90
-            # self.right_lim_rad = wrap2pi((self.r_lim * self.GRAD2RAD + pi))
-            # self.left_lim_rad = wrap2pi((self.l_lim * self.GRAD2RAD + pi))
-            # self.bearing_rad = wrap2pi((self.bearing * self.GRAD2RAD + pi))
-            # self.step_rad = self.step * self.GRAD2RAD
-            # self.range_scale_m = self.range_scale * 0.1
         except IndexError:
             raise UncompleteMsgException("Index error")
         except struct.error:
             raise UncompleteMsgException("Struct error")
+        except binascii.Error:
+            raise UncompleteMsgException("binascii error")
         # except Exception as e:
         #     print(e)
         #     raise CorruptMsgException
@@ -140,9 +131,9 @@ class UdpPosMsg(Sensor):
                 self.error = True
                 return
         try:
-            self.psi = float(str_array[1])
-            self.roll = float(str_array[2])
-            self.pitch = float(str_array[3])
+            self.psi = float(str_array[1])*np.pi / 180.0
+            self.roll = float(str_array[2])*np.pi / 180.0
+            self.pitch = float(str_array[3])*np.pi / 180.0
             self.depth = float(str_array[4])
             self.alt = float(str_array[5])
             self.lat = float(str_array[6])
@@ -293,6 +284,15 @@ class AutoPilotRemoteControlRequestReply(AutoPilotBinary):
         except struct.error:
             raise CorruptMsgException
 
+class AutoPilotGetMessage(AutoPilotBinary):
+    msg_id = 1000
+
+    def __init__(self, msg_ids, sid=0):
+        self.sid = sid
+        if msg_ids is list:
+            self.payload = struct.pack('{}h'.format(len(msg_ids)), *msg_ids)
+        else:
+            self.payload = struct.pack('h', msg_ids)
 
 class UncompleteMsgException(Exception):
     pass

@@ -158,7 +158,7 @@ class MainWidget(QtGui.QWidget):
         self.init_grid()
         if Settings.input_source == 0:
             self.udp_client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port,
-                                        ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
+                                        ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_port)
             self.udp_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
             self.udp_client.set_sonar_callback(self.new_sonar_msg)
             self.udp_client.start()

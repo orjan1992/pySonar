@@ -221,60 +221,58 @@ class RawGrid(object):
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
-
-    def rot(self, dspi):
-
-        dpsi_grad = dspi*3200/np.pi + self.old_delta_psi
-
-        if abs(dpsi_grad) < 1:
-            self.old_delta_psi = dpsi_grad
-            return False
-        else:
-            self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
-        dpsi_grad = np.round(dpsi_grad).astype(int)
-        new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
-
-        if dpsi_grad < 0:
-            if GridSettings.half_grid:
-                for n in range(1600-dpsi_grad, 4801):
-                    for i in range(0, self.MAX_CELLS):
-                        new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
-            else:
-                for n in range(0, 6399):
-                    for i in range(0, self.MAX_CELLS):
-                        new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
-        else:
-            if GridSettings.half_grid:
-                for n in range(1600, 4801-dpsi_grad):
-                    for i in range(0, self.MAX_CELLS):
-                        new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
-            else:
-                for n in range(0, 6399):
-                    n_d = n+dpsi_grad
-                    if n_d > 6399:
-                        n_d = 6399 - n_d
-                    for i in range(0, self.MAX_CELLS):
-                        new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n_d, :, 0]]
-        self.lock.acquire()
-        self.grid = new_grid
-        self.lock.release()
-        return True
-
     # def rot(self, dspi):
-    #     dpsi_grad = dspi * 3200 / np.pi + self.old_delta_psi
+    #     dpsi_grad = dspi*3200/np.pi + self.old_delta_psi
     #
-    #     if abs(dpsi_grad) < 1:
+    #     if abs(dpsi_grad) < GridSettings.min_rot:
     #         self.old_delta_psi = dpsi_grad
     #         return False
     #     else:
     #         self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
     #     dpsi_grad = np.round(dpsi_grad).astype(int)
-    #     # new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
+    #     new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
     #
-    #     pol_grid = np.roll(self.grid.flat[RawGrid.map[:, :, 0]], -dpsi_grad, axis=0)
-    #     # np.roll(pol_grid, dpsi_grad, axis=0)
-    #     for i in range(RawGrid.MAX_CELLS):
-    #         self.grid.flat[RawGrid.map[:, :, i]] = pol_grid
+    #     if dpsi_grad < 0:
+    #         if GridSettings.half_grid:
+    #             for n in range(1600-dpsi_grad, 4801):
+    #                 for i in range(0, self.MAX_CELLS):
+    #                     new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
+    #         else:
+    #             for n in range(0, 6399):
+    #                 for i in range(0, self.MAX_CELLS):
+    #                     new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
+    #     else:
+    #         if GridSettings.half_grid:
+    #             for n in range(1600, 4801-dpsi_grad):
+    #                 for i in range(0, self.MAX_CELLS):
+    #                     new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n + dpsi_grad, :, 0]]
+    #         else:
+    #             for n in range(0, 6399):
+    #                 n_d = n+dpsi_grad
+    #                 if n_d > 6399:
+    #                     n_d = 6399 - n_d
+    #                 for i in range(0, self.MAX_CELLS):
+    #                     new_grid.flat[RawGrid.map[n, :, i]] = self.grid.flat[RawGrid.map[n_d, :, 0]]
+    #     self.lock.acquire()
+    #     self.grid = new_grid
+    #     self.lock.release()
+    #     return True
+
+    def rot(self, dpsi):
+        dpsi_grad = dpsi*3200/np.pi + self.old_delta_psi
+
+        if abs(dpsi_grad) < GridSettings.min_rot:
+            self.old_delta_psi = dpsi_grad
+            return False
+        else:
+            self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
+        # Only first cell in each to save time
+        new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
+        new_grid.flat[RawGrid.map[:, :, 0]] = np.roll(self.grid.flat[RawGrid.map[:, :, 0]], -np.round(dpsi_grad).astype(int), axis=0)
+        self.lock.acquire()
+        self.grid = new_grid
+        self.lock.release()
+        return True
 
     def trans(self, dx, dy):
         """
@@ -354,23 +352,38 @@ class RawGrid(object):
 
 
 if __name__ == "__main__":
-    from copy import deepcopy
-    rot = np.pi*0.5/180.0
-    grida = RawGrid(False)
+    # from time import time
+    # rot = np.pi*0.5/180.0
+    # grida = RawGrid(False)
+    # for cone in RawGrid.map:
+    #     for cells in cone:
+    #         cells[cells == 0] = cells[0]
+    # grida.grid = np.random.random(np.shape(grida.grid))
+    # for i in range(20):
+    #     grida.rot(rot)
+    #     grida.new_rot(rot)
+
+    rot = -np.pi * 50 / 180.0
+    data = np.load('occ.npz')
+    grid = RawGrid(False)
+    grid.grid = data['grid']
+    grid.grid = grid.grid.clip(-6, 6)
+
+    grid.new_rot(rot)
+    # # test_map = np.asarray(RawGrid.map[:, :, 0])
+    # test_map = RawGrid.map[:, :, 0]
+    # # for i in range(6400):
+    # #     test_map[i] = np.array(test_map[i])
+    # grid.grid.flat[test_map] = np.roll(grid.grid.flat[test_map], -np.round(5*np.pi/180.0).astype(int), axis=0)
+
     gridb = RawGrid(False)
-
-    grida.grid = np.random.random(np.shape(grida.grid))
-    gridb.grid = deepcopy(grida.grid)
-
-    for i in range(50):
-        grida.rot(rot)
-        gridb.rot_mat(rot)
-        if i % 10 == 0:
-            print(i)
-
+    gridb.grid = data['grid']
+    gridb.grid = gridb.grid.clip(-6, 6)
+    gridb.rot(rot)
     import matplotlib.pyplot as plt
     plt.figure(1)
-    plt.imshow(grida.grid)
+    plt.imshow(grid.grid)
     plt.figure(2)
     plt.imshow(gridb.grid)
     plt.show()
+    a = 1

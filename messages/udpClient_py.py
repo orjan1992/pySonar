@@ -1,9 +1,8 @@
-import re
 import io
 from messages.udpMsg import *
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 import threading, socketserver, socket
-from settings import ConnectionSettings
+from settings import Settings, CollisionSettings
 import logging
 logger = logging.getLogger('UdpClient')
 
@@ -38,12 +37,20 @@ class UdpClient(QObject):
         self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
         self.autopilot_thread.setDaemon(True)
 
+        if CollisionSettings.send_new_wps:
+            self.autopilot_watchdog_stop_event = threading.Event()
+            self.autopilot_watchdog_thread = Wathdog(self.autopilot_watchdog_stop_event, self.ping_autopilot_server,
+                                                     ConnectionSettings.autopilot_watchdog_timeout)
+            self.autopilot_watchdog_thread.setDaemon(True)
+
         self.autopilot_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
     def start(self):
         self.sonar_thread.start()
         self.pos_thread.start()
         self.autopilot_thread.start()
+        if CollisionSettings.send_new_wps:
+            self.autopilot_watchdog_thread.start()
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -84,7 +91,12 @@ class UdpClient(QObject):
             msg.sid = self.autopilot_sid
         self.autopilot_socket.sendto(msg.compile(), (self.wp_ip, self.wp_port))
 
+    def ping_autopilot_server(self):
+        # Get empty msg to keep control
+        self.send_autopilot_msg(AutoPilotGetMessage(19))
+
     def parse_pos_msg(self, data, socket):
+        print(data)
         msg = UdpPosMsg(data)
         if not msg.error:
             self.cur_pos_msg = msg
@@ -113,6 +125,17 @@ class Handler(socketserver.BaseRequestHandler):
         socket = self.request[1]
         self.callback(data, socket)
 
+class Wathdog(threading.Thread):
+    def __init__(self, event, fnc, timeout):
+        super().__init__()
+        self.stopped = event
+        self.fnc = fnc
+        self.timeout = timeout
+
+    def run(self):
+        while not self.stopped.wait(self.timeout):
+            self.fnc()
+
 def handler_factory(callback):
     def createHandler(*args, **keys):
         return Handler(callback, *args, **keys)
@@ -121,7 +144,7 @@ def handler_factory(callback):
 
 if __name__ == '__main__':
     from settings import ConnectionSettings
-    client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port, ConnectionSettings.wp_ip, ConnectionSettings.wp_port)
+    client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port, ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_port)
 
 
 

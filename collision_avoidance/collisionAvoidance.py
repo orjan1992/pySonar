@@ -8,6 +8,9 @@ import logging
 import cv2
 from time import time, strftime
 
+if Settings.input_source == 0:
+    import messages.udpMsg as udpMsg
+
 logger = logging.getLogger('Collision_avoidance')
 # console = logging.StreamHandler()
 # console.setLevel(logging.DEBUG)
@@ -235,7 +238,15 @@ class CollisionAvoidance:
                 collision = False
 
             if CollisionSettings.send_new_wps:
-                self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
+                if Settings.input_source == 1:
+                    self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
+                else:
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotTrackingSpeed(0))
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotGuidanceMode(udpMsg.AutoPilotGuidanceModeOptions.STATION_KEEPING))
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotCommand(udpMsg.AutoPilotCommandOptions.CLEAR_WPS))
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotAddWaypoints(self.new_wp_list))
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotGuidanceMode(udpMsg.AutoPilotGuidanceModeOptions))
+                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotTrackingSpeed(self.new_wp_list[0][3]))
 
             if Settings.show_voronoi_plot or Settings.save_obstacles:
                 im = self.calc_voronoi_img(vp, self.new_wp_list, self.voronoi_wp_list)

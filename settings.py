@@ -80,7 +80,7 @@ class GridSettings:
     p_binary_threshold = 0.78
     p_free = 0.3
     p_occ = 0.9
-    hit_factor = 50
+    hit_factor = 30
 
     binary_grid = False
     width = 1601
@@ -89,6 +89,7 @@ class GridSettings:
     else:
         height = 1601
     min_set_pixels = 1601.0*801.0/3.0
+    min_rot = 4  # in 1/16 grad
     cell_factor = 16
     scale_raw_data = True
 
@@ -111,11 +112,12 @@ class FeatureExtraction:
 
 class ConnectionSettings:
         sonar_port = 4001
-        pos_port = 4005
+        pos_port = 4006
         # pos_port = 40010
-        wp_port = 5000
-        wp_ip = None
+        autopilot_port = 5000
+        autopilot_ip = None
         use_nmea_checksum = False
+        autopilot_watchdog_timeout = 0.5
 
 
 class PlotSettings:
