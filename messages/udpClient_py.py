@@ -15,12 +15,12 @@ class UdpClient(QObject):
     sonar_callback = None
     autopilot_sid = 0
 
-    def __init__(self, sonar_port, pos_port, wp_ip, wp_port):
+    def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_port):
         super().__init__()
         self.sonar_port = sonar_port
         self.pos_port = pos_port
-        self.wp_ip = wp_ip
-        self.wp_port = wp_port
+        self.autopilot_ip = autopilot_ip
+        self.autopilot_port = autopilot_port
 
         self.buffer_lock = threading.Lock()
         self.sonar_update_thread = None
@@ -33,9 +33,10 @@ class UdpClient(QObject):
         self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
         self.pos_thread.setDaemon(True)
 
-        self.autopilot_server = socketserver.UDPServer(('0.0.0.0', wp_port), handler_factory(self.parse_autopilot_msg))
-        self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
-        self.autopilot_thread.setDaemon(True)
+        if autopilot_port is not None:
+            self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_port), handler_factory(self.parse_autopilot_msg))
+            self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
+            self.autopilot_thread.setDaemon(True)
 
         if CollisionSettings.send_new_wps:
             self.autopilot_watchdog_stop_event = threading.Event()
@@ -48,7 +49,8 @@ class UdpClient(QObject):
     def start(self):
         self.sonar_thread.start()
         self.pos_thread.start()
-        self.autopilot_thread.start()
+        if self.autopilot_port is not None:
+            self.autopilot_thread.start()
         if CollisionSettings.send_new_wps:
             self.autopilot_watchdog_thread.start()
 
@@ -89,15 +91,15 @@ class UdpClient(QObject):
     def send_autopilot_msg(self, msg):
         if self.autopilot_sid != 0:
             msg.sid = self.autopilot_sid
-        self.autopilot_socket.sendto(msg.compile(), (self.wp_ip, self.wp_port))
+        self.autopilot_socket.sendto(msg.compile(), (self.autopilot_ip, self.autopilot_port))
 
     def ping_autopilot_server(self):
         # Get empty msg to keep control
         self.send_autopilot_msg(AutoPilotGetMessage(19))
 
     def parse_pos_msg(self, data, socket):
-        print(data)
         msg = UdpPosMsg(data)
+        # print(msg)
         if not msg.error:
             self.cur_pos_msg = msg
 

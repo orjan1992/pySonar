@@ -197,9 +197,15 @@ class RawGrid(object):
         # Finding histogram, calculating gradient
         hist = np.histogram(self.grid.astype(np.uint8).ravel(), 256)[0]
         # Check if more than half of pixels is set
-        self.reliable = hist[0] > GridSettings.min_set_pixels
+        # self.reliable = hist[0] < GridSettings.max_unset_pixels
+        # if not self.reliable:
+        #     return cv2.cvtColor(cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT), cv2.COLOR_BGR2RGB), None
         grad = np.gradient(hist[1:])
         i = np.argmax(np.abs(grad) > threshold)
+        print(i)
+        if i == 0:
+            return cv2.cvtColor(cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT),
+                                cv2.COLOR_BGR2RGB), None
 
         # threshold based on gradient
         thresh = cv2.threshold(self.grid.astype(np.uint8), i, 255, cv2.THRESH_BINARY)[1]

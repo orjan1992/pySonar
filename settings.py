@@ -31,7 +31,7 @@ class CollisionSettings:
     loop_sleep = 0.001
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0
-    send_new_wps = True
+    send_new_wps = False
     add_path_deviation_penalty = False
     start_penalty_factor = 1000.0
     path_deviation_penalty_factor = 10.0
@@ -88,10 +88,10 @@ class GridSettings:
         height = 801
     else:
         height = 1601
-    min_set_pixels = 1601.0*801.0/3.0
+    max_unset_pixels = 1601.0 * 801.0 / 4.0
     min_rot = 4  # in 1/16 grad
     cell_factor = 16
-    scale_raw_data = True
+    scale_raw_data = False
 
     # zhou model
     kh_high = 0.5445427266222308
@@ -113,8 +113,10 @@ class FeatureExtraction:
 class ConnectionSettings:
         sonar_port = 4001
         pos_port = 4006
-        # pos_port = 40010
-        autopilot_port = 5000
+
+
+        # Other settings
+        autopilot_port = None
         autopilot_ip = None
         use_nmea_checksum = False
         autopilot_watchdog_timeout = 0.5

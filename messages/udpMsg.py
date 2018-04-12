@@ -134,10 +134,13 @@ class UdpPosMsg(Sensor):
             self.psi = float(str_array[1])*np.pi / 180.0
             self.roll = float(str_array[2])*np.pi / 180.0
             self.pitch = float(str_array[3])*np.pi / 180.0
-            self.depth = float(str_array[4])
-            self.alt = float(str_array[5])
-            self.lat = float(str_array[6])
-            self.long = float(str_array[7])
+            # self.depth = float(str_array[4])
+            # self.alt = float(str_array[5])
+            # self.lat = float(str_array[6])
+            # self.long = float(str_array[7])
+            self.alt = float(str_array[4])
+            self.lat = float(str_array[5])
+            self.long = float(str_array[6])
         except:
             logger.info('NMEA msg to short')
             self.error = True
@@ -156,8 +159,8 @@ class UdpPosMsg(Sensor):
         return UdpPosMsgDiff(dx, dy, dpsi)
 
     def __str__(self):
-        return 'psi: {}, roll: {}, pitch: {}, depth: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
-                                                                                   self.depth, self.lat, self.long)
+        return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
+                                                                                   self.alt, self.lat, self.long)
 
 class UdpPosMsgDiff:
     def __init__(self, dx, dy, dpsi):

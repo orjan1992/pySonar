@@ -89,7 +89,7 @@ class MainWidget(QtGui.QWidget):
         # Textbox
         self.threshold_box = QtGui.QSpinBox()
         self.threshold_box.setMinimum(0)
-        self.threshold_box.setMaximum(255)
+        self.threshold_box.setMaximum(20000)
         self.threshold_box.setValue(PlotSettings.threshold)
 
         # Collision margin box
