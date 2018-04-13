@@ -3,6 +3,7 @@ from messages.udpMsg import *
 from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 import threading, socketserver, socket
 from settings import Settings, CollisionSettings
+from messages.SeaNet import SeanetDecode
 import logging
 logger = logging.getLogger('UdpClient')
 
@@ -14,6 +15,7 @@ class UdpClient(QObject):
     cur_pos_msg = None
     sonar_callback = None
     autopilot_sid = 0
+    seanet = SeanetDecode()
 
     def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_port):
         super().__init__()
@@ -26,6 +28,7 @@ class UdpClient(QObject):
         self.sonar_update_thread = None
 
         self.sonar_server = socketserver.UDPServer(('0.0.0.0', sonar_port), handler_factory(self.parse_sonar_msg))
+        self.sonar_server.allow_reuse_address = True
         self.sonar_thread = threading.Thread(target=self.sonar_server.serve_forever)
         self.sonar_thread.setDaemon(True)
 
@@ -58,43 +61,17 @@ class UdpClient(QObject):
         self.sonar_callback = fnc
 
     def parse_sonar_msg(self, data, socket):
-        # self.buffer_lock.acquire(blocking=True)
-        self.buffer.write(data)
-        tmp = self.buffer.getbuffer()
-        msg_ok = False
-        has_started = False
-        for i in range(0, len(tmp)):
-            if tmp[i] == 0x40:
-                has_started = True
-                try:
-                    msg = MtHeadData(tmp[i:])
-
-                    # self.buffer_lock.acquire(blocking=True)
-                    # self.sonar_update_thread = threading.Thread(target=self.sonar_callback, args=[msg])
-                    # self.sonar_update_thread.start()
-                    # self.buffer_lock.release()
-                    self.buffer = io.BytesIO()
-                    if msg.extra_bytes is not None:
-                        self.buffer.write(msg.extra_bytes)
-
-                    self.sonar_callback(msg)
-                    msg_ok = True
-                    break
-                except CorruptMsgException:
-                    logger.error('Corrupt msg')
-                except OtherMsgTypeException:
-                    logger.debug('Other sonar msg')
-                except UncompleteMsgException:
-                    self.buffer = io.BytesIO()
-                    self.buffer.write(tmp[i:])
-                    msg_ok = True
-                    break
-                except Exception as e:
-                    # self.buffer_lock.release()
-                    raise e
-        if not msg_ok or not has_started:
-            self.buffer = io.BytesIO()
-        # self.buffer_lock.release()
+        try:
+            data_packet = self.seanet.add(data)
+            if data_packet is not None:
+                msg = MtHeadData(data_packet)
+                self.sonar_callback(msg)
+        except CorruptMsgException:
+            logger.error('Corrupt msg')
+        except OtherMsgTypeException:
+            logger.debug('Other sonar msg')
+        except UncompleteMsgException:
+            logger.debug('Uncomplete sonar msg')
 
     def send_autopilot_msg(self, msg):
         if self.autopilot_sid != 0:

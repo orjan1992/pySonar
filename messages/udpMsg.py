@@ -72,11 +72,11 @@ class MtHeadData(Sensor):
              self.bearing, self.dbytes) = struct.unpack('<HHHBHH', byte_array[33:44])
 
             if self.adc8on:
-                if byte_array.nbytes < 44+self.dbytes:
+                if len(byte_array) < 44+self.dbytes:
                     raise UncompleteMsgException("To few databytes")
                 self.data = np.array(list(byte_array[44:(44+self.dbytes)]), dtype=np.uint8)
             else:
-                if byte_array.nbytes < 44+self.dbytes:
+                if len(byte_array) < 44+self.dbytes:
                     raise UncompleteMsgException
                 tmp = struct.unpack(('<%iB' % self.dbytes), byte_array[44:(44 + self.dbytes)])
                 self.data = np.zeros((len(tmp) * 2, 1), dtype=np.uint8)

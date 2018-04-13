@@ -112,7 +112,7 @@ class FeatureExtraction:
 
 class ConnectionSettings:
         sonar_port = 4002
-        pos_port = 4006
+        pos_port = 4005
         # sonar_port = 4001
         # pos_port = 4005
 
