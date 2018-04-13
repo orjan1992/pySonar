@@ -32,6 +32,7 @@ class RawGrid(object):
     x_mesh_unit = np.zeros((RES, RES))
     y_mesh_unit = np.zeros((RES, RES))
     map = np.zeros((N_ANGLE_STEPS, MAX_BINS, MAX_CELLS), dtype=np.uint32)
+    rot_map = np.zeros((N_ANGLE_STEPS, MAX_BINS, MAX_CELLS), dtype=np.uint32)
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = None
     range_scale = 1.0
@@ -69,21 +70,27 @@ class RawGrid(object):
                 with np.load('ogrid/OGrid_data/map_1601.npz') as data:
                     RawGrid.map = data['map']
             except:
-                self.calc_map()
+                raise RuntimeError('NO raw map file')
+
+        if not np.any(RawGrid.rot_map != 0):
+            try:
+                with np.load('ogrid/OGrid_data/rot_map_1601.npz') as data:
+                    RawGrid.rot_map = data['map']
+            except:
+                self.calc_rot_map()
 
         self.lock = threading.Lock()
 
-    def calc_map(self):
+    def calc_rot_map(self):
         # import matplotlib.pyplot as plt
         size = self.RES
         size_half = size // 2
         range_map = self.r_unit
-
         GRAD2RAD = np.pi / 3200.0
         def get_range(ind):
             return range_map.flat[ind]
-        indice_list = np.zeros((self.N_ANGLE_STEPS, self.MAX_BINS, self.MAX_CELLS), dtype=np.int32)
-        bins = np.linspace(0, 1, 800)
+        indice_list = np.zeros((self.N_ANGLE_STEPS, 1268), dtype=np.int32)
+        bins = np.linspace(0, 1, 1268)
         for i in range(self.N_ANGLE_STEPS):
             print('\t' + str(i))
             i_min_high_freq = i - .5
@@ -102,16 +109,14 @@ class RawGrid(object):
             # plt.imshow(bin_map)
             # plt.show()
             indices = np.ravel_multi_index(np.nonzero(bin_map), (size, size))
-            binned = np.digitize(range_map.flat[indices], bins)
-            j = 0
-            while j < len(binned):
-                k = 0
-                while indice_list[i, binned[j], k] != 0 and k < 3:
-                    k += 1
-                indice_list[i, binned[j], k] = indices[j]
-
+            binned = np.digitize(range_map.flat[indices].clip(0, 0.9999999999999999), bins)
+            indice_list[i, binned] = indices
+            for j in range(1, 1268):
+                if indice_list[i, j] == 0:
+                    indice_list[i, j] = indice_list[i, j-1]
+        #
         print('Calculated map successfully')
-        np.savez('ogrid/OGrid_data/map_1601.npz', map=indice_list)
+        np.savez('ogrid/OGrid_data/rot_map_1601.npz', map=indice_list)
         print('Map saved')
         RawGrid.map = indice_list
 
@@ -298,6 +303,22 @@ class RawGrid(object):
     #     self.lock.release()
     #     return True
 
+    # def rot(self, dpsi):
+    #     dpsi_grad = dpsi*3200/np.pi + self.old_delta_psi
+    #
+    #     if abs(dpsi_grad) < GridSettings.min_rot:
+    #         self.old_delta_psi = dpsi_grad
+    #         return False
+    #     else:
+    #         self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
+    #     # Only first cell in each to save time
+    #     new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
+    #     new_grid.flat[RawGrid.map[:, :, 0]] = np.roll(self.grid.flat[RawGrid.map[:, :, 0]], -np.round(dpsi_grad).astype(int), axis=0)
+    #     self.lock.acquire()
+    #     self.grid = new_grid
+    #     self.lock.release()
+    #     return True
+
     def rot(self, dpsi):
         dpsi_grad = dpsi*3200/np.pi + self.old_delta_psi
 
@@ -306,25 +327,9 @@ class RawGrid(object):
             return False
         else:
             self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
-        # Only first cell in each to save time
-        new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
-        new_grid.flat[RawGrid.map[:, :, 0]] = np.roll(self.grid.flat[RawGrid.map[:, :, 0]], -np.round(dpsi_grad).astype(int), axis=0)
-        self.lock.acquire()
-        self.grid = new_grid
-        self.lock.release()
-        return True
 
-    def new_rot(self, dpsi):
-        dpsi_grad = dpsi*3200/np.pi + self.old_delta_psi
-
-        if abs(dpsi_grad) < GridSettings.min_rot:
-            self.old_delta_psi = dpsi_grad
-            return False
-        else:
-            self.old_delta_psi = dpsi_grad - np.round(dpsi_grad).astype(int)
-        # Only first cell in each to save time
         new_grid = np.full((self.i_max, self.j_max), self.p_log_zero, dtype=self.oLog_type)
-        new_grid.flat[RawGrid.map[:, :, :]] = np.roll(self.grid.flat[RawGrid.map[:, :, :]], -np.round(dpsi_grad).astype(int), axis=0)
+        new_grid.flat[RawGrid.rot_map] = np.roll(self.grid.flat[RawGrid.rot_map], -np.round(dpsi_grad).astype(int), axis=0)
         self.lock.acquire()
         self.grid = new_grid
         self.lock.release()
@@ -409,29 +414,22 @@ class RawGrid(object):
 
 if __name__ == "__main__":
     grid = RawGrid(False)
-    # from time import time
-    # rot = np.pi*0.5/180.0
-    # grida = RawGrid(False)
+    from time import time
+    rot = np.pi*0.5/180.0
+    grida = RawGrid(False)
     # for cone in RawGrid.map:
     #     for cells in cone:
     #         cells[cells == 0] = cells[0]
-    # grida.grid = np.random.random(np.shape(grida.grid))
-    # for i in range(20):
-    #     grida.rot(rot)
-    #     grida.new_rot(rot)
+    grida.grid = np.random.random(np.shape(grida.grid))
+    for i in range(20):
+        grida.rot(rot)
+        grida.new_rot(rot)
 
     # rot = -np.pi * 50 / 180.0
     # data = np.load('occ.npz')
     # grid = RawGrid(False)
     # grid.grid = data['grid']
     # grid.grid = grid.grid.clip(-6, 6)
-    # for i in range(6400):
-    #     if i % 100 == 0:
-    #         print(i)
-    #     for j in range(800):
-    #         mask = grid.map[i, j, :] == 0
-    #         if np.any(mask):
-    #             grid.map[i, j, mask] == grid.map[i, j, 0]
     # grid.new_rot(rot)
     # # # test_map = np.asarray(RawGrid.map[:, :, 0])
     # # test_map = RawGrid.map[:, :, 0]
