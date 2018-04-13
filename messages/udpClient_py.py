@@ -62,26 +62,28 @@ class UdpClient(QObject):
         self.buffer.write(data)
         tmp = self.buffer.getbuffer()
         msg_ok = False
+        has_started = False
         for i in range(0, len(tmp)):
             if tmp[i] == 0x40:
+                has_started = True
                 try:
-                    msg = MtHeadData(tmp[i:len(tmp)])
+                    msg = MtHeadData(tmp[i:])
 
                     # self.buffer_lock.acquire(blocking=True)
                     # self.sonar_update_thread = threading.Thread(target=self.sonar_callback, args=[msg])
                     # self.sonar_update_thread.start()
                     # self.buffer_lock.release()
+                    self.buffer = io.BytesIO()
+                    if msg.extra_bytes is not None:
+                        self.buffer.write(msg.extra_bytes)
 
                     self.sonar_callback(msg)
-                    self.buffer = io.BytesIO()
                     msg_ok = True
                     break
                 except CorruptMsgException:
                     logger.error('Corrupt msg')
-                    break
                 except OtherMsgTypeException:
                     logger.debug('Other sonar msg')
-                    break
                 except UncompleteMsgException:
                     self.buffer = io.BytesIO()
                     self.buffer.write(tmp[i:])
@@ -90,7 +92,7 @@ class UdpClient(QObject):
                 except Exception as e:
                     # self.buffer_lock.release()
                     raise e
-        if not msg_ok:
+        if not msg_ok or not has_started:
             self.buffer = io.BytesIO()
         # self.buffer_lock.release()
 

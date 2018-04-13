@@ -111,10 +111,10 @@ class FeatureExtraction:
     min_area = 1  # pixels/m
 
 class ConnectionSettings:
-        # sonar_port = 4002
-        # pos_port = 4006
-        sonar_port = 4001
-        pos_port = 4005
+        sonar_port = 4002
+        pos_port = 4006
+        # sonar_port = 4001
+        # pos_port = 4005
 
 
         # Other settings

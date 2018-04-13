@@ -20,8 +20,11 @@ class MtHeadData(Sensor):
         super().__init__(*kwargs)
         try:
             if byte_array[0] != 0x40:
-                raise UncompleteMsgException()
-            hex_length = b''.join([binascii.unhexlify(byte_array[3:5]), binascii.unhexlify(byte_array[1:3])])
+                raise CorruptMsgException('Wrong start byte')
+            try:
+                hex_length = b''.join([binascii.unhexlify(byte_array[3:5]), binascii.unhexlify(byte_array[1:3])])
+            except:
+                raise  CorruptMsgException()
             hex_length = struct.unpack('H', hex_length)
             word_length = struct.unpack('H', byte_array[5:7])
             if hex_length != word_length:
@@ -84,6 +87,11 @@ class MtHeadData(Sensor):
             # Convert to similar format as moosmsg
             self.range_scale *= 0.1
             self.length = self.dbytes
+            try:
+                self.extra_bytes = byte_array[43+self.dbytes:]
+            except:
+                self.extra_bytes = None
+
             # self.time = 0
             # if byte_array[43 + self.dbytes] != 10:
             #     logger.error('No end of message')
