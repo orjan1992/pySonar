@@ -80,7 +80,7 @@ class GridSettings:
     p_binary_threshold = 0.78
     p_free = 0.3
     p_occ = 0.9
-    hit_factor = 30
+    hit_factor = 50
 
     binary_grid = False
     width = 1601
@@ -111,7 +111,7 @@ class FeatureExtraction:
     min_area = 1  # pixels/m
 
 class ConnectionSettings:
-        sonar_port = 4001
+        sonar_port = 4002
         pos_port = 4006
 
 

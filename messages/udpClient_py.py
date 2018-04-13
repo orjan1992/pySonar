@@ -61,6 +61,7 @@ class UdpClient(QObject):
         # self.buffer_lock.acquire(blocking=True)
         self.buffer.write(data)
         tmp = self.buffer.getbuffer()
+        msg_ok = False
         for i in range(0, len(tmp)):
             if tmp[i] == 0x40:
                 try:
@@ -72,20 +73,25 @@ class UdpClient(QObject):
                     # self.buffer_lock.release()
 
                     self.sonar_callback(msg)
-                    tmp = None
                     self.buffer = io.BytesIO()
+                    msg_ok = True
+                    break
                 except CorruptMsgException:
                     logger.error('Corrupt msg')
-                    self.buffer = io.BytesIO()
+                    break
                 except OtherMsgTypeException:
-                    self.buffer = io.BytesIO()
                     logger.debug('Other sonar msg')
+                    break
                 except UncompleteMsgException:
-                    pass
+                    self.buffer = io.BytesIO()
+                    self.buffer.write(tmp[i:])
+                    msg_ok = True
+                    break
                 except Exception as e:
                     # self.buffer_lock.release()
                     raise e
-                break
+        if not msg_ok:
+            self.buffer = io.BytesIO()
         # self.buffer_lock.release()
 
     def send_autopilot_msg(self, msg):
