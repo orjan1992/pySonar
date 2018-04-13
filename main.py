@@ -304,9 +304,10 @@ class MainWidget(QtGui.QWidget):
                 self.img_item.setImage(im)
             else:
                 raise Exception('Invalid plot type')
-            self.img_item.setPos(-self.grid.last_distance,
-                                 -self.grid.last_distance/2 if GridSettings.half_grid else - self.grid.last_distance)
-            # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
+            if self.grid.last_distance is not None:
+                self.img_item.setPos(-self.grid.last_distance,
+                                     -self.grid.last_distance/2 if GridSettings.half_grid else - self.grid.last_distance)
+                # self.img_item.scale(self.grid.last_distance/self.grid.RES, self.grid.last_distance/self.grid.RES)
 
             if Settings.hist_window:
                 hist, _ = np.histogram(self.grid.get_raw(), 256)

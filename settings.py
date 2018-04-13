@@ -111,7 +111,7 @@ class FeatureExtraction:
     min_area = 1  # pixels/m
 
 class ConnectionSettings:
-        sonar_port = 4002
+        sonar_port = 4001
         pos_port = 4005
         # sonar_port = 4001
         # pos_port = 4005
@@ -130,4 +130,4 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 50
+        threshold = 150

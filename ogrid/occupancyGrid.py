@@ -190,7 +190,7 @@ class OccupancyGrid(RawGrid):
             max = np.max(msg.data)
             threshold = np.max([max - (max-mean)/8, threshold])
             # print(threshold)
-            print(threshold)
+            # print(threshold)
             if True:
                 # Hit
                 theta_rad = msg.bearing * np.pi / 3200.0
