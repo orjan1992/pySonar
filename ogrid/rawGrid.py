@@ -221,10 +221,17 @@ class RawGrid(object):
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
     def rot(self, dpsi):
-        new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dpsi*180.0/np.pi, 1.0), (self.RES, self.RES), flags=cv2.INTER_LINEAR)
-        self.lock.acquire()
-        self.grid = new_grid
-        self.lock.release()
+        if dpsi == 0:
+            return True
+        try:
+            # new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dpsi*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, self.p_log_zero)
+            new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dpsi*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, borderValue=self.p_log_zero)
+            self.lock.acquire()
+            self.grid = new_grid
+            self.lock.release()
+        except TypeError:
+            a = 1
+
         return True
 
     def trans(self, dx, dy):
