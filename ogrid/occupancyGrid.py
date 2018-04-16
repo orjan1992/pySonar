@@ -429,4 +429,9 @@ class OccupancyGrid(RawGrid):
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
-    grid = OccupancyGrid(False, 0, 0.7, 0.4, 0.6, 16)
+    grid = OccupancyGrid(False, 0.1, 0.7, 0.4, 0.6, 16)
+    tmp = np.kron(np.random.randint(-10, 10, (10, 10)), np.ones((10, 10)))
+    grid.occ2raw(tmp)
+    plt.imshow(grid.grid)
+    plt.show()
+    np.savez('occ2.npz', grid=grid.grid)
