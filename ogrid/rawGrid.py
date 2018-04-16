@@ -78,7 +78,6 @@ class RawGrid(object):
                     RawGrid.rot_map = data['map']
             except:
                 self.calc_rot_map()
-
         self.lock = threading.Lock()
 
     def calc_rot_map(self):
@@ -89,8 +88,10 @@ class RawGrid(object):
         GRAD2RAD = np.pi / 3200.0
         def get_range(ind):
             return range_map.flat[ind]
-        indice_list = np.zeros((self.N_ANGLE_STEPS, 1268), dtype=np.int32)
-        bins = np.linspace(0, 1, 1268)
+        number_of_cells = 1601
+        indice_list = np.zeros((self.N_ANGLE_STEPS, number_of_cells), dtype=np.int32)
+        bins = np.linspace(0, 1.0005, number_of_cells)
+        center = np.ravel_multi_index((800, 800), (size, size))
         for i in range(self.N_ANGLE_STEPS):
             print('\t' + str(i))
             i_min_high_freq = i - .5
@@ -109,16 +110,50 @@ class RawGrid(object):
             # plt.imshow(bin_map)
             # plt.show()
             indices = np.ravel_multi_index(np.nonzero(bin_map), (size, size))
-            binned = np.digitize(range_map.flat[indices].clip(0, 0.9999999999999999), bins)
+            binned = np.digitize(range_map.flat[indices], bins)
             indice_list[i, binned] = indices
-            for j in range(1, 1268):
+            if indice_list[i, 0] == 0:
+                indice_list[i, 0] = center
+            for j in range(1, number_of_cells):
                 if indice_list[i, j] == 0:
                     indice_list[i, j] = indice_list[i, j-1]
         #
         print('Calculated map successfully')
         np.savez('ogrid/OGrid_data/rot_map_1601.npz', map=indice_list)
         print('Map saved')
-        RawGrid.map = indice_list
+        RawGrid.rot_map = indice_list
+
+    def find_and_replace_holes_rot_map(self):
+        from coordinate_transformations import wrapTo2Pi
+        size_half = self.RES // 2
+        bin_map = np.zeros((self.RES, self.RES), dtype=np.uint8)
+        bin_map.flat[self.rot_map] = 255
+        holes = np.ravel_multi_index(np.nonzero(bin_map == 0), (self.RES, self.RES))
+        holes_raveled = holes[self.r_unit.flat[holes] < 1.0005]
+        number_of_cells = np.shape(self.rot_map)[1]
+        center = np.ravel_multi_index((800, 800), (self.RES, self.RES))
+        bins = np.linspace(0, 1.0005, number_of_cells)
+        holes = np.unravel_index(holes_raveled, (self.RES, self.RES))
+        for i in range(len(holes[0])):
+            print(i)
+            alpha = np.round(wrapTo2Pi(np.arctan2(1 - holes[1][i]/size_half, holes[0][i]/size_half - 1))*3200/np.pi).astype(np.int)
+            indices = np.unique(self.rot_map[alpha, :])
+            indices = np.append(indices, holes_raveled[i])
+
+            binned = np.digitize(self.r_unit.flat[indices], bins)
+            self.rot_map[alpha, :] = 0
+            try:
+                self.rot_map[alpha, binned] = indices
+            except IndexError:
+                a = 1
+            if self.rot_map[alpha, 0] == 0:
+                self.rot_map[alpha, 0] = center
+            for j in range(1, number_of_cells):
+                if self.rot_map[alpha, j] == 0:
+                    self.rot_map[alpha, j] = self.rot_map[alpha, j - 1]
+        print('Calculated holes successfully')
+        np.savez('ogrid/OGrid_data/rot_map_1601.npz', map=self.rot_map)
+        print('Map saved')
 
     def get_raw(self):
         return self.grid
@@ -412,39 +447,32 @@ class RawGrid(object):
         return True
 
 
-if __name__ == "__main__":
-    grid = RawGrid(False)
-    from time import time
-    rot = np.pi*0.5/180.0
-    grida = RawGrid(False)
-    # for cone in RawGrid.map:
-    #     for cells in cone:
-    #         cells[cells == 0] = cells[0]
-    grida.grid = np.random.random(np.shape(grida.grid))
-    for i in range(20):
-        grida.rot(rot)
-        grida.new_rot(rot)
+def contour_test(grid):
+    import matplotlib.pyplot as plt
+    i = 0
+    for l1, l2 in zip(grid.rot_map, grid.rot_map[1:, :]):
+        bin_map = np.zeros((1601, 1601), dtype=np.uint8)
+        bin_map.flat[l1] = 255
+        bin_map.flat[l2] = 255
+        im, c, _ = cv2.findContours(bin_map, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        im = cv2.drawContours(np.zeros((1601, 1601), dtype=np.uint8), c, -1, (255, 255, 255), -1)
+        if not np.all(bin_map == im):
+            # plt.imshow(bin_map)
+            # plt.show()
+            print(i)
+        i += 1
 
-    # rot = -np.pi * 50 / 180.0
-    # data = np.load('occ.npz')
-    # grid = RawGrid(False)
-    # grid.grid = data['grid']
-    # grid.grid = grid.grid.clip(-6, 6)
-    # grid.new_rot(rot)
-    # # # test_map = np.asarray(RawGrid.map[:, :, 0])
-    # # test_map = RawGrid.map[:, :, 0]
-    # # # for i in range(6400):
-    # # #     test_map[i] = np.array(test_map[i])
-    # # grid.grid.flat[test_map] = np.roll(grid.grid.flat[test_map], -np.round(5*np.pi/180.0).astype(int), axis=0)
-    #
-    # gridb = RawGrid(False)
-    # gridb.grid = data['grid']
-    # gridb.grid = gridb.grid.clip(-6, 6)
-    # gridb.rot(rot)
-    # import matplotlib.pyplot as plt
-    # plt.figure(1)
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    grid = RawGrid(False)
+    # contour_test(grid)
+    # grid.grid = np.zeros(np.shape(grid.grid), dtype=grid.oLog_type)
+    # grid.grid.flat[grid.rot_map] = 255
+    # test = np.ravel_multi_index(np.nonzero(grid.grid == 0), (1601, 1601))
+    # # # TODO: save test and use this to close holes.
+    # grid.grid.flat[test] = grid.grid.flat[test-1]
     # plt.imshow(grid.grid)
-    # plt.figure(2)
-    # plt.imshow(gridb.grid)
     # plt.show()
     # a = 1
+
