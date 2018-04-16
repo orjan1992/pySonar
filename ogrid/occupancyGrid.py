@@ -1,5 +1,6 @@
 from ogrid.rawGrid import RawGrid
 import numpy as np
+from scipy.signal import argrelmax, argrelmin
 from settings import *
 from coordinate_transformations import wrapTo2Pi, wrapToPi, wrapToPiHalf
 from threading import Lock
@@ -159,40 +160,10 @@ class OccupancyGrid(RawGrid):
             print(msg.bearing)
             return
         try:
-            occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
-            # print(np.mean(msg.data))
-            new_data = self.interpolate_bins(msg)
-            # new_data = msg.data
 
-            # grad = np.gradient(new_data.astype(float))
-            # grad_max_ind = np.argmax(grad > threshold)
-            # try:
-            #     if grad_max_ind != 0:
-            #         threshold = new_data[grad_max_ind + 1]
-            #     else:
-            #         # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
-            #         threshold = 256
-            # except IndexError:
-            #     # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
-            #     threshold = 256
-            # hit_ind = np.argmax(new_data >= threshold)
-            # # print('hit_ind: {},\tthresh: {}'.format(hit_ind, threshold))
-            # if hit_ind == 0:
-            #     # No hit
-            #     if msg.chan2:
-            #         for cell in self.angle2cell_high[self.high_indexer[msg.bearing]]:
-            #             occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
-            #     else:
-            #         for cell in self.angle2cell_low[self.low_indexer[msg.bearing]]:
-            #             occ_grid.flat[cell] = self.p_log_free - self.p_log_zero
-            # else:
-            mean = np.mean(msg.data)
-            max = np.max(msg.data)
-            threshold = np.max([max - (max-mean)/8, threshold])
-            # print(threshold)
-            # print(threshold)
-            if True:
-                # Hit
+            occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+            data_ind = self.get_hit_inds(msg, threshold)
+            if np.any(data_ind):
                 theta_rad = msg.bearing * np.pi / 3200.0
                 obstacle_in_line = False
                 self.contour_lock.acquire()
@@ -203,8 +174,8 @@ class OccupancyGrid(RawGrid):
                         obstacle_in_line = True
                 self.contour_lock.release()
 
-                data_ind = np.nonzero(new_data >= threshold)[0]
-                data_not_ind = new_data < threshold
+                # TODO: Remove data interpolation by scaling indexes
+
                 data_ind_low = data_ind - GridSettings.hit_factor
                 data_ind_high = data_ind + GridSettings.hit_factor
 
@@ -282,6 +253,11 @@ class OccupancyGrid(RawGrid):
                                 occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = np.log(p / (1 - p))
                         else:
                             occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = self.p_log_occ - self.p_log_zero
+            else:
+                if msg.chan2:
+                    occ_grid.flat[self.angle2cell_high[self.high_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
+                else:
+                    occ_grid.flat[self.angle2cell_low[self.low_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
 
             self.lock.acquire()
             self.occ2raw(occ_grid)
@@ -426,6 +402,52 @@ class OccupancyGrid(RawGrid):
         im[801, :, :] = np.array([0, 0, 255])
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), self.contours
 
+    # def get_hit_inds(self, msg, threshold):
+    #     # hit indices by gradient threshold
+    #     new_data = self.interpolate_bins(msg)
+    #
+    #     grad = np.gradient(new_data.astype(float))
+    #     grad_max_ind = np.argmax(grad > threshold)
+    #     try:
+    #         if grad_max_ind != 0:
+    #             threshold = new_data[grad_max_ind + 1]
+    #         else:
+    #             # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+    #             threshold = 256
+    #     except IndexError:
+    #         # logger.debug('No obstacles in this scanline, max grad: {}'.format(np.max(grad)))
+    #         threshold = 256
+    #
+    #     return np.nonzero(new_data >= threshold)[0]
+
+    # def get_hit_inds(self, msg, threshold):
+    #     # by normal threshold
+    #     new_data = self.interpolate_bins(msg)
+    #     mean = np.mean(msg.data)
+    #     max = np.max(msg.data)
+    #     threshold = np.max([max - (max - mean) / 8, threshold])
+    #     return np.nonzero(new_data >= threshold)[0]
+
+    def get_hit_inds(self, msg, threshold):
+        smooth = np.convolve(msg.data, np.ones((10,))/10, mode='full')
+        min = argrelmin(smooth)[0]
+        max = argrelmax(smooth)[0]
+        if max[0] < min[0]:
+            max = max[1:]
+        if max[-1] > min[-1]:
+            max = max[:-1]
+        try:
+            mask = np.logical_or(smooth[max] - smooth[min[:-1]] > threshold, smooth[max] - smooth[min[1:]] > threshold)
+        except Exception as e:
+            print(e)
+            min = argrelmin(smooth)[0]
+            max = argrelmax(smooth)[0]
+            if max[0] > min[0]:
+                tmp = max > min
+            else:
+                tmp = max < min
+            a = 1
+        return max[mask]*800/len(msg.data)
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
