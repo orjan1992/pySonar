@@ -13,7 +13,7 @@ if Settings.input_source == 0:
 elif Settings.input_source == 1:
     from messages.moosMsgs import MoosMsgs
 from messages.moosPosMsg import *
-from collision_avoidance.collisionAvoidance import CollisionAvoidance
+from collision_avoidance.collisionAvoidance import CollisionAvoidance, CollisionStatus
 import map
 from messages.udpMsg import AutoPilotRemoteControlRequest
 
@@ -338,18 +338,17 @@ class MainWidget(QtGui.QWidget):
         self.thread_pool.start(self.collision_worker, 6)
         logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
-    @QtCore.pyqtSlot(int, name='collision_worker_finished')
+    @QtCore.pyqtSlot(CollisionStatus, name='collision_worker_finished')
     def collision_loop_finished(self, status):
         self.collision_stat = status
-        logger.info('Collision avoidance finished. Status: {}'.format(status))
-        if self.collision_stat == 2:
+        if status == CollisionStatus.NO_FEASIBLE_ROUTE:
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
-        else:
+        elif status == CollisionStatus.NEW_ROUTE_OK or status == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
-            self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
+        self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(bool, name='grid_worker_finished')
     def grid_worker_finished(self, status):
@@ -383,6 +382,7 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance == True:
             self.collision_avoidance.update_pos(0, 0, 0)
             self.collision_avoidance.update_external_wps(CollisionSettings.dummy_wp_list, 0)
+            self.plot_updated = True
 
     def update_collision_margin(self):
         CollisionSettings.obstacle_margin = self.collision_margin_box.value()
@@ -405,7 +405,7 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
 
 
 class CollisionAvoidanceWorkerSignals(QtCore.QObject):
-    finished = QtCore.pyqtSignal(int, name='collision_worker_finished')
+    finished = QtCore.pyqtSignal(CollisionStatus, name='collision_worker_finished')
 
 
 class GridWorker(QtCore.QRunnable):

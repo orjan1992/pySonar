@@ -43,7 +43,7 @@ class CollisionSettings:
     first_wp_dist = 1
 
     tracking_speed = 0.5
-    dummy_wp_list = [[0, 0, 0, 0.5], [30, 0, 0, 0.5]]
+    dummy_wp_list = [[0, 0, 0, 0.5], [40, 0, 0, 0.5]]
 
 
 class MapSettings:

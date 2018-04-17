@@ -3,7 +3,7 @@ from collision_avoidance.voronoi import MyVoronoi
 from collision_avoidance.fermat import fermat
 from coordinate_transformations import *
 from settings import GridSettings, CollisionSettings, Settings, PlotSettings
-from time import sleep
+from enum import Enum
 import logging
 import cv2
 from time import time, strftime
@@ -71,19 +71,20 @@ class CollisionAvoidance:
         if reliable:
             self.pos_and_obs_lock = True
             t0 = time()
-            status = 1
-            if self.check_collision_margins():
+            if self.check_collision_margins(self.waypoint_list):
                 logger.info("Collision path detected, start new wp calc")
-                if not self.calc_new_wp():
+                stat = self.calc_new_wp()
+                if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
                     logger.info('Collision danger: could not calculate feasible path')
-                    status = 2
-
-                logger.debug('collision loop time: {}'.format(time()-t0))
+                elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+                    logger.info('Smooth path violates margin')
+                elif stat == CollisionStatus.NEW_ROUTE_OK:
+                    logger.info('New route ok. Time: {}'.format(time()-t0))
             else:
-                logger.info('no collision danger')
-                status = 0
+                logger.info('No collision danger')
+                stat = CollisionStatus.NO_DANGER
             self.pos_and_obs_lock = False
-            return status
+            return stat
 
     def remove_obsolete_wp(self, wp_list):
         i = 0
@@ -98,8 +99,9 @@ class CollisionAvoidance:
         logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
-    def check_collision_margins(self):
-        if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
+    def check_collision_margins(self, wp_list):
+        if len(self.obstacles) > 0 and np.shape(wp_list)[0] > 0:
+            # TODO: Maybe not necessary to draw new bin map when obstacles is not updated
             self.bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
                                                 dtype=np.uint8), self.obstacles, -1, (255, 255, 255), -1)
             # k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range).astype(int)
@@ -108,8 +110,8 @@ class CollisionAvoidance:
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
             line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
-            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
-                NE, constrained = constrainNED2range(self.waypoint_list[i], old_wp,
+            for i in range(self.waypoint_counter, np.shape(wp_list)[0]):
+                NE, constrained = constrainNED2range(wp_list[i], old_wp,
                                                      self.lat, self.long, self.psi, self.range)
                 grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp,
@@ -220,7 +222,7 @@ class CollisionAvoidance:
                     N, E = grid2NED(wps[0], wps[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
-                return False
+                return CollisionStatus.NO_FEASIBLE_ROUTE
             # Smooth waypoints
             # self.new_wp_list.append(self.waypoint_list[constrained_wp_index])
             # Add old waypoints
@@ -232,19 +234,22 @@ class CollisionAvoidance:
             self.new_wp_list = fermat(self.new_wp_list)
 
             # Check if smooth path is collision free
-            collision = self.check_collision_margins()
+            collision = self.check_collision_margins(self.new_wp_list)
             while collision:
                 # TODO: Calc new path with modified dijkstra from lekkas
                 logger.debug('Smooth path violates collision margins')
                 collision = False
-                return False
+                self.waypoint_list = self.new_wp_list
+                self.waypoint_counter = 0
+                return CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
                     self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
                 else:
                     self.msg_client.update_wps(self.new_wp_list)
-                    self.update_external_wps(self.new_wp_list, 0)
+                    self.waypoint_list = self.new_wp_list
+                    self.waypoint_counter = 0
 
             if Settings.show_voronoi_plot or Settings.save_obstacles:
                 im = self.calc_voronoi_img(vp, self.new_wp_list, self.voronoi_wp_list)
@@ -252,7 +257,7 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
-            return True
+            return CollisionStatus.NEW_ROUTE_OK
             # return vp
 
     def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
@@ -317,11 +322,10 @@ class CollisionAvoidance:
         return im
 
 class CollisionStatus(Enum):
-    NONE = 0
-    START = 1
-    STOP = 2
-    SAVE = 3
-    CLEAR_WPS = 6
+    NO_DANGER = 0
+    NO_FEASIBLE_ROUTE = 1
+    SMOOTH_PATH_VIOLATES_MARGIN = 2
+    NEW_ROUTE_OK = 3
 
 if __name__ == '__main__':
     import cv2
