@@ -163,6 +163,8 @@ class OccupancyGrid(RawGrid):
 
             occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
             data_ind = self.get_hit_inds(msg, threshold)
+            print(data_ind)
+            logger.debug(data_ind)
             if np.any(data_ind):
                 theta_rad = msg.bearing * np.pi / 3200.0
                 obstacle_in_line = False
@@ -173,8 +175,6 @@ class OccupancyGrid(RawGrid):
                         theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
                         obstacle_in_line = True
                 self.contour_lock.release()
-
-                # TODO: Remove data interpolation by scaling indexes
 
                 data_ind_low = data_ind - GridSettings.hit_factor
                 data_ind_high = data_ind + GridSettings.hit_factor
@@ -274,7 +274,6 @@ class OccupancyGrid(RawGrid):
         :param point: intersection point (x, y)
         :return:
         """
-        # TODO: Fix angle to 0 deg at north
         contour = np.reshape(contour, (len(contour), 2))
         coord_sign = np.sign(contour - point)
         coord_sign_rolled = np.roll(coord_sign, 1, axis=0)
@@ -428,11 +427,72 @@ class OccupancyGrid(RawGrid):
     #     threshold = np.max([max - (max - mean) / 8, threshold])
     #     return np.nonzero(new_data >= threshold)[0]
 
-    def get_hit_inds(self, msg, threshold):
-        smooth = np.convolve(msg.data, np.ones((10,))/10, mode='full')
 
-        mask = np.logical_or(smooth[max] - smooth[min[:-2]] > threshold, smooth[max] - smooth[min[2:]] > threshold)
-        return np.nonzero(mask)
+    def get_hit_inds(self, msg, threshold):
+        smooth = np.convolve(msg.data, np.ones((10,)) / 10, mode='full')
+        data_len = len(smooth)
+        s1 = smooth[:-2]
+        s2 = smooth[1:-1]
+        s3 = smooth[2:]
+
+        peaks = (np.array(
+            np.nonzero(np.logical_or(np.logical_and(s1 < s2, s2 > s3), np.logical_and(s1 < s2, s2 == s3)))).reshape(
+            -1) + 1).tolist()
+        valleys = (np.array(
+            np.nonzero(np.logical_or(np.logical_and(s1 > s2, s2 < s3), np.logical_and(s1 > s2, s2 == s3)))).reshape(
+            -1) + 1).tolist()
+        if peaks[0] != 0 and peaks[0] < valleys[0]:
+            valleys.insert(0, 0)
+        if peaks[-1] != data_len - 1 and peaks[-1] > valleys[-1]:
+            valleys.append(data_len - 1)
+
+        signed_array = np.zeros(data_len, dtype=np.int8)
+        signed_array[peaks] = 1
+        signed_array[valleys] = -1
+        sgn = signed_array[0]
+        i_sgn = 0
+        for i in range(1, data_len):
+            if signed_array[i] == 1:
+                if sgn == signed_array[i]:
+                    peaks.remove(i_sgn)
+                else:
+                    sgn = 1
+                i_sgn = i
+            elif signed_array[i] == -1:
+                if sgn == signed_array[i]:
+                    valleys.remove(i_sgn)
+                else:
+                    sgn = -1
+                i_sgn = i
+        mask = np.logical_and(smooth[peaks] - smooth[valleys[:-1]] > 5, smooth[peaks] - smooth[valleys[1:]] > 5)
+        peaks = (np.array(peaks)[mask]).tolist()
+        signed_array = np.zeros(data_len, dtype=np.int8)
+        signed_array[peaks] = 1
+        signed_array[valleys] = -1
+        sgn = signed_array[0]
+        i_sgn = 0
+        for i in range(1, data_len):
+            if signed_array[i] == 1:
+                if sgn == signed_array[i]:
+                    peaks.remove(i_sgn)
+                else:
+                    sgn = 1
+                i_sgn = i
+            elif signed_array[i] == -1:
+                if sgn == signed_array[i]:
+                    if smooth[i] < smooth[i_sgn]:
+                        valleys.remove(i_sgn)
+                        i_sgn = i
+                    else:
+                        valleys.remove(i)
+                else:
+                    sgn = -1
+                    i_sgn = i
+        smooth_peaks = smooth[peaks]
+        smooth_valleys = smooth[valleys]
+        mask = np.logical_or(smooth_peaks - smooth_valleys[:-1] > threshold,
+                             smooth_peaks - smooth_valleys[1:] > threshold)
+        return np.round(np.array(peaks)[mask] * self.MAX_BINS / msg.dbytes).astype(int)
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
