@@ -40,7 +40,7 @@ file.close()
 #
 #
 # # plt(O.cell_x_value, O.cell_y_value, np.arcsin((O.cellSize+O.cell_x_value)/O.r_unit)-O.theta)
-# # plt.plot(O.cell_x_value[0, :], (O.cellSize+O.cell_x_value[0, :])/np.max(np.max(O.r_unit)))
+# # plt.plot(O.cell_x_value[0, :], (O.cellSize+O.cell_x_value[0, :])/np.peak(np.peak(O.r_unit)))
 # plt.show()
 delta_psi = 1*pi/180
 delta_x = O.r*np.sin(delta_psi+O.theta) - O.cell_x_value

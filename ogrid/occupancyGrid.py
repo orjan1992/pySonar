@@ -1,6 +1,6 @@
 from ogrid.rawGrid import RawGrid
 import numpy as np
-from scipy.signal import argrelmax, argrelmin
+from scipy.signal import argrelextrema
 from settings import *
 from coordinate_transformations import wrapTo2Pi, wrapToPi, wrapToPiHalf
 from threading import Lock
@@ -430,24 +430,9 @@ class OccupancyGrid(RawGrid):
 
     def get_hit_inds(self, msg, threshold):
         smooth = np.convolve(msg.data, np.ones((10,))/10, mode='full')
-        min = argrelmin(smooth)[0]
-        max = argrelmax(smooth)[0]
-        if max[0] < min[0]:
-            max = max[1:]
-        if max[-1] > min[-1]:
-            max = max[:-1]
-        try:
-            mask = np.logical_or(smooth[max] - smooth[min[:-1]] > threshold, smooth[max] - smooth[min[1:]] > threshold)
-        except Exception as e:
-            print(e)
-            min = argrelmin(smooth)[0]
-            max = argrelmax(smooth)[0]
-            if max[0] > min[0]:
-                tmp = max > min
-            else:
-                tmp = max < min
-            a = 1
-        return max[mask]*800/len(msg.data)
+
+        mask = np.logical_or(smooth[max] - smooth[min[:-2]] > threshold, smooth[max] - smooth[min[2:]] > threshold)
+        return np.nonzero(mask)
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
