@@ -194,7 +194,7 @@ class AutoPilotBinary:
 
     def compile(self):
         if self.payload is None:
-            return struct.pack('ihh', len(self.payload), self.sid, self.msg_id)
+            return struct.pack('ihh', 0, self.sid, self.msg_id)
         else:
             msg = bytearray(8+len(self.payload))
             msg[:8] = struct.pack('ihh', len(self.payload), self.sid, self.msg_id)
@@ -278,8 +278,12 @@ class AutoPilotGuidanceModeOptions(Enum):
 class AutoPilotRemoteControlRequest(AutoPilotBinary):
     msg_id = 17
 
-    def __init__(self, sid):
+    def __init__(self, ask_for_control, sid=0):
         self.sid = sid
+        if ask_for_control:
+            self.payload = struct.pack('B', 1)
+        else:
+            self.payload = struct.pack('B', 0)
 
 class AutoPilotRemoteControlRequestReply(AutoPilotBinary):
     msg_id = 18

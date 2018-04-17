@@ -11,7 +11,7 @@ class Settings:
     update_type = 1
     pos_update = 1000.0/60.0  # ms
     hist_window = False
-    collision_avoidance = False
+    collision_avoidance = True
     show_map = False
     show_voronoi_plot = False
     collision_avoidance_interval = 200  # ms
@@ -31,7 +31,7 @@ class CollisionSettings:
     loop_sleep = 0.001
     max_loop_iterations = 100
     parallel_line_tolerance = 2*np.pi/180.0
-    send_new_wps = False
+    send_new_wps = True
     add_path_deviation_penalty = False
     start_penalty_factor = 1000.0
     path_deviation_penalty_factor = 10.0
@@ -119,8 +119,9 @@ class ConnectionSettings:
 
 
         # Other settings
-        autopilot_port = None
-        autopilot_ip = None
+        autopilot_server_port = 4015
+        autopilot_listen_port = 4010
+        autopilot_ip = '127.0.0.1'
         use_nmea_checksum = False
         autopilot_watchdog_timeout = 0.5
 

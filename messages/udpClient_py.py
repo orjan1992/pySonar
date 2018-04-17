@@ -17,12 +17,13 @@ class UdpClient(QObject):
     autopilot_sid = 0
     seanet = SeanetDecode()
 
-    def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_port):
+    def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_server_port, autopilot_listen_port):
         super().__init__()
         self.sonar_port = sonar_port
         self.pos_port = pos_port
         self.autopilot_ip = autopilot_ip
-        self.autopilot_port = autopilot_port
+        self.autopilot_server_port = autopilot_server_port
+        self.autopilot_listen_port = autopilot_listen_port
 
         self.buffer_lock = threading.Lock()
         self.sonar_update_thread = None
@@ -36,8 +37,8 @@ class UdpClient(QObject):
         self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
         self.pos_thread.setDaemon(True)
 
-        if autopilot_port is not None:
-            self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_port), handler_factory(self.parse_autopilot_msg))
+        if autopilot_listen_port is not None:
+            self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_listen_port), handler_factory(self.parse_autopilot_msg))
             self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
             self.autopilot_thread.setDaemon(True)
 
@@ -47,15 +48,17 @@ class UdpClient(QObject):
                                                      ConnectionSettings.autopilot_watchdog_timeout)
             self.autopilot_watchdog_thread.setDaemon(True)
 
-        self.autopilot_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
     def start(self):
         self.sonar_thread.start()
         self.pos_thread.start()
-        if self.autopilot_port is not None:
+        if self.autopilot_listen_port is not None:
             self.autopilot_thread.start()
         if CollisionSettings.send_new_wps:
             self.autopilot_watchdog_thread.start()
+
+    def close(self):
+        self.autopilot_watchdog_stop_event.set()
+        self.send_autopilot_msg(AutoPilotRemoteControlRequest(True))
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -76,11 +79,14 @@ class UdpClient(QObject):
     def send_autopilot_msg(self, msg):
         if self.autopilot_sid != 0:
             msg.sid = self.autopilot_sid
-        self.autopilot_socket.sendto(msg.compile(), (self.autopilot_ip, self.autopilot_port))
+        self.autopilot_server.socket.sendto(msg.compile(), (self.autopilot_ip, self.autopilot_server_port))
 
     def ping_autopilot_server(self):
         # Get empty msg to keep control
-        self.send_autopilot_msg(AutoPilotGetMessage(19))
+        if self.autopilot_sid == 0:
+            self.send_autopilot_msg(AutoPilotRemoteControlRequest(True))
+        else:
+            self.send_autopilot_msg(AutoPilotGetMessage(19))
 
     def parse_pos_msg(self, data, socket):
         msg = UdpPosMsg(data)
@@ -91,7 +97,7 @@ class UdpClient(QObject):
     def parse_autopilot_msg(self, data, socket):
         try:
             msg = AutoPilotBinary.parse(data)
-            if msg is AutoPilotRemoteControlRequestReply:
+            if msg.msg_id == 18:
                 if msg.acquired:
                     self.autopilot_sid = msg.token
             else:
@@ -131,7 +137,7 @@ def handler_factory(callback):
 
 if __name__ == '__main__':
     from settings import ConnectionSettings
-    client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port, ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_port)
+    client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port, ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_server_port)
 
 
 

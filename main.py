@@ -15,6 +15,7 @@ elif Settings.input_source == 1:
 from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance
 import map
+from messages.udpMsg import AutoPilotRemoteControlRequest
 
 # LOG and EXECPTION stuff
 LOG_FILENAME = 'main.out'
@@ -165,7 +166,8 @@ class MainWidget(QtGui.QWidget):
         self.init_grid()
         if Settings.input_source == 0:
             self.udp_client = UdpClient(ConnectionSettings.sonar_port, ConnectionSettings.pos_port,
-                                        ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_port)
+                                        ConnectionSettings.autopilot_ip, ConnectionSettings.autopilot_server_port,
+                                        ConnectionSettings.autopilot_listen_port)
             self.udp_client.signal_new_sonar_msg.connect(self.new_sonar_msg)
             self.udp_client.set_sonar_callback(self.new_sonar_msg)
             self.udp_client.start()
@@ -202,9 +204,9 @@ class MainWidget(QtGui.QWidget):
                 self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
                 if Settings.show_voronoi_plot:
-                    self.collision_avoidance = CollisionAvoidance(self.udp_sonar_client, self.voronoi_plot_item)
+                    self.collision_avoidance = CollisionAvoidance(self.udp_client, self.voronoi_plot_item)
                 else:
-                    self.collision_avoidance = CollisionAvoidance(self.udp_sonar_client)
+                    self.collision_avoidance = CollisionAvoidance(self.udp_client)
             self.collision_worker = CollisionAvoidanceWorker(self.collision_avoidance)
             self.collision_worker.setAutoDelete(False)
             self.collision_worker.signals.finished.connect(self.collision_loop_finished)
@@ -432,3 +434,5 @@ if __name__ == '__main__':
         window.login_widget.collision_avoidance.save_paths()
     if Settings.save_scan_lines:
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))
+    if ConnectionSettings.autopilot_server_port is not None and Settings.input_source == 0:
+        window.login_widget.udp_client.send_autopilot_msg(AutoPilotRemoteControlRequest(False))
