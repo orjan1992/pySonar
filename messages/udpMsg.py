@@ -305,9 +305,9 @@ class AutoPilotGetMessage(AutoPilotBinary):
     def __init__(self, msg_ids, sid=0):
         self.sid = sid
         if msg_ids is list:
-            self.payload = struct.pack('{}h'.format(len(msg_ids)), *msg_ids)
+            self.payload = struct.pack('i{}h'.format(len(msg_ids)), len(msg_ids), *msg_ids)
         else:
-            self.payload = struct.pack('h', msg_ids)
+            self.payload = struct.pack('ih', 1, msg_ids)
 
 class UncompleteMsgException(Exception):
     pass

@@ -13,6 +13,7 @@ class Settings:
     hist_window = False
     collision_avoidance = True
     show_map = False
+    show_wp_on_grid = True
     show_voronoi_plot = False
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
@@ -40,6 +41,9 @@ class CollisionSettings:
     fermat_step_factor = 0.8
 
     first_wp_dist = 1
+
+    tracking_speed = 0.5
+    dummy_wp_list = [[0, 0, 0, 0.5], [30, 0, 0, 0.5]]
 
 
 class MapSettings:
@@ -133,3 +137,7 @@ class PlotSettings:
         max_val = 50.0
         min_val = -50.0
         threshold = 150
+
+        wp_on_grid_color = (0, 153, 0)
+        wp_on_grid_thickness = 4
+        wp_on_grid_radius = 20

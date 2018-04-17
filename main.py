@@ -306,6 +306,11 @@ class MainWidget(QtGui.QWidget):
                     im, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 if Settings.collision_avoidance:
                     self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
+                    if Settings.show_wp_on_grid:
+                        if self.last_pos_msg is None:
+                            im = self.collision_avoidance.draw_wps_on_grid(im, (0,0,0), self.grid.range_scale)
+                        else:
+                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi), self.grid.range_scale)
 
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
@@ -329,7 +334,6 @@ class MainWidget(QtGui.QWidget):
             self.plot_updated = False
 
     def collision_avoidance_loop(self):
-        # TODO: faster loop when no object is in the way
         self.collision_worker.set_reliable(self.grid.reliable)
         self.thread_pool.start(self.collision_worker, 6)
         logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
@@ -337,10 +341,14 @@ class MainWidget(QtGui.QWidget):
     @QtCore.pyqtSlot(int, name='collision_worker_finished')
     def collision_loop_finished(self, status):
         self.collision_stat = status
+        logger.info('Collision avoidance finished. Status: {}'.format(status))
         if self.collision_stat == 2:
-            self.map_widget.invalidate_wps()
+            if Settings.show_map:
+                self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
         else:
+            if Settings.show_wp_on_grid:
+                self.plot_updated = True
             self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(bool, name='grid_worker_finished')
@@ -372,6 +380,9 @@ class MainWidget(QtGui.QWidget):
         if Settings.update_type == 1:
             self.grid.randomize()
             self.plot_updated = True
+        if Settings.collision_avoidance == True:
+            self.collision_avoidance.update_pos(0, 0, 0)
+            self.collision_avoidance.update_external_wps(CollisionSettings.dummy_wp_list, 0)
 
     def update_collision_margin(self):
         CollisionSettings.obstacle_margin = self.collision_margin_box.value()
@@ -386,11 +397,8 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
 
     @QtCore.pyqtSlot()
     def run(self):
-        try:
-            status = self.collision_avoidance.main_loop(self.reliable)
-            self.signals.finished.emit(status)
-        except Exception as e:
-            logger.error('Collision Worker', e)
+        status = self.collision_avoidance.main_loop(self.reliable)
+        self.signals.finished.emit(status)
 
     def set_reliable(self, reliable):
         self.reliable = reliable

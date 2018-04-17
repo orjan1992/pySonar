@@ -2,7 +2,7 @@ import numpy as np
 from collision_avoidance.voronoi import MyVoronoi
 from collision_avoidance.fermat import fermat
 from coordinate_transformations import *
-from settings import GridSettings, CollisionSettings, Settings
+from settings import GridSettings, CollisionSettings, Settings, PlotSettings
 from time import sleep
 import logging
 import cv2
@@ -73,12 +73,14 @@ class CollisionAvoidance:
             t0 = time()
             status = 1
             if self.check_collision_margins():
+                logger.info("Collision path detected, start new wp calc")
                 if not self.calc_new_wp():
                     logger.info('Collision danger: could not calculate feasible path')
                     status = 2
+
                 logger.debug('collision loop time: {}'.format(time()-t0))
             else:
-                logger.debug('no collision danger')
+                logger.info('no collision danger')
                 status = 0
             self.pos_and_obs_lock = False
             return status
@@ -100,8 +102,8 @@ class CollisionAvoidance:
         if len(self.obstacles) > 0 and np.shape(self.waypoint_list)[0] > 0:
             self.bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
                                                 dtype=np.uint8), self.obstacles, -1, (255, 255, 255), -1)
-            k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range).astype(int)
-            self.bin_map = cv2.dilate(self.bin_map, np.ones((k_size, k_size), dtype=np.uint8), iterations=1)
+            # k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range).astype(int)
+            # self.bin_map = cv2.dilate(self.bin_map, np.ones((k_size, k_size), dtype=np.uint8), iterations=1) # Handled in occ grid now
 
             old_wp = (self.lat, self.long)
             grid_old_wp = (801, 801)
@@ -163,7 +165,6 @@ class CollisionAvoidance:
                 points.append((GridSettings.width, i))
 
             use_constrain_wp = False
-
             if CollisionSettings.wp_as_gen_point:
                 points.append(vehicle2grid(self.waypoint_list[self.waypoint_counter][3], 0, self.range))
                 points.append((800, 800))
@@ -201,7 +202,7 @@ class CollisionAvoidance:
                 vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), True, old_voronoi_wp_list)
             else:
                 vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width))
-
+            # logger.info('Obstacle free path ok')
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
@@ -236,17 +237,14 @@ class CollisionAvoidance:
                 # TODO: Calc new path with modified dijkstra from lekkas
                 logger.debug('Smooth path violates collision margins')
                 collision = False
+                return False
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
                     self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
                 else:
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotTrackingSpeed(0))
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotGuidanceMode(udpMsg.AutoPilotGuidanceModeOptions.STATION_KEEPING))
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotCommand(udpMsg.AutoPilotCommandOptions.CLEAR_WPS))
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotAddWaypoints(self.new_wp_list))
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotGuidanceMode(udpMsg.AutoPilotGuidanceModeOptions))
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotTrackingSpeed(self.new_wp_list[0][3]))
+                    self.msg_client.update_wps(self.new_wp_list)
+                    self.update_external_wps(self.new_wp_list, 0)
 
             if Settings.show_voronoi_plot or Settings.save_obstacles:
                 im = self.calc_voronoi_img(vp, self.new_wp_list, self.voronoi_wp_list)
@@ -291,6 +289,39 @@ class CollisionAvoidance:
     def save_paths(self):
         if Settings.save_paths:
             np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
+
+    def draw_wps_on_grid(self, im, pos, range_scale):
+        if len(self.new_wp_list) > 0:
+            wp_list = self.new_wp_list
+        elif len(self.waypoint_list) > 0:
+            wp_list = self.waypoint_list
+        else:
+            wp_list = []
+
+        if len(wp_list) > 0:
+            try:
+                cv2.circle(im, NED2grid(wp_list[0][0], wp_list[0][1], pos[0], pos[1], pos[2], range_scale),
+                           PlotSettings.wp_on_grid_radius, PlotSettings.wp_on_grid_color,
+                           PlotSettings.wp_on_grid_thickness)
+            except ValueError:
+                return im
+            for i in range(1, len(wp_list)):
+                try:
+                    wp1_grid = NED2grid(wp_list[i-1][0], wp_list[i-1][1], pos[0], pos[1], pos[2], range_scale)
+                    wp2_grid = NED2grid(wp_list[i][0], wp_list[i][1], pos[0], pos[1], pos[2], range_scale)
+                except ValueError:
+                    break
+                cv2.circle(im, wp2_grid, PlotSettings.wp_on_grid_radius, PlotSettings.wp_on_grid_color,
+                           PlotSettings.wp_on_grid_thickness)
+                cv2.line(im, wp1_grid, wp2_grid, PlotSettings.wp_on_grid_color, PlotSettings.wp_on_grid_thickness)
+        return im
+
+class CollisionStatus(Enum):
+    NONE = 0
+    START = 1
+    STOP = 2
+    SAVE = 3
+    CLEAR_WPS = 6
 
 if __name__ == '__main__':
     import cv2

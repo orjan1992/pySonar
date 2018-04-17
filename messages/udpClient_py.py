@@ -85,8 +85,20 @@ class UdpClient(QObject):
         # Get empty msg to keep control
         if self.autopilot_sid == 0:
             self.send_autopilot_msg(AutoPilotRemoteControlRequest(True))
+            logger.info("Asked for remote control")
         else:
-            self.send_autopilot_msg(AutoPilotGetMessage(19))
+            self.send_autopilot_msg(AutoPilotGetMessage(14))
+
+    def update_wps(self, wp_list):
+        self.send_autopilot_msg(AutoPilotTrackingSpeed(0))
+        self.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.STATION_KEEPING))
+        self.send_autopilot_msg(AutoPilotCommand(AutoPilotCommandOptions.CLEAR_WPS))
+        self.send_autopilot_msg(AutoPilotAddWaypoints(wp_list))
+        self.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.PATH_FOLLOWING))
+        if len(wp_list[0]) > 3:
+            self.send_autopilot_msg(AutoPilotTrackingSpeed(wp_list[0][3]))
+        else:
+            self.send_autopilot_msg(AutoPilotTrackingSpeed(CollisionSettings.tracking_speed))
 
     def parse_pos_msg(self, data, socket):
         msg = UdpPosMsg(data)
@@ -100,6 +112,7 @@ class UdpClient(QObject):
             if msg.msg_id == 18:
                 if msg.acquired:
                     self.autopilot_sid = msg.token
+                    logger.info('Received remote control token: {}'.format(msg.token))
             else:
                 raise NotImplemented
         except OtherMsgTypeException:
