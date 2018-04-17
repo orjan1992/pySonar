@@ -92,6 +92,10 @@ class MainWidget(QtGui.QWidget):
         self.threshold_box.setMaximum(20000)
         self.threshold_box.setValue(PlotSettings.threshold)
 
+        # Randomize button
+        self.randomize_button = QtGui.QPushButton('Randomize')
+        self.randomize_button.clicked.connect(self.randomize_occ_grid)
+
         # Collision margin box
         self.collision_margin_box = QtGui.QDoubleSpinBox()
         self.collision_margin_box.setMinimum(0)
@@ -119,11 +123,14 @@ class MainWidget(QtGui.QWidget):
         self.collision_margin_box.setMaximumSize(Settings.button_width, Settings.button_height)
         self.binary_plot_button.setMaximumSize(Settings.button_width, Settings.button_height)
         self.clear_grid_button.setMaximumSize(Settings.button_width, Settings.button_height)
+        self.randomize_button.setMaximumSize(Settings.button_width, Settings.button_height)
+
 
         left_layout.addWidget(self.threshold_box)
         left_layout.addWidget(self.collision_margin_box)
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
+        left_layout.addWidget(self.randomize_button)
         # left_layout.setGeometry(QtCore.QRect(0, 0, 200, 10**6))
         # left_layout.SizeHint(QtCore.QRect(0, 0,))
         # print(left_layout.maximumSize(200, 0))
@@ -358,6 +365,11 @@ class MainWidget(QtGui.QWidget):
         else:
             self.binary_plot_button.text = "Set Binary mode"
         self.binary_plot_on = not self.binary_plot_on
+
+    def randomize_occ_grid(self):
+        if Settings.update_type == 1:
+            self.grid.randomize()
+            self.plot_updated = True
 
     def update_collision_margin(self):
         CollisionSettings.obstacle_margin = self.collision_margin_box.value()

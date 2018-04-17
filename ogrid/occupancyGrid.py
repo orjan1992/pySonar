@@ -43,15 +43,12 @@ class OccupancyGrid(RawGrid):
     def occ2raw(self, occ_grid):
         nonzero = np.nonzero(occ_grid)
         if len(nonzero[0]) > 1:
-            try:
-                y1 = np.min(nonzero[0])
-                y2 = np.max(nonzero[0]) + 1
-                x1 = np.min(nonzero[1])
-                x2 = np.max(nonzero[1]) + 1
-                self.grid[y1 * self.cell_factor:y2 * self.cell_factor, x1 * self.cell_factor:x2 * self.cell_factor] += np.kron(
-                    occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
-            except ValueError:
-                a = 1
+            y1 = np.min(nonzero[0])
+            y2 = np.max(nonzero[0]) + 1
+            x1 = np.min(nonzero[1])
+            x2 = np.max(nonzero[1]) + 1
+            self.grid[y1 * self.cell_factor:y2 * self.cell_factor, x1 * self.cell_factor:x2 * self.cell_factor] += np.kron(
+                occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
 
     def raw2occ(self):
         occ_grid = np.ones((self.size, self.size), dtype=self.oLog_type)
@@ -159,112 +156,107 @@ class OccupancyGrid(RawGrid):
         if msg.bearing < 0 or msg.bearing > 6399:
             print(msg.bearing)
             return
-        try:
+        occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+        data_ind = self.get_hit_inds(msg, threshold)
+        # print(data_ind)
+        # logger.debug(data_ind)
+        if np.any(data_ind):
+            theta_rad = msg.bearing * np.pi / 3200.0
+            obstacle_in_line = False
+            self.contour_lock.acquire()
+            if self.contours is not None:
+                contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
+                if contour is not None:
+                    theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
+                    obstacle_in_line = True
+            self.contour_lock.release()
 
-            occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
-            data_ind = self.get_hit_inds(msg, threshold)
-            print(data_ind)
-            logger.debug(data_ind)
-            if np.any(data_ind):
-                theta_rad = msg.bearing * np.pi / 3200.0
-                obstacle_in_line = False
-                self.contour_lock.acquire()
-                if self.contours is not None:
-                    contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
-                    if contour is not None:
-                        theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
-                        obstacle_in_line = True
-                self.contour_lock.release()
+            data_ind_low = data_ind - GridSettings.hit_factor
+            data_ind_high = data_ind + GridSettings.hit_factor
 
-                data_ind_low = data_ind - GridSettings.hit_factor
-                data_ind_high = data_ind + GridSettings.hit_factor
+            if msg.chan2:
+                cell_ind = False
+                bearing_index = self.high_indexer[msg.bearing]
+                for i in range(len(data_ind)):
+                    cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_high[bearing_index] > data_ind_low[i],
+                                                            self.angle2cell_rad_high[bearing_index] < data_ind_high[i]),
+                                             cell_ind)
+                # cell_not_ind = np.nonzero(np.logical_not(cell_ind))
+                # cell_ind = np.nonzero(cell_ind)
+                cell_not_ind = np.logical_not(cell_ind)
+                occ_grid.flat[self.angle2cell_high[bearing_index][cell_not_ind]] = self.p_log_free - self.p_log_zero
+                if obstacle_in_line:
+                    alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[bearing_index][cell_ind]] - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
+                    tmp = GridSettings.kh_high * np.sin(alpha) / 2
+                    p = (np.sin(tmp) / tmp) * (GridSettings.mu * np.sin(theta_i + alpha) ** 2)
 
-                if msg.chan2:
-                    cell_ind = False
-                    bearing_index = self.high_indexer[msg.bearing]
-                    for i in range(len(data_ind)):
-                        cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_high[bearing_index] > data_ind_low[i],
-                                                                self.angle2cell_rad_high[bearing_index] < data_ind_high[i]),
-                                                 cell_ind)
-                    # cell_not_ind = np.nonzero(np.logical_not(cell_ind))
-                    # cell_ind = np.nonzero(cell_ind)
-                    cell_not_ind = np.logical_not(cell_ind)
-                    occ_grid.flat[self.angle2cell_high[bearing_index][cell_not_ind]] = self.p_log_free - self.p_log_zero
+                    p_max = np.max(p)
+                    p_min = np.min(p)
+                    p_max_min_2 = 2 * (p_max - p_min)
+                    p = (p - p_min) / p_max_min_2 + 0.5
+                    mask = 1 - p == 0
+                    if np.any(mask):
+                        log_p = np.log(p / (1 - p))
+                        log_p[mask] = 5 * np.sign(p[mask] - 0.5)
+                        occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = log_p
+                    else:
+                        occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = np.log(p / (1 - p))
+                else:
+                    occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = self.p_log_occ - self.p_log_zero
+            else:
+                # TODO: Use digitize instead of loop
+                cell_ind = False
+                bearing_index = self.low_indexer[msg.bearing]
+                for i in range(len(data_ind)):
+                    cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_low[bearing_index] > data_ind_low[i],
+                                                            self.angle2cell_rad_low[bearing_index] < data_ind_high[i]),
+                                             cell_ind)
+                # cell_not_ind = np.nonzero(np.logical_not(cell_ind))
+                # cell_ind = np.nonzero(cell_ind)
+                cell_not_ind = np.logical_not(cell_ind)
+                occ_grid.flat[self.angle2cell_low[bearing_index][cell_not_ind]] = self.p_log_free - self.p_log_zero
+                if np.any(cell_ind):
                     if obstacle_in_line:
-                        alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_high[bearing_index][cell_ind]] - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
-                        tmp = GridSettings.kh_high * np.sin(alpha) / 2
-                        p = (np.sin(tmp) / tmp) * (GridSettings.mu * np.sin(theta_i + alpha) ** 2)
+                        alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[bearing_index][cell_ind]]
+                                          - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
+                        tmp = GridSettings.kh_low * np.sin(alpha) / 2
+                        mask = tmp == 0
+                        if np.any(mask):
+                            try:
+                                not_mask = np.logical_not(mask)
+                                p = np.zeros(np.shape(mask))
+                                p[not_mask] = (np.sin(tmp[not_mask]) / tmp[not_mask]) * (GridSettings.mu * np.sin(theta_i + alpha[not_mask]) ** 2)
+                                p[mask] = GridSettings.mu * np.sin(theta_i + alpha[mask]) ** 2
+                            except Exception as e:
+                                a=1
+                        else:
+                            p = (np.sin(tmp) / tmp) * (GridSettings.mu * np.sin(theta_i + alpha) ** 2)
 
                         p_max = np.max(p)
                         p_min = np.min(p)
                         p_max_min_2 = 2 * (p_max - p_min)
-                        p = (p - p_min) / p_max_min_2 + 0.5
+                        if p_max_min_2 != 0:
+                            p = (p - p_min) / p_max_min_2 + 0.5
                         mask = 1 - p == 0
                         if np.any(mask):
-                            log_p = np.log(p / (1 - p))
+                            not_mask = np.logical_not(mask)
+                            log_p = np.zeros(np.shape(mask))
+                            log_p[not_mask] = np.log(p[not_mask] / (1 - p[not_mask]))
                             log_p[mask] = 5 * np.sign(p[mask] - 0.5)
-                            occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = log_p
+                            occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = np.nan_to_num(log_p)
                         else:
-                            occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = np.log(p / (1 - p))
+                            occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = np.log(p / (1 - p))
                     else:
-                        occ_grid.flat[self.angle2cell_high[bearing_index][cell_ind]] = self.p_log_occ - self.p_log_zero
-                else:
-                    # TODO: Use digitize instead of loop
-                    cell_ind = False
-                    bearing_index = self.low_indexer[msg.bearing]
-                    for i in range(len(data_ind)):
-                        cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_low[bearing_index] > data_ind_low[i],
-                                                                self.angle2cell_rad_low[bearing_index] < data_ind_high[i]),
-                                                 cell_ind)
-                    # cell_not_ind = np.nonzero(np.logical_not(cell_ind))
-                    # cell_ind = np.nonzero(cell_ind)
-                    cell_not_ind = np.logical_not(cell_ind)
-                    occ_grid.flat[self.angle2cell_low[bearing_index][cell_not_ind]] = self.p_log_free - self.p_log_zero
-                    if np.any(cell_ind):
-                        if obstacle_in_line:
-                            alpha = (wrapToPi(-self.occ_map_theta.flat[self.angle2cell_low[bearing_index][cell_ind]]
-                                              - theta_rad)).clip(-0.05235987755982988, 0.05235987755982988)
-                            tmp = GridSettings.kh_low * np.sin(alpha) / 2
-                            mask = tmp == 0
-                            if np.any(mask):
-                                try:
-                                    not_mask = np.logical_not(mask)
-                                    p = np.zeros(np.shape(mask))
-                                    p[not_mask] = (np.sin(tmp[not_mask]) / tmp[not_mask]) * (GridSettings.mu * np.sin(theta_i + alpha[not_mask]) ** 2)
-                                    p[mask] = GridSettings.mu * np.sin(theta_i + alpha[mask]) ** 2
-                                except Exception as e:
-                                    a=1
-                            else:
-                                p = (np.sin(tmp) / tmp) * (GridSettings.mu * np.sin(theta_i + alpha) ** 2)
-
-                            p_max = np.max(p)
-                            p_min = np.min(p)
-                            p_max_min_2 = 2 * (p_max - p_min)
-                            if p_max_min_2 != 0:
-                                p = (p - p_min) / p_max_min_2 + 0.5
-                            mask = 1 - p == 0
-                            if np.any(mask):
-                                not_mask = np.logical_not(mask)
-                                log_p = np.zeros(np.shape(mask))
-                                log_p[not_mask] = np.log(p[not_mask] / (1 - p[not_mask]))
-                                log_p[mask] = 5 * np.sign(p[mask] - 0.5)
-                                occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = np.nan_to_num(log_p)
-                            else:
-                                occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = np.log(p / (1 - p))
-                        else:
-                            occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = self.p_log_occ - self.p_log_zero
+                        occ_grid.flat[self.angle2cell_low[bearing_index][cell_ind]] = self.p_log_occ - self.p_log_zero
+        else:
+            if msg.chan2:
+                occ_grid.flat[self.angle2cell_high[self.high_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
             else:
-                if msg.chan2:
-                    occ_grid.flat[self.angle2cell_high[self.high_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
-                else:
-                    occ_grid.flat[self.angle2cell_low[self.low_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
+                occ_grid.flat[self.angle2cell_low[self.low_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
 
-            self.lock.acquire()
-            self.occ2raw(occ_grid)
-            self.lock.release()
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        self.lock.acquire()
+        self.occ2raw(occ_grid)
+        self.lock.release()
 
     def calc_incident_angle(self, angle, contour, point):
         """
@@ -368,6 +360,10 @@ class OccupancyGrid(RawGrid):
         return new_data
 
     def get_obstacles(self):
+        """
+        calculates obstacles
+        :return: image, contours
+        """
         self.grid = np.nan_to_num(self.grid)
         thresh = (self.grid > self.p_log_threshold).astype(dtype=np.uint8)
         contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
@@ -395,10 +391,10 @@ class OccupancyGrid(RawGrid):
         #     self.contour_as_line_list.append(cv2.fitLine(contour[0]))
 
         im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
-        im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), 2)
-        im[:, 800, :] = np.array([0, 0, 255])
-        im[800, :, :] = np.array([0, 0, 255])
-        im[801, :, :] = np.array([0, 0, 255])
+        im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), -1)
+        # im[:, 800, :] = np.array([0, 0, 255])
+        # im[800, :, :] = np.array([0, 0, 255])
+        # im[801, :, :] = np.array([0, 0, 255])
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), self.contours
 
     # def get_hit_inds(self, msg, threshold):
@@ -429,12 +425,14 @@ class OccupancyGrid(RawGrid):
 
 
     def get_hit_inds(self, msg, threshold):
+        # Smooth graph
         smooth = np.convolve(msg.data, np.ones((10,)) / 10, mode='full')
         data_len = len(smooth)
         s1 = smooth[:-2]
         s2 = smooth[1:-1]
         s3 = smooth[2:]
 
+        # Find inital peaks and valleys
         peaks = (np.array(
             np.nonzero(np.logical_or(np.logical_and(s1 < s2, s2 > s3), np.logical_and(s1 < s2, s2 == s3)))).reshape(
             -1) + 1).tolist()
@@ -446,6 +444,7 @@ class OccupancyGrid(RawGrid):
         if peaks[-1] != data_len - 1 and peaks[-1] > valleys[-1]:
             valleys.append(data_len - 1)
 
+        # Remove consecutive peaks or valleys
         signed_array = np.zeros(data_len, dtype=np.int8)
         signed_array[peaks] = 1
         signed_array[valleys] = -1
@@ -464,6 +463,8 @@ class OccupancyGrid(RawGrid):
                 else:
                     sgn = -1
                 i_sgn = i
+
+        # Remove peaks and valleys with primary factor lower than 5
         mask = np.logical_and(smooth[peaks] - smooth[valleys[:-1]] > 5, smooth[peaks] - smooth[valleys[1:]] > 5)
         peaks = (np.array(peaks)[mask]).tolist()
         signed_array = np.zeros(data_len, dtype=np.int8)
@@ -488,17 +489,40 @@ class OccupancyGrid(RawGrid):
                 else:
                     sgn = -1
                     i_sgn = i
+
+        # Return peaks with a primary factor higher than threshold and transform to 800 bin length
         smooth_peaks = smooth[peaks]
         smooth_valleys = smooth[valleys]
         mask = np.logical_or(smooth_peaks - smooth_valleys[:-1] > threshold,
                              smooth_peaks - smooth_valleys[1:] > threshold)
         return np.round(np.array(peaks)[mask] * self.MAX_BINS / msg.dbytes).astype(int)
 
+    def randomize(self):
+        self.range_scale = 30
+        size = self.size // GridSettings.randomize_size
+        rand = np.random.normal(0, GridSettings.randomize_max, (size, size))
+        size2 = size//2
+        size8 = size//6
+        rand[size2-size8:size2+size8, size2-size8:size2+size8] = self.p_log_zero
+        occ_grid = np.kron(rand,
+                           np.ones((GridSettings.randomize_size, GridSettings.randomize_size)))
+
+        nonzero = np.nonzero(occ_grid)
+        if len(nonzero[0]) > 1:
+            y1 = np.min(nonzero[0])
+            y2 = np.max(nonzero[0]) + 1
+            x1 = np.min(nonzero[1])
+            x2 = np.max(nonzero[1]) + 1
+            self.grid[y1 * self.cell_factor:y2 * self.cell_factor,
+            x1 * self.cell_factor:x2 * self.cell_factor] = np.kron(
+                occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
+
+
 if __name__=="__main__":
     import matplotlib.pyplot as plt
     grid = OccupancyGrid(False, 0.1, 0.7, 0.4, 0.6, 16)
-    tmp = np.kron(np.random.randint(-10, 10, (10, 10)), np.ones((10, 10)))
-    grid.occ2raw(tmp)
-    plt.imshow(grid.grid)
+    grid.randomize()
+    im, c = grid.get_obstacles()
+    print(len(c))
+    plt.imshow(im)
     plt.show()
-    np.savez('occ2.npz', grid=grid.grid)

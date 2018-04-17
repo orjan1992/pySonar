@@ -103,7 +103,8 @@ class GridSettings:
     # P_DI_max_low = np.sin(0.5 * kh_low * np.sin(0.000000001)) / (0.5 * kh_low * np.sin(0.000000001))
 
     mu = 1
-
+    randomize_size = 8
+    randomize_max = 1
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
