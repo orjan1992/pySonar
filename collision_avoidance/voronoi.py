@@ -15,19 +15,6 @@ class MyVoronoi(Voronoi):
     def __init__(self, points):
         super(MyVoronoi, self).__init__(points)
 
-    def add_wp_as_gen_point(self, point_index):
-        if point_index < 0:
-            region_index = self.point_region[np.shape(self.points)[0] + point_index]
-        else:
-            region_index = self.point_region[point_index]
-
-        self.vertices = np.append(self.vertices, [self.points[point_index]], axis=0)
-        new_vertice = np.shape(self.vertices)[0]-1
-
-        for i in range(np.shape(self.regions[region_index])[0]):
-            self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
-        return new_vertice
-
     def add_wp(self, wp):
         dist = np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1]))
         point_index = np.argmin(dist)
@@ -83,20 +70,6 @@ class MyVoronoi(Voronoi):
 
         bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (1, 0, 0), -1)
 
-        if add_penalty:
-            # bin_old_wps =np.zeros(shape, dtype=np.uint8)
-            # for wp0, wp1 in zip(old_wp_list, old_wp_list[1:]):
-            #     # TODO: Line width should be dependent on range
-            #     bin_old_wps = cv2.line(bin_old_wps, wp0, wp1, (255, 255, 255), 20)
-            wp_array = [np.array(old_wp_list, dtype=np.int32).reshape((-1, 1, 2))]
-            bin_old_wps = np.zeros(shape, dtype=np.uint8)
-            cv2.polylines(bin_old_wps, wp_array, False, (1, 0, 0), 600)
-            cv2.polylines(bin_old_wps, wp_array, False, (2, 0, 0), 600)
-            cv2.polylines(bin_old_wps, wp_array, False, (4, 0, 0), 400)
-            cv2.polylines(bin_old_wps, wp_array, False, (8, 0, 0), 200)
-            cv2.polylines(bin_old_wps, wp_array, False, (16, 0, 0), 100)
-            cv2.polylines(bin_old_wps, wp_array, False, (32, 0, 0), 50)
-
         self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / range_scale).astype(int) # wp line width, considering vehicle size
@@ -120,38 +93,6 @@ class MyVoronoi(Voronoi):
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
-
-                    # Add the penalties
-                    if add_penalty:
-                        penalty_factor = CollisionSettings.path_deviation_penalty_factor
-                        if np.any(np.logical_and(bin_old_wps, lin)):
-                            penalty_factor /= 2
-                        elif np.any(np.logical_and(bin_old_wps, lin*2)):
-                            penalty_factor /= 4
-                        elif np.any(np.logical_and(bin_old_wps, lin*4)):
-                            penalty_factor /= 8
-                        elif np.any(np.logical_and(bin_old_wps, lin*8)):
-                            penalty_factor /= 16
-                        elif np.any(np.logical_and(bin_old_wps, lin*16)):
-                            penalty_factor /= 32
-                        elif np.any(np.logical_and(bin_old_wps, lin*32)):
-                            penalty_factor = 1
-                        self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] *= penalty_factor
-                        self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] *= penalty_factor
-
-    def add_start_penalty(self, ridges):
-        """
-        Add extra weight to ridges with large change in heading
-        :param ridges: list of ridges
-        :return:
-        """
-        # TODO: Penalty should probably be range dependent
-        for ridge in ridges:
-            penalty = np.abs((np.arctan2(self.vertices[ridge[0]][0] - self.vertices[ridge[1]][0],
-                                         self.vertices[ridge[0]][1] - self.vertices[ridge[1]][1]) + np.pi / 2 % np.pi) -
-                             np.pi / 2) * CollisionSettings.start_penalty_factor
-            self.connection_matrix[ridge[0], ridge[1]] *= penalty
-            self.connection_matrix[ridge[1], ridge[0]] *= penalty
 
     def dijkstra(self, start_in, stop_in):
         if start_in < 0:
