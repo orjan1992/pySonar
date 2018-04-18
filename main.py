@@ -308,9 +308,9 @@ class MainWidget(QtGui.QWidget):
                     self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                     if Settings.show_wp_on_grid:
                         if self.last_pos_msg is None:
-                            im = self.collision_avoidance.draw_wps_on_grid(im, (0,0,0), self.grid.range_scale)
+                            im = self.collision_avoidance.draw_wps_on_grid(im, (0,0,0))
                         else:
-                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi), self.grid.range_scale)
+                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi))
 
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
@@ -346,6 +346,7 @@ class MainWidget(QtGui.QWidget):
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
         elif status == CollisionStatus.NEW_ROUTE_OK or status == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+            # TODO: SMOOTH path should not be ok
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
@@ -381,6 +382,7 @@ class MainWidget(QtGui.QWidget):
             self.plot_updated = True
         if Settings.collision_avoidance == True:
             self.collision_avoidance.update_pos(0, 0, 0)
+            self.collision_avoidance.range = 30
             self.collision_avoidance.update_external_wps(CollisionSettings.dummy_wp_list, 0)
             self.plot_updated = True
 

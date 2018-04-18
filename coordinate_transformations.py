@@ -190,19 +190,7 @@ def wrapToPiHalf(angle):
     return angle
 
 if __name__ == '__main__':
-    # N_veh = 3.51
-    # E_veh = 4.3
-    # psi = np.pi/6
-    # x_veh = 1.67
-    # y_veh = 1.57
-    # range = 1.57
-    # # N, E = vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
-    # # print_args(N=N, E=E)
-    # # x_veh, y_veh = NED2vehicle(N, E, N_veh, E_veh, psi)
-    # # print_args(x_veh=x_veh, y_veh=y_veh)
-    # N, E = grid2NED(801, 801, 30, N_veh, E_veh, psi)
-    # print_args(N=N, E=E)
-    a = np.array([-7.0, 8.0, 10.0])
-    b = wrapToPi(a)
-    print(b)
-    print(wrap2PiHalf(b))
+    N_veh = 0
+    E_veh = 0
+    psi = 0
+    print(constrainNED2range((60, 60), (0, 0), 0, 0, 0, 30))
