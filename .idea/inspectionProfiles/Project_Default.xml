@@ -28,6 +28,7 @@
           <option value="PyQt5.QtGui.QPushButton" />
           <option value="PyQt5.QtGui.QSpinBox" />
           <option value="PyQt5.QtGui.QApplication" />
+          <option value="collision_avoidance.voronoi.MyVoronoi.ridge_vertices" />
         </list>
       </option>
     </inspection_tool>

@@ -13,20 +13,34 @@ class MyVoronoi(Voronoi):
     shortest_path = []
 
     def __init__(self, points):
+        self.point_region = None
+        self.regions = None
+        self.vertices = None
         super(MyVoronoi, self).__init__(points)
 
-    def add_wp(self, wp):
-        dist = np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1]))
-        point_index = np.argmin(dist)
-        region_index = self.point_region[point_index]
-
+    def add_wp(self, wp, outside=False, outside_points=None):
+        # TODO: This is not the correct way to find region, must check if point is inside region
+        # if 0 < wp[0] < GridSettings.height and 0 < wp[1] < GridSettings.width:
+        outside = False
+        if outside:
+            dist = np.sqrt(
+                np.square(self.points[outside_points, 0] - wp[0]) + np.square(self.points[outside_points, 1] - wp[1]))
+            ind = outside_points[np.argsort(dist)]
+            region_index = ind[0]
+        else:
+            dist = np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1]))
+            ind = np.argsort(dist)
+            for i in range(len(ind)):
+                # if inside_polygon(wp[0], wp[1], self.vertices[self.regions[self.point_region[ind[i]]]].tolist()):
+                if inside_convex_polygon(wp, self.vertices[self.regions[self.point_region[ind[i]]]].tolist()):
+                    region_index = ind[i]
+                    break
         self.vertices = np.append(self.vertices, [wp], axis=0)
         new_vertice = np.shape(self.vertices)[0] - 1
-        new_ridges = []
         for i in range(np.shape(self.regions[region_index])[0]):
             self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
-            new_ridges.append(self.ridge_vertices[-1])
-        return new_vertice, new_ridges
+        return new_vertice, region_index
+
             
     def gen_obs_free_connections(self, contours, shape, range_scale, bin_map, add_penalty=False, old_wp_list=None):
         """
@@ -73,20 +87,20 @@ class MyVoronoi(Voronoi):
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / range_scale).astype(int) # wp line width, considering vehicle size
 
         # Check if each ridge is ok, then calculate ridge
-
+        # TODO: Calc dist with scipy.spatial.distance_matrix?
         for i in range(np.shape(self.ridge_vertices)[0]):
-            p1x = sat2uint(self.vertices[self.ridge_vertices[i][0]][0], GridSettings.width)
-            p1y = sat2uint(self.vertices[self.ridge_vertices[i][0]][1], GridSettings.height)
-            p2x = sat2uint(self.vertices[self.ridge_vertices[i][1]][0], GridSettings.width)
-            p2y = sat2uint(self.vertices[self.ridge_vertices[i][1]][1], GridSettings.height)
+            p1x = int(self.vertices[self.ridge_vertices[i][0]][0])
+            p1y = int(self.vertices[self.ridge_vertices[i][0]][1])
+            p2x = int(self.vertices[self.ridge_vertices[i][1]][0])
+            p2y = int(self.vertices[self.ridge_vertices[i][1]][1])
 
             lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
 
             if not np.any(np.logical_and(bin_map, lin)):
                 # tmp = False
                 if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
-                    self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] = self.connection_matrix[
-                        self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
+                    self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] =\
+                        self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
                         (self.vertices[self.ridge_vertices[i][1]][0] -
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
@@ -124,3 +138,61 @@ class MyVoronoi(Voronoi):
     #     while check_clearance:
     #         for i in range(len(self.shortest_path)):
     #             if ()
+def inside_polygon(x, y, points):
+    """
+    Return True if a coordinate (x, y) is inside a polygon defined by
+    a list of verticies [(x1, y1), (x2, x2), ... , (xN, yN)].
+
+    Reference: http://www.ariel.com.au/a/python-point-int-poly.html
+    """
+    n = len(points)
+    inside = False
+    p1x, p1y = points[0]
+    for i in range(1, n + 1):
+        p2x, p2y = points[i % n]
+        if y > min(p1y, p2y):
+            if y <= max(p1y, p2y):
+                if x <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or x <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+    return inside
+
+def inside_convex_polygon(point, vertices):
+    previous_side = None
+    n_vertices = len(vertices)
+    for n in range(n_vertices):
+        a, b = vertices[n], vertices[(n+1)%n_vertices]
+        affine_segment = v_sub(b, a)
+        affine_point = v_sub(point, a)
+        current_side = get_side(affine_segment, affine_point)
+        if current_side is None:
+            return False #outside or over an edge
+        elif previous_side is None: #first segment
+            previous_side = current_side
+        elif previous_side != current_side:
+            return False
+    return True
+
+def get_side(a, b):
+    """
+    which side of line is the point on
+    :param a:
+    :param b:
+    :return: True if left
+    """
+    x = x_product(a, b)
+    if x < 0:
+        return True
+    elif x > 0:
+        return False
+    else:
+        return None
+
+def v_sub(a, b):
+    return (a[0]-b[0], a[1]-b[1])
+
+def x_product(a, b):
+    return a[0]*b[1]-a[1]*b[0]

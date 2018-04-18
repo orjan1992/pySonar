@@ -442,6 +442,8 @@ if __name__ == '__main__':
 
     if Settings.collision_avoidance:
         window.login_widget.collision_avoidance.save_paths()
+    if Settings.show_voronoi_plot:
+        window.login_widget.voronoi_window.close()
     if Settings.save_scan_lines:
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))
     if ConnectionSettings.autopilot_server_port is not None and Settings.input_source == 0:

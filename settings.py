@@ -25,7 +25,7 @@ class Settings:
 
 
 class CollisionSettings:
-    border_step = 30
+    border_step = 100
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
     vehicle_margin = 1 # meter
