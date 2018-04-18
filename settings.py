@@ -14,7 +14,7 @@ class Settings:
     collision_avoidance = True
     show_map = False
     show_wp_on_grid = True
-    show_voronoi_plot = True
+    show_voronoi_plot = False
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
     save_paths = False

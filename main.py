@@ -4,7 +4,7 @@ import threading
 from copy import deepcopy
 import sys
 from time import strftime
-
+from coordinate_transformations import vehicle2NED
 from settings import *
 from ogrid.rawGrid import RawGrid
 from ogrid.occupancyGrid import OccupancyGrid
@@ -96,6 +96,9 @@ class MainWidget(QtGui.QWidget):
         # Randomize button
         self.randomize_button = QtGui.QPushButton('Randomize')
         self.randomize_button.clicked.connect(self.randomize_occ_grid)
+        # wp straight ahead button
+        self.wp_straight_ahead_button = QtGui.QPushButton('Wp Straight Ahed')
+        self.wp_straight_ahead_button.clicked.connect(self.wp_straight_ahead_clicked)
 
         # Collision margin box
         self.collision_margin_box = QtGui.QDoubleSpinBox()
@@ -125,6 +128,7 @@ class MainWidget(QtGui.QWidget):
         self.binary_plot_button.setMaximumSize(Settings.button_width, Settings.button_height)
         self.clear_grid_button.setMaximumSize(Settings.button_width, Settings.button_height)
         self.randomize_button.setMaximumSize(Settings.button_width, Settings.button_height)
+        self.wp_straight_ahead_button.setMaximumSize(Settings.button_width, Settings.button_height)
 
 
         left_layout.addWidget(self.threshold_box)
@@ -132,6 +136,7 @@ class MainWidget(QtGui.QWidget):
         left_layout.addWidget(self.binary_plot_button)
         left_layout.addWidget(self.clear_grid_button)
         left_layout.addWidget(self.randomize_button)
+        left_layout.addWidget(self.wp_straight_ahead_button)
         # left_layout.setGeometry(QtCore.QRect(0, 0, 200, 10**6))
         # left_layout.SizeHint(QtCore.QRect(0, 0,))
         # print(left_layout.maximumSize(200, 0))
@@ -375,6 +380,14 @@ class MainWidget(QtGui.QWidget):
         else:
             self.binary_plot_button.text = "Set Binary mode"
         self.binary_plot_on = not self.binary_plot_on
+
+    def wp_straight_ahead_clicked(self):
+        if Settings.collision_avoidance == True:
+            wp1 = vehicle2NED(self.grid.range_scale*1.5, 0, self.last_pos_msg.lat,
+                             self.last_pos_msg.long, self.last_pos_msg.psi)
+            wp0 = [self.last_pos_msg.lat, self.last_pos_msg.long, 0, 0.5]
+            wp1 = [wp1[0], wp1[1], 0, 0.5]
+            self.collision_avoidance.update_external_wps([wp0, wp1], 0)
 
     def randomize_occ_grid(self):
         if Settings.update_type == 1:

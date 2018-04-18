@@ -391,7 +391,7 @@ class OccupancyGrid(RawGrid):
         #     self.contour_as_line_list.append(cv2.fitLine(contour[0]))
 
         im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
-        im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), -1)
+        im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), 5)
         # im[:, 800, :] = np.array([0, 0, 255])
         # im[800, :, :] = np.array([0, 0, 255])
         # im[801, :, :] = np.array([0, 0, 255])
