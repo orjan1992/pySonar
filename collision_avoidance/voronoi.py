@@ -28,7 +28,7 @@ class MyVoronoi(Voronoi):
             new_ridges.append(self.ridge_vertices[-1])
         return new_vertice, new_ridges
             
-    def gen_obs_free_connections(self, contours, shape, range_scale, add_penalty=False, old_wp_list=None):
+    def gen_obs_free_connections(self, contours, shape, range_scale, bin_map, add_penalty=False, old_wp_list=None):
         """
 
         :param contours: list of contours
@@ -41,34 +41,32 @@ class MyVoronoi(Voronoi):
 
         # If points are outside grid, move them to edge of grid
 
-        center = self.points.mean(axis=0)
-        ptp_bound = self.points.ptp(axis=0)
-
-        for i in range(np.shape(self.ridge_vertices)[0]):
-            if self.ridge_vertices[i][0] == -1 or self.ridge_vertices[i][1] == -1:
-                try:
-                    if self.ridge_vertices[i][0] == -1:
-                        j = self.ridge_vertices[i][1]
-                    else:
-                        j = self.ridge_vertices[i][0]
-
-                    t = self.points[self.ridge_points[i][1]] - self.points[self.ridge_points[i][0]]  # tangent
-                    t /= np.linalg.norm(t)
-                    n = np.array([-t[1], t[0]])  # normal
-
-                    midpoint = self.points[self.ridge_points[i]].mean(axis=0)
-                    direction = np.sign(np.dot(midpoint - center, n)) * n
-                    far_point = self.vertices[j] + direction * ptp_bound.max()
-
-                    self.vertices = np.append(self.vertices, [far_point], axis=0)
-                    if self.ridge_vertices[i][0] == -1:
-                        self.ridge_vertices[i][0] = np.shape(self.vertices)[0]-1
-                    else:
-                        self.ridge_vertices[i][1] = np.shape(self.vertices)[0]-1
-                except IndexError:
-                    break
-
-        bin = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (1, 0, 0), -1)
+        # center = self.points.mean(axis=0)
+        # ptp_bound = self.points.ptp(axis=0)
+        #
+        # for i in range(np.shape(self.ridge_vertices)[0]):
+        #     if self.ridge_vertices[i][0] == -1 or self.ridge_vertices[i][1] == -1:
+        #         try:
+        #             if self.ridge_vertices[i][0] == -1:
+        #                 j = self.ridge_vertices[i][1]
+        #             else:
+        #                 j = self.ridge_vertices[i][0]
+        #
+        #             t = self.points[self.ridge_points[i][1]] - self.points[self.ridge_points[i][0]]  # tangent
+        #             t /= np.linalg.norm(t)
+        #             n = np.array([-t[1], t[0]])  # normal
+        #
+        #             midpoint = self.points[self.ridge_points[i]].mean(axis=0)
+        #             direction = np.sign(np.dot(midpoint - center, n)) * n
+        #             far_point = self.vertices[j] + direction * ptp_bound.max()
+        #
+        #             self.vertices = np.append(self.vertices, [far_point], axis=0)
+        #             if self.ridge_vertices[i][0] == -1:
+        #                 self.ridge_vertices[i][0] = np.shape(self.vertices)[0]-1
+        #             else:
+        #                 self.ridge_vertices[i][1] = np.shape(self.vertices)[0]-1
+        #         except IndexError:
+        #             break
 
         self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 
@@ -82,9 +80,9 @@ class MyVoronoi(Voronoi):
             p2x = sat2uint(self.vertices[self.ridge_vertices[i][1]][0], GridSettings.width)
             p2y = sat2uint(self.vertices[self.ridge_vertices[i][1]][1], GridSettings.height)
 
-            lin = cv2.line(np.zeros(np.shape(bin), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
+            lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
 
-            if not np.any(np.logical_and(bin, lin)):
+            if not np.any(np.logical_and(bin_map, lin)):
                 # tmp = False
                 if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
                     self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] = self.connection_matrix[

@@ -27,11 +27,11 @@ def vehicle2grid(x_veh, y_veh, range):
     :return: (x_grid, y_grid)
     """
     y_grid = int(801 - (x_veh * 801.0 / range))
-    if y_grid < 0:
-        raise ValueError('y is outside grid')
+    # if y_grid < 0:
+    #     raise ValueError('y is outside grid')
     x_grid = int(y_veh * 801.0 / range + 801)
-    if x_grid < 0:
-        raise ValueError('x is outside grid')
+    # if x_grid < 0:
+    #     raise ValueError('x is outside grid')
     return x_grid, y_grid
 
 def vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi):

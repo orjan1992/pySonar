@@ -83,8 +83,10 @@ class CollisionAvoidance:
     def remove_obsolete_wp(self, wp_list):
         i = 0
         counter = 0
+        line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
         while i < len(wp_list) - 2:
-            lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2], (255, 255, 255), 1)
+            lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
+                           (255, 255, 255), line_width)
             if np.any(np.logical_and(self.bin_map, lin)):
                 i += 1
             else:
@@ -155,12 +157,14 @@ class CollisionAvoidance:
                 points.append((0, i))
                 points.append((GridSettings.width, i))
 
-            use_constrain_wp = False
+            use_constraint_wp = False
 
-            # Initializing voronoi
+            # Initializing voronoi and adding wps
             vp = MyVoronoi(points)
             start_wp, start_ridges = vp.add_wp((801, 801))
-            end_wp, _ = vp.add_wp(NED2grid(last_wp[0], last_wp[1], self.lat, self.long, self.psi, self.range))
+            end_wp, _ = vp.add_wp(NED2grid(self.waypoint_list[constrained_wp_index][0],
+                                           self.waypoint_list[constrained_wp_index][1],
+                                           self.lat, self.long, self.psi, self.range))
             # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
 
             # Check if first wp in vehicle direction is ok
@@ -169,16 +173,16 @@ class CollisionAvoidance:
                            1)
             if not np.any(np.logical_and(self.bin_map, lin)):
                 # Fixed wp can be used
-                constrain_wp, _ = vp.add_wp(fixed_wp)
-                use_constrain_wp = True
+                constraint_wp, _ = vp.add_wp(fixed_wp)
+                use_constraint_wp = True
 
-            vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), self.range)
+            vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), self.range, self.bin_map)
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
             # Find shortest route
-            if use_constrain_wp:
-                wps = vp.dijkstra(constrain_wp, end_wp)
+            if use_constraint_wp:
+                wps = vp.dijkstra(constraint_wp, end_wp)
             else:
                 wps = vp.dijkstra(start_wp, end_wp)
             if wps is not None:
@@ -191,11 +195,7 @@ class CollisionAvoidance:
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
                 return CollisionStatus.NO_FEASIBLE_ROUTE
-            # Add waypoints outside grid
-            try:
-                self.new_wp_list.extend(self.waypoint_list[constrained_wp_index:])
-            except IndexError:
-                pass
+
             # Smooth waypoints
             # self.new_wp_list = fermat(self.new_wp_list)
 
@@ -204,10 +204,14 @@ class CollisionAvoidance:
             while collision_danger:
                 # TODO: Calc new path with modified dijkstra from lekkas
                 logger.debug('Smooth path violates collision margins')
-                collision_danger = False
-                self.waypoint_list = self.new_wp_list
-                self.waypoint_counter = 0
+                self.data_storage.update_wps(self.new_wp_list, 0)
                 return CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN
+
+            # Add waypoints outside grid
+            try:
+                self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+            except IndexError:
+                pass
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
@@ -448,7 +452,7 @@ if __name__ == '__main__':
         else:
             WP1 = NED2grid(NE[0], NE[1], 0, 0,
                            0, 30)
-            cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
+            # cv2.circle(new_im, WP1, 2, (255, 0, 0), 2)
             cv2.line(new_im, WP0, WP1, (255, 0, 0), 2)
             break
 
