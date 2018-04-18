@@ -1,4 +1,5 @@
-from scipy.spatial import Voronoi
+from scipy.spatial import Voronoi, ConvexHull
+from matplotlib.path import Path
 import numpy as np
 import cv2
 from scipy.sparse.csgraph import dijkstra
@@ -16,33 +17,19 @@ class MyVoronoi(Voronoi):
         self.point_region = None
         self.regions = None
         self.vertices = None
+        self.ridge_vertices = None
         super(MyVoronoi, self).__init__(points)
 
-    def add_wp(self, wp, outside=False, outside_points=None):
-        # TODO: This is not the correct way to find region, must check if point is inside region
-        # if 0 < wp[0] < GridSettings.height and 0 < wp[1] < GridSettings.width:
-        outside = False
-        if outside:
-            dist = np.sqrt(
-                np.square(self.points[outside_points, 0] - wp[0]) + np.square(self.points[outside_points, 1] - wp[1]))
-            ind = outside_points[np.argsort(dist)]
-            region_index = ind[0]
-        else:
-            dist = np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1]))
-            ind = np.argsort(dist)
-            for i in range(len(ind)):
-                # if inside_polygon(wp[0], wp[1], self.vertices[self.regions[self.point_region[ind[i]]]].tolist()):
-                if inside_convex_polygon(wp, self.vertices[self.regions[self.point_region[ind[i]]]].tolist()):
-                    region_index = ind[i]
-                    break
+    def add_wp(self, wp):
+        region_index = self.point_region[np.argmin(np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1])))]
+
         self.vertices = np.append(self.vertices, [wp], axis=0)
         new_vertice = np.shape(self.vertices)[0] - 1
         for i in range(np.shape(self.regions[region_index])[0]):
             self.ridge_vertices.append([int(new_vertice), int(self.regions[region_index][i])])
         return new_vertice, region_index
-
             
-    def gen_obs_free_connections(self, contours, shape, range_scale, bin_map, add_penalty=False, old_wp_list=None):
+    def gen_obs_free_connections(self, range_scale, bin_map):
         """
 
         :param contours: list of contours
@@ -51,36 +38,6 @@ class MyVoronoi(Voronoi):
         :param old_wp_list: list of wp is grid frame
         :return:
         """
-        # TODO: waypoints behind vehicle should not be possible
-
-        # If points are outside grid, move them to edge of grid
-
-        # center = self.points.mean(axis=0)
-        # ptp_bound = self.points.ptp(axis=0)
-        #
-        # for i in range(np.shape(self.ridge_vertices)[0]):
-        #     if self.ridge_vertices[i][0] == -1 or self.ridge_vertices[i][1] == -1:
-        #         try:
-        #             if self.ridge_vertices[i][0] == -1:
-        #                 j = self.ridge_vertices[i][1]
-        #             else:
-        #                 j = self.ridge_vertices[i][0]
-        #
-        #             t = self.points[self.ridge_points[i][1]] - self.points[self.ridge_points[i][0]]  # tangent
-        #             t /= np.linalg.norm(t)
-        #             n = np.array([-t[1], t[0]])  # normal
-        #
-        #             midpoint = self.points[self.ridge_points[i]].mean(axis=0)
-        #             direction = np.sign(np.dot(midpoint - center, n)) * n
-        #             far_point = self.vertices[j] + direction * ptp_bound.max()
-        #
-        #             self.vertices = np.append(self.vertices, [far_point], axis=0)
-        #             if self.ridge_vertices[i][0] == -1:
-        #                 self.ridge_vertices[i][0] = np.shape(self.vertices)[0]-1
-        #             else:
-        #                 self.ridge_vertices[i][1] = np.shape(self.vertices)[0]-1
-        #         except IndexError:
-        #             break
 
         self.connection_matrix = np.zeros((np.shape(self.vertices)[0], np.shape(self.vertices)[0]))
 

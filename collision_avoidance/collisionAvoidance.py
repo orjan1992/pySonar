@@ -177,7 +177,7 @@ class CollisionAvoidance:
             # Initializing voronoi and adding wps
             vp = MyVoronoi(points)
             start_wp, start_region = vp.add_wp((801, 801))
-            end_wp, end_region = vp.add_wp(constrained_wp_grid, True, np.array(range(len(points)-4, len(points))))
+            end_wp, end_region = vp.add_wp(constrained_wp_grid)
             # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
 
             # Check if first wp in vehicle direction is ok
@@ -189,7 +189,7 @@ class CollisionAvoidance:
                 constraint_wp, _ = vp.add_wp(fixed_wp)
                 use_constraint_wp = True
 
-            vp.gen_obs_free_connections(self.obstacles, (GridSettings.height, GridSettings.width), self.range, self.bin_map)
+            vp.gen_obs_free_connections(self.range, self.bin_map)
             self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
             self.voronoi_wp_list = []
 
@@ -238,7 +238,7 @@ class CollisionAvoidance:
                     self.data_storage.update_wps(self.new_wp_list, 0)
 
             if Settings.show_voronoi_plot or Settings.save_obstacles:
-                im = self.calc_voronoi_img(vp, self.voronoi_wp_list)
+                im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
                 if Settings.show_voronoi_plot:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
@@ -284,9 +284,11 @@ class CollisionAvoidance:
                 cv2.circle(new_im, (voronoi_wp_list[i][0], voronoi_wp_list[i][1]), line_width, (0, 0, 255), 2)
                 cv2.line(new_im, (voronoi_wp_list[i][0], voronoi_wp_list[i][1]), (voronoi_wp_list[i+1][0], voronoi_wp_list[i+1][1]), (255, 0, 0), line_width)
             cv2.circle(new_im, (voronoi_wp_list[-1][0], voronoi_wp_list[-1][1]), line_width, (0, 0, 255), 2)
-        else:
-            cv2.circle(new_im, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])), 15, (204, 0, 255), -1)
-            cv2.circle(new_im, (int(vp.vertices[end_wp][0]), int(vp.vertices[end_wp][1])), 15, (204, 0, 255), -1)
+
+        if start_wp is not None:
+            cv2.circle(new_im, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])), 15, (204, 0, 255), 6)
+        if end_wp is not None:
+            cv2.circle(new_im, (int(vp.vertices[end_wp][0]), int(vp.vertices[end_wp][1])), 15, (204, 0, 255), 6)
 
 
         vp.points[:, 0] -= x_min
