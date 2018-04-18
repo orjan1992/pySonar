@@ -51,10 +51,9 @@ class MyVoronoi(Voronoi):
             p2x = int(self.vertices[self.ridge_vertices[i][1]][0])
             p2y = int(self.vertices[self.ridge_vertices[i][1]][1])
 
-            lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
-
-            if not np.any(np.logical_and(bin_map, lin)):
-                # tmp = False
+            if (0 < p1x > GridSettings.width) and (0 < p2x > GridSettings.width) or\
+                    (0 < p1y > GridSettings.width) and (0 < p2y > GridSettings.width):
+                # Whole line is outside grid => no collision
                 if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
                     self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] =\
                         self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
@@ -63,7 +62,22 @@ class MyVoronoi(Voronoi):
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
 
-    def dijkstra(self, start_in, stop_in):
+            lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
+
+            if not np.any(np.logical_and(bin_map, lin)):
+                # No collision
+                if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
+                    self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] =\
+                        self.connection_matrix[self.ridge_vertices[i][1], self.ridge_vertices[i][0]] = np.sqrt(
+                        (self.vertices[self.ridge_vertices[i][1]][0] -
+                         self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
+                        (self.vertices[self.ridge_vertices[i][1]][1] -
+                         self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
+
+    def dijkstra(self, start_in, stop_in, collision_ind=None):
+        if collision_ind is not None:
+            self.connection_matrix[collision_ind, :] = 0
+            self.connection_matrix[:, collision_ind] = 0
         if start_in < 0:
             start = start_in + np.shape(self.vertices)[0]
         else:
@@ -81,7 +95,7 @@ class MyVoronoi(Voronoi):
         i = stop
         while i != start:
             if i == -9999:
-                return None
+                raise RuntimeError('No feasible path')
             self.shortest_path.append(i)
             length += dist[i]
             i = predecessors[i]
@@ -89,67 +103,3 @@ class MyVoronoi(Voronoi):
         self.shortest_path.reverse()
         logger.debug('path length={}'.format(length))
         return self.shortest_path
-
-    # def modified_dijkstra(self, start_in, stop_in, min_clearance, contours):
-    #     check_clearance = True
-    #     while check_clearance:
-    #         for i in range(len(self.shortest_path)):
-    #             if ()
-def inside_polygon(x, y, points):
-    """
-    Return True if a coordinate (x, y) is inside a polygon defined by
-    a list of verticies [(x1, y1), (x2, x2), ... , (xN, yN)].
-
-    Reference: http://www.ariel.com.au/a/python-point-int-poly.html
-    """
-    n = len(points)
-    inside = False
-    p1x, p1y = points[0]
-    for i in range(1, n + 1):
-        p2x, p2y = points[i % n]
-        if y > min(p1y, p2y):
-            if y <= max(p1y, p2y):
-                if x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= xinters:
-                        inside = not inside
-        p1x, p1y = p2x, p2y
-    return inside
-
-def inside_convex_polygon(point, vertices):
-    previous_side = None
-    n_vertices = len(vertices)
-    for n in range(n_vertices):
-        a, b = vertices[n], vertices[(n+1)%n_vertices]
-        affine_segment = v_sub(b, a)
-        affine_point = v_sub(point, a)
-        current_side = get_side(affine_segment, affine_point)
-        if current_side is None:
-            return False #outside or over an edge
-        elif previous_side is None: #first segment
-            previous_side = current_side
-        elif previous_side != current_side:
-            return False
-    return True
-
-def get_side(a, b):
-    """
-    which side of line is the point on
-    :param a:
-    :param b:
-    :return: True if left
-    """
-    x = x_product(a, b)
-    if x < 0:
-        return True
-    elif x > 0:
-        return False
-    else:
-        return None
-
-def v_sub(a, b):
-    return (a[0]-b[0], a[1]-b[1])
-
-def x_product(a, b):
-    return a[0]*b[1]-a[1]*b[0]

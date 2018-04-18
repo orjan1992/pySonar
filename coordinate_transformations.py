@@ -105,22 +105,22 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
     :return: constrained WP in NED frame
     """
     x_veh, y_veh = NED2vehicle(WP[0], WP[1], N_veh, E_veh, psi)
-    if x_veh > range or x_veh < 0 or abs(y_veh) > range:
+    if x_veh > range or x_veh < -range or abs(y_veh) > range:
         x_veh_old, y_veh_old = NED2vehicle(old_WP[0], old_WP[1], N_veh, E_veh, psi)
         alpha = np.arctan2(y_veh - y_veh_old, x_veh - x_veh_old)
         # dist = ((x_veh - x_veh_old)**2 + (y_veh - y_veh_old)**2)**0.5
-        if x_veh > 0:
-            if abs(x_veh) > abs(y_veh):
-                x_veh_new = range * np.sign(x_veh)
-                y_veh_new = y_veh_old + (range - abs(x_veh_old)) * np.sin(alpha)
-            else:
-                y_veh_new = range * np.sign(y_veh)
-                x_veh_new = x_veh_old + (range - abs(y_veh_old)) * np.cos(alpha)
-            return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
+        # if x_veh > 0:
+        if abs(x_veh) > abs(y_veh):
+            x_veh_new = range * np.sign(x_veh)
+            y_veh_new = y_veh_old + (range - abs(x_veh_old)) * np.sin(alpha)
         else:
-            x_veh_new = 0
-            y_veh_new = y_veh_old + x_veh_old * np.sin(alpha)
-            return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
+            y_veh_new = range * np.sign(y_veh)
+            x_veh_new = x_veh_old + (range - abs(y_veh_old)) * np.cos(alpha)
+        return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
+        # else:
+        #     x_veh_new = 0
+        #     y_veh_new = y_veh_old + x_veh_old * np.sin(alpha)
+        #     return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
     else:
         return WP, False
 

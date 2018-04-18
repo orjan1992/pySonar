@@ -19,6 +19,7 @@ def fermat(wp_list):
         v_in = (wp2[:2] - wp1[:2]) / l_in
         v_out = (wp3[:2] - wp2[:2]) / l_out
         # Course change magnitude
+        # TODO: Should do something if this is zero
         delta_chi_mag = np.arccos(np.dot(v_in, v_out))
         # Course change direction
         rho = -np.sign(v_in[1] * v_out[0] - v_in[0] * v_out[1])
