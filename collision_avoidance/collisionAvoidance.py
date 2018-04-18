@@ -150,12 +150,12 @@ class CollisionAvoidance:
                 for i in range(np.shape(contour)[0]):
                     points.append((contour[i, 0][0], contour[i, 0][1]))
             # add border points
-            for i in range(0, GridSettings.width, CollisionSettings.border_step):
-                points.append((i, 0))
-                points.append((i, GridSettings.height))
-            for i in range(0, GridSettings.height, CollisionSettings.border_step):
-                points.append((0, i))
-                points.append((GridSettings.width, i))
+            # for i in range(0, GridSettings.width, CollisionSettings.border_step):
+            #     points.append((i, 0))
+            #     points.append((i, GridSettings.height))
+            # for i in range(0, GridSettings.height, CollisionSettings.border_step):
+            #     points.append((0, i))
+            #     points.append((GridSettings.width, i))
 
             use_constraint_wp = False
 
@@ -194,10 +194,14 @@ class CollisionAvoidance:
                     N, E = grid2NED(wps[0], wps[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
             else:
+                im = self.calc_voronoi_img(vp, self.voronoi_wp_list)
+                if Settings.show_voronoi_plot:
+                    self.voronoi_plot_item.setImage(im)
+
                 return CollisionStatus.NO_FEASIBLE_ROUTE
 
             # Smooth waypoints
-            # self.new_wp_list = fermat(self.new_wp_list)
+            self.new_wp_list = fermat(self.new_wp_list)
 
             # Check if smooth path is collision free
             collision_danger = self.check_collision_margins(self.new_wp_list)
@@ -220,16 +224,16 @@ class CollisionAvoidance:
                     self.msg_client.update_wps(self.new_wp_list)
                     self.data_storage.update_wps(self.new_wp_list, 0)
 
-            if Settings.show_voronoi_plot or Settings.save_obstacles:
-                im = self.calc_voronoi_img(vp, self.new_wp_list, self.voronoi_wp_list)
-                if Settings.show_voronoi_plot:
-                    self.voronoi_plot_item.setImage(im)
-                if Settings.save_obstacles:
-                    np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
+            # if Settings.show_voronoi_plot or Settings.save_obstacles:
+            #     im = self.calc_voronoi_img(vp, self.voronoi_wp_list)
+            #     if Settings.show_voronoi_plot:
+            #         self.voronoi_plot_item.setImage(im)
+            #     if Settings.save_obstacles:
+            #         np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=new_im)
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
 
-    def calc_voronoi_img(self, vp, wp_list, voronoi_wp_list):
+    def calc_voronoi_img(self, vp, voronoi_wp_list):
         new_im = np.zeros((GridSettings.height, GridSettings.width, 3), dtype=np.uint8)
         new_im[:, :, 0] = self.bin_map
         new_im[:, :, 1] = self.bin_map
