@@ -15,7 +15,7 @@ elif Settings.input_source == 1:
 from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance, CollisionStatus
 import map
-from messages.udpMsg import AutoPilotRemoteControlRequest
+from messages.udpMsg import *
 
 # LOG and EXECPTION stuff
 LOG_FILENAME = 'main.out'
@@ -350,10 +350,14 @@ class MainWidget(QtGui.QWidget):
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
-        elif status == CollisionStatus.NEW_ROUTE_OK or status == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
-            # TODO: SMOOTH path should not be ok
+        elif status == CollisionStatus.NEW_ROUTE_OK:
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
+        elif status == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+            left = np.mean(self.grid.grid[:, :800])
+            right = np.mean(self.grid.grid[:, 801:])
+            self.udp_client.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.STATION_KEEPING))
+            self.udp_client.send_autopilot_msg(AutoPilotSetpoint(np.sign(left-right)*np.pi/2, AutopilotDofOptions.YAW, True))
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(bool, name='grid_worker_finished')

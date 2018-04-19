@@ -20,7 +20,7 @@ def fermat(wp_list):
         v_out = (wp3[:2] - wp2[:2]) / l_out
         # Course change magnitude
         # TODO: Should do something if this is zero
-        delta_chi_mag = np.arccos(np.dot(v_in, v_out))
+        delta_chi_mag = np.arccos(np.clip(np.dot(v_in, v_out), -1, 1))
         # Course change direction
         rho = -np.sign(v_in[1] * v_out[0] - v_in[0] * v_out[1])
         # delta_chi = delta_chi_mag * rho
@@ -45,9 +45,13 @@ def fermat(wp_list):
         l = np.min([l_in / 2, l_out / 2])
         p_0 = wp2[:2] - v_in*l
         p_end = wp2[:2] + v_out*l
-
-        kappa = l / ((theta_end ** 0.5) * (np.cos(theta_end) + np.sin(theta_end) / np.tan((np.pi - delta_chi_mag) / 2)))
-
+        numerator = np.tan((np.pi - delta_chi_mag) / 2)
+        if numerator != 0:
+            numerator = (theta_end ** 0.5) * (np.cos(theta_end) + np.sin(theta_end) / numerator)
+            if numerator != 0:
+                kappa = l / numerator
+        if kappa is None:
+            return wp_list
 
         # # Find start and end course angles
         chi_0 = np.arctan2(v_in[1], v_in[0])
@@ -76,12 +80,12 @@ def fermat(wp_list):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    wp_list = [(0, 0, 0, 0), (10, 6, 0, 0), (4, 8, 0, 0), (15, 16, 0, 0), (6, 18, 0, 0), (17, 21, 0, 0)]
-    # wp_list = [(3, 10, 0, 0), (5, 5, 0, 0), (7.5, 15, 0, 0), (15, 15, 0, 0)]
+    # wp_list = [(0, 0, 0, 0), (10, 6, 0, 0), (4, 8, 0, 0), (15, 16, 0, 0), (6, 18, 0, 0), (17, 21, 0, 0)]
+    wp_list = [(3, 10, 0, 0), (5, 5, 0, 0), (7.5, 15, 0, 0), (15, 15, 0, 0), (15, 6, 0, 0)]
     # wp_list.reverse()
     wp_array = np.array(wp_list)
 
-    smooth_wp = fermat(wp_list, 2)
+    smooth_wp = fermat(wp_list)
     smooth_wp_array = np.array(smooth_wp)
     plt.plot(wp_array[:, 0], wp_array[:, 1], 'b')
     plt.plot(smooth_wp_array[:, 0], smooth_wp_array[:, 1], 'r')

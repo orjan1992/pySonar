@@ -130,7 +130,7 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 150
+        threshold = 120
 
         wp_on_grid_color = (0, 153, 0)
         wp_on_grid_thickness = 4

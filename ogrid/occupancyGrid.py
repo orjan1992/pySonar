@@ -156,6 +156,7 @@ class OccupancyGrid(RawGrid):
         if msg.bearing < 0 or msg.bearing > 6399:
             print(msg.bearing)
             return
+        self.range_scale = msg.range_scale
         occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
         data_ind = self.get_hit_inds(msg, threshold)
         # print(data_ind)
@@ -333,7 +334,6 @@ class OccupancyGrid(RawGrid):
         return None, None
 
     def interpolate_bins(self, msg):
-        self.range_scale = msg.range_scale
         range_step = self.MAX_BINS / msg.dbytes
         new_data = np.zeros(self.MAX_BINS, dtype=np.uint8)
         updated = np.zeros(self.MAX_BINS, dtype=np.bool)

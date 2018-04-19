@@ -254,6 +254,24 @@ class AutoPilotAddWaypoints(AutoPilotBinary):
         for i in range(len(wp_list)):
             self.payload[4 + i*12:4 + (i+1)*12] = struct.pack('fff', wp_list[i][0], wp_list[i][1], wp_list[i][2])
 
+class AutoPilotSetpoint(AutoPilotBinary):
+    msg_id = 5
+
+    def __init__(self, setpoint, dof, absolute, sid=0):
+        self.sid = sid
+        if absolute:
+            absolute = 1
+        else:
+            absolute = 0
+        self.payload = struct.pack('fBB', setpoint, dof, absolute)
+
+class AutopilotDofOptions:
+    SURGE = 1
+    SWAY = 2
+    HEAVE = 3
+    ROLL = 4
+    PITCH = 5
+    YAW = 6
 
 class AutoPilotTrackingConfig(AutoPilotBinary):
     msg_id = 11
