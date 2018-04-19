@@ -191,6 +191,7 @@ class CollisionAvoidance:
             collision_index = 0
             counter = 0
             wps = None
+            skip_smoothing = False
             while collision_danger and counter < 5:
                 # Find shortest route
                 if counter > 0:
@@ -204,19 +205,21 @@ class CollisionAvoidance:
                     else:
                         old_wps = wps.copy()
                         wps = wps[:collision_index]
-                        try:
-                            if use_constraint_wp:
-                                wps.extend(vp.dijkstra(old_wps[collision_index-1], end_wp, old_wps[collision_index]))
-                            else:
-                                wps.extend(vp.dijkstra(old_wps[collision_index-1], end_wp, old_wps[collision_index]))
-                        except IndexError:
-                            a =1
+                        if len(wps) > 1 and 0 < collision_index < len(wps):
+                            wps.extend(vp.dijkstra(old_wps[collision_index-1], end_wp, old_wps[collision_index]))
+                        else:
+                            wps = vp.dijkstra(start_wp, end_wp, None)
                 except RuntimeError:
-                    self.path_ok = False
-                    if Settings.show_voronoi_plot:
-                        im = self.calc_voronoi_img(vp, None, start_wp, end_wp, end_region, start_region)
-                        self.voronoi_plot_item.setImage(im)
-                    return CollisionStatus.NO_FEASIBLE_ROUTE
+                    if 1 < counter < 5:
+                        logger.info('Relaxing smoothing beacause of infeasible route')
+                        skip_smoothing = True
+                        wps = old_wps.copy()
+                    else:
+                        self.path_ok = False
+                        if Settings.show_voronoi_plot:
+                            im = self.calc_voronoi_img(vp, None, start_wp, end_wp, end_region, start_region)
+                            self.voronoi_plot_item.setImage(im)
+                        return CollisionStatus.NO_FEASIBLE_ROUTE
 
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
@@ -227,7 +230,8 @@ class CollisionAvoidance:
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
 
                 # Smooth waypoints
-                self.new_wp_list = fermat(self.new_wp_list)
+                if not skip_smoothing:
+                    self.new_wp_list = fermat(self.new_wp_list)
 
                 # Check if smooth path is collision free
                 collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)

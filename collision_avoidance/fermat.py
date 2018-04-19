@@ -81,7 +81,7 @@ if __name__ == '__main__':
     # wp_list.reverse()
     wp_array = np.array(wp_list)
 
-    smooth_wp = fermat(wp_list)
+    smooth_wp = fermat(wp_list, 2)
     smooth_wp_array = np.array(smooth_wp)
     plt.plot(wp_array[:, 0], wp_array[:, 1], 'b')
     plt.plot(smooth_wp_array[:, 0], smooth_wp_array[:, 1], 'r')

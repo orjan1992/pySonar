@@ -383,20 +383,27 @@ class MainWidget(QtGui.QWidget):
 
     def wp_straight_ahead_clicked(self):
         if Settings.collision_avoidance == True:
-            wp1 = vehicle2NED(self.grid.range_scale*1.5, 0, self.last_pos_msg.lat,
+            if self.grid.range_scale == 1:
+                self.grid.range_scale = 30
+            if self.last_pos_msg is None:
+                self.last_pos_msg = MoosPosMsg(0, 0, 0, 0)
+            wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
+                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
                              self.last_pos_msg.long, self.last_pos_msg.psi)
             wp0 = [self.last_pos_msg.lat, self.last_pos_msg.long, 0, 0.5]
             wp1 = [wp1[0], wp1[1], 0, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
+            self.plot_updated = True
 
     def randomize_occ_grid(self):
         if Settings.update_type == 1:
             self.grid.randomize()
             self.plot_updated = True
         if Settings.collision_avoidance == True:
-            self.collision_avoidance.update_pos(0, 0, 0)
-            self.collision_avoidance.range = 30
-            self.collision_avoidance.update_external_wps(CollisionSettings.dummy_wp_list, 0)
+
+            self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
+            self.wp_straight_ahead_clicked()
+        else:
             self.plot_updated = True
 
     def update_collision_margin(self):

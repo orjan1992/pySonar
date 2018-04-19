@@ -14,7 +14,7 @@ class Settings:
     collision_avoidance = True
     show_map = False
     show_wp_on_grid = True
-    show_voronoi_plot = False
+    show_voronoi_plot = True
     collision_avoidance_interval = 200  # ms
     save_obstacles = False
     save_paths = False
@@ -29,13 +29,7 @@ class CollisionSettings:
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
     vehicle_margin = 1 # meter
-    loop_sleep = 0.001
-    max_loop_iterations = 100
-    parallel_line_tolerance = 2*np.pi/180.0
     send_new_wps = True
-    add_path_deviation_penalty = False
-    start_penalty_factor = 1000.0
-    path_deviation_penalty_factor = 10.0
 
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
@@ -43,7 +37,7 @@ class CollisionSettings:
     first_wp_dist = 1
 
     tracking_speed = 0.5
-    dummy_wp_list = [[0, 0, 0, 0.5], [40, 15, 0, 0.5]]
+    dummy_wp_factor = (1.5, 0.1)
 
 
 class MapSettings:
