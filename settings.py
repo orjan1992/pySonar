@@ -5,12 +5,12 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 0
-    pos_msg_source = 0 # 0=NMEA, 1=Autopilot
+    pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
     update_type = 1
-    pos_update_speed = 1000.0 / 60.0  # ms
+    pos_update_speed = 100  # ms
     hist_window = False
     collision_avoidance = True
     show_map = False

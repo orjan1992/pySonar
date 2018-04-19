@@ -40,7 +40,7 @@ class UdpClient(QObject):
             self.pos_thread.setDaemon(True)
         else:
             self.pos_stop_event = threading.Event()
-            self.pos_thread = Wathdog(self.pos_stop_event, self.get_pos, Settings.pos_update_speed)
+            self.pos_thread = Wathdog(self.pos_stop_event, self.get_pos, Settings.pos_update_speed/1000.0)
             self.pos_thread.setDaemon(True)
 
         if CollisionSettings.send_new_wps:
@@ -69,7 +69,7 @@ class UdpClient(QObject):
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
 
-    def parse_sonar_msg(self, data, socket):
+    def parse_sonar_msg(self, data):
         try:
             data_packet = self.seanet.add(data)
             if data_packet is not None:
@@ -111,7 +111,7 @@ class UdpClient(QObject):
         else:
             self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
 
-    def parse_pos_msg(self, data, socket):
+    def parse_pos_msg(self, data):
         msg = UdpPosMsg(data)
         # print(msg)
         if not msg.error:
@@ -141,8 +141,8 @@ class Handler(socketserver.BaseRequestHandler):
 
     def handle(self):
         data = self.request[0].strip()
-        socket = self.request[1]
-        self.callback(data, socket)
+        # socket = self.request[1]
+        self.callback(data)
 
 class Wathdog(threading.Thread):
     def __init__(self, event, fnc, timeout):

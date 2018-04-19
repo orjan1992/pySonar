@@ -9,6 +9,7 @@ import cv2
 import threading
 from time import time, strftime
 from scipy.io import savemat
+import messages.AutoPilotMsg as ap
 
 if Settings.input_source == 0:
     import messages.udpMsg as udpMsg
@@ -72,7 +73,7 @@ class CollisionAvoidance:
                 if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
                     logger.info('Collision danger: could not calculate feasible path')
                     # TODO: Implement better handling, mean of left/right half etc
-                    self.msg_client.send_autopilot_msg(udpMsg.AutoPilotTrackingSpeed(0))
+                    self.msg_client.send_autopilot_msg(ap.TrackingSpeed(0))
                 elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
                     logger.info('Smooth path violates margin')
                 elif stat == CollisionStatus.NEW_ROUTE_OK:

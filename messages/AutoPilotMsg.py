@@ -1,6 +1,6 @@
 from enum import Enum
 import struct
-from messages.udpMsg import CorruptMsgException, OtherMsgTypeException
+from messages.udpMsg import CorruptMsgException, OtherMsgTypeException, UdpPosMsg
 
 class MsgType(Enum):
     ERROR = 0
@@ -51,12 +51,13 @@ class Binary:
     @staticmethod
     def parse(msg):
         try:
-            length, sid, msg_id = struct.unpack('ihh', msg[:8])
+            length, sid, id_int = struct.unpack('ihh', msg[:8])
         except struct.error:
             raise CorruptMsgException
         except IndexError:
             raise CorruptMsgException
         try:
+            msg_id = MsgType(id_int)
             if msg_id is MsgType.REMOTE_CONTROL_REQUEST_REPLY:
                 return RemoteControlRequestReply(msg[8:])
             elif msg_id is MsgType.ROV_STATE:
@@ -104,11 +105,15 @@ class AddWaypoints(Binary):
         :param wp_list: list of (N, E, D)
         :param sid:
         """
+        wp_list.pop(0)
+        wp_list.pop(0)
         self.sid = sid
         self.payload = bytearray(4 * (1 + 3 * len(wp_list)))
         self.payload[:4] = struct.pack('i', len(wp_list))
         for i in range(len(wp_list)):
             self.payload[4 + i*12:4 + (i+1)*12] = struct.pack('ddd', wp_list[i][0], wp_list[i][1], wp_list[i][2])
+        for i in range(len(wp_list)):
+            print(wp_list[i][0], wp_list[i][1], wp_list[i][2])
 
 class Setpoint(Binary):
     msg_id = MsgType.SET_GUIDANCE_MODE
@@ -178,11 +183,14 @@ class GetMessage(Binary):
     def __init__(self, msg_ids, sid=0):
         self.sid = sid
         if msg_ids is list:
+            new_list = []
+            for msg_id in msg_ids:
+                new_list.append(msg_id.value)
             self.payload = struct.pack('i{}h'.format(len(msg_ids)), len(msg_ids), *msg_ids)
         else:
-            self.payload = struct.pack('ih', 1, msg_ids)
+            self.payload = struct.pack('ih', 1, msg_ids.value)
 
-class RovState(Binary):
+class RovState(Binary, UdpPosMsg):
     msg_id = MsgType.ROV_STATE
 
     def __init__(self, msg):

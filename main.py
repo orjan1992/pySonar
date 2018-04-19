@@ -17,6 +17,7 @@ from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance, CollisionStatus
 import map
 from messages.udpMsg import *
+import messages.AutoPilotMsg as ap
 
 # LOG and EXECPTION stuff
 LOG_FILENAME = 'main.out'
@@ -285,7 +286,7 @@ class MainWidget(QtGui.QWidget):
 
 
     def new_pos_msg(self):
-        if self.pos_lock.acquire(blocking=False):
+        if self.pos_lock.acquire():
             if Settings.input_source == 0:
                 msg = self.udp_client.cur_pos_msg
                 if msg is None:
@@ -378,8 +379,8 @@ class MainWidget(QtGui.QWidget):
         if status is CollisionStatus.NO_FEASIBLE_ROUTE or status is CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
             left = np.mean(self.grid.grid[:, :800])
             right = np.mean(self.grid.grid[:, 801:])
-            self.udp_client.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.STATION_KEEPING))
-            self.udp_client.send_autopilot_msg(AutoPilotSetpoint(np.sign(left-right)*np.pi/2, AutopilotDofOptions.YAW, True))
+            self.udp_client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+            self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right)*np.pi/2, AutopilotDofOptions.YAW, True))
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
@@ -417,12 +418,15 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance == True:
             if self.grid.range_scale == 1:
                 self.grid.range_scale = 30
+            self.pos_lock.acquire()
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(0, 0, 0, 0)
+            print(self.last_pos_msg)
             wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
                               self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
                              self.last_pos_msg.long, self.last_pos_msg.psi)
             wp0 = [self.last_pos_msg.lat, self.last_pos_msg.long, 0, 0.5]
+            self.pos_lock.release()
             wp1 = [wp1[0], wp1[1], 0, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
             self.plot_updated = True
