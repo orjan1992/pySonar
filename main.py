@@ -8,6 +8,7 @@ from coordinate_transformations import vehicle2NED
 from settings import *
 from ogrid.rawGrid import RawGrid
 from ogrid.occupancyGrid import OccupancyGrid
+from messages.AutoPilotMsg import RemoteControlRequest
 if Settings.input_source == 0:
     from messages.udpClient_py import UdpClient
 elif Settings.input_source == 1:
@@ -68,7 +69,7 @@ class MainWidget(QtGui.QWidget):
 
         main_layout = QtGui.QHBoxLayout()  # Main layout
         left_layout = QtGui.QVBoxLayout()
-        right_layout = QtGui.QGridLayout()
+        right_layout = QtGui.QVBoxLayout()
 
         graphics_view = pg.GraphicsLayoutWidget()  # layout for holding graphics object
         self.plot_window = pg.PlotItem()
@@ -130,7 +131,6 @@ class MainWidget(QtGui.QWidget):
         self.randomize_button.setMaximumSize(Settings.button_width, Settings.button_height)
         self.wp_straight_ahead_button.setMaximumSize(Settings.button_width, Settings.button_height)
 
-
         left_layout.addWidget(self.threshold_box)
         left_layout.addWidget(self.collision_margin_box)
         left_layout.addWidget(self.binary_plot_button)
@@ -140,8 +140,7 @@ class MainWidget(QtGui.QWidget):
         # left_layout.setGeometry(QtCore.QRect(0, 0, 200, 10**6))
         # left_layout.SizeHint(QtCore.QRect(0, 0,))
         # print(left_layout.maximumSize(200, 0))
-
-        right_layout.addWidget(graphics_view, 0, 0, 1, 2)
+        right_layout.addWidget(graphics_view)
 
         main_layout.addLayout(left_layout)
         main_layout.addLayout(right_layout)
@@ -150,6 +149,32 @@ class MainWidget(QtGui.QWidget):
             self.map_widget.setMaximumSize(800, 10**6)
             right_layout.addWidget(self.map_widget, 0, 2, 1, 1)
         self.setLayout(main_layout)
+
+        if Settings.show_pos:
+            pos_layout = QtGui.QVBoxLayout()
+            text_layout = QtGui.QHBoxLayout()
+            value_layout = QtGui.QHBoxLayout()
+            N_text = QtGui.QLabel('North')
+            N_text.setLineWidth(3)
+            E_text = QtGui.QLabel('East')
+            E_text.setLineWidth(3)
+            H_text = QtGui.QLabel('Heading')
+            H_text.setLineWidth(3)
+            self.north = QtGui.QLabel('0')
+            self.north.setLineWidth(3)
+            self.east = QtGui.QLabel('0')
+            self.east.setLineWidth(3)
+            self.heading = QtGui.QLabel('0')
+            self.heading.setLineWidth(3)
+            text_layout.addWidget(N_text)
+            text_layout.addWidget(E_text)
+            text_layout.addWidget(H_text)
+            value_layout.addWidget(self.north)
+            value_layout.addWidget(self.east)
+            value_layout.addWidget(self.heading)
+            pos_layout.addLayout(text_layout)
+            pos_layout.addLayout(value_layout)
+            right_layout.addLayout(pos_layout)
 
         if Settings.save_scan_lines:
             self.scan_lines = []
@@ -225,7 +250,7 @@ class MainWidget(QtGui.QWidget):
         self.grid_worker.setAutoDelete(False)
         self.grid_worker.signals.finished.connect(self.grid_worker_finished)
 
-        self.pos_update_timer.start(Settings.pos_update)
+        self.pos_update_timer.start(Settings.pos_update_speed)
 
     def init_grid(self):
         if Settings.update_type == 1:
@@ -268,6 +293,10 @@ class MainWidget(QtGui.QWidget):
                     return
             else:
                 msg = self.moos_msg_client.cur_pos_msg
+            if Settings.show_pos:
+                self.north.setText('{:.6f}'.format(msg.lat))
+                self.east.setText('{:.6f}'.format(msg.long))
+                self.heading.setText('{:.1f}'.format(msg.psi*180.0/np.pi))
             if self.last_pos_msg is None:
                 self.last_pos_msg = deepcopy(msg)
 
@@ -346,18 +375,17 @@ class MainWidget(QtGui.QWidget):
     @QtCore.pyqtSlot(CollisionStatus, name='collision_worker_finished')
     def collision_loop_finished(self, status):
         self.collision_stat = status
-        if status == CollisionStatus.NO_FEASIBLE_ROUTE:
-            if Settings.show_map:
-                self.map_widget.invalidate_wps()
-            self.collision_avoidance_timer.start(0)
-        elif status == CollisionStatus.NEW_ROUTE_OK:
-            if Settings.show_wp_on_grid:
-                self.plot_updated = True
-        elif status == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+        if status is CollisionStatus.NO_FEASIBLE_ROUTE or status is CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
             left = np.mean(self.grid.grid[:, :800])
             right = np.mean(self.grid.grid[:, 801:])
             self.udp_client.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.STATION_KEEPING))
             self.udp_client.send_autopilot_msg(AutoPilotSetpoint(np.sign(left-right)*np.pi/2, AutopilotDofOptions.YAW, True))
+            if Settings.show_map:
+                self.map_widget.invalidate_wps()
+            self.collision_avoidance_timer.start(0)
+        elif status is CollisionStatus.NEW_ROUTE_OK:
+            if Settings.show_wp_on_grid:
+                self.plot_updated = True
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(bool, name='grid_worker_finished')
@@ -471,4 +499,4 @@ if __name__ == '__main__':
     if Settings.save_scan_lines:
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))
     if ConnectionSettings.autopilot_server_port is not None and Settings.input_source == 0:
-        window.login_widget.udp_client.send_autopilot_msg(AutoPilotRemoteControlRequest(False))
+        window.login_widget.udp_client.send_autopilot_msg(RemoteControlRequest(False))

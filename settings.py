@@ -5,20 +5,24 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 0
+    pos_msg_source = 0 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
     update_type = 1
-    pos_update = 1000.0/60.0  # ms
+    pos_update_speed = 1000.0 / 60.0  # ms
     hist_window = False
     collision_avoidance = True
     show_map = False
     show_wp_on_grid = True
-    show_voronoi_plot = True
+    show_voronoi_plot = False
+    show_pos = True
     collision_avoidance_interval = 200  # ms
+
     save_obstacles = False
     save_paths = False
     save_scan_lines = False
+    save_collision_info = False
 
     button_height = 30
     button_width = 200

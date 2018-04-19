@@ -46,6 +46,7 @@ class MyVoronoi(Voronoi):
         # Check if each ridge is ok, then calculate ridge
         # TODO: Calc dist with scipy.spatial.distance_matrix?
         for i in range(np.shape(self.ridge_vertices)[0]):
+            # TODO: maybe error with ridge vertice == -1
             p1x = int(self.vertices[self.ridge_vertices[i][0]][0])
             p1y = int(self.vertices[self.ridge_vertices[i][0]][1])
             p2x = int(self.vertices[self.ridge_vertices[i][1]][0])

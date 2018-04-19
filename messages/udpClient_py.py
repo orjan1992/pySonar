@@ -4,6 +4,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 import threading, socketserver, socket
 from settings import Settings, CollisionSettings
 from messages.SeaNet import SeanetDecode
+import messages.AutoPilotMsg as ap
 import logging
 logger = logging.getLogger('UdpClient')
 
@@ -33,20 +34,25 @@ class UdpClient(QObject):
         self.sonar_thread = threading.Thread(target=self.sonar_server.serve_forever)
         self.sonar_thread.setDaemon(True)
 
-        self.pos_server = socketserver.UDPServer(('0.0.0.0', pos_port), handler_factory(self.parse_pos_msg))
-        self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
-        self.pos_thread.setDaemon(True)
-
-        if autopilot_listen_port is not None:
-            self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_listen_port), handler_factory(self.parse_autopilot_msg))
-            self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
-            self.autopilot_thread.setDaemon(True)
+        if Settings.pos_msg_source == 0:
+            self.pos_server = socketserver.UDPServer(('0.0.0.0', pos_port), handler_factory(self.parse_pos_msg))
+            self.pos_thread = threading.Thread(target=self.pos_server.serve_forever)
+            self.pos_thread.setDaemon(True)
+        else:
+            self.pos_stop_event = threading.Event()
+            self.pos_thread = Wathdog(self.pos_stop_event, self.get_pos, Settings.pos_update_speed)
+            self.pos_thread.setDaemon(True)
 
         if CollisionSettings.send_new_wps:
             self.autopilot_watchdog_stop_event = threading.Event()
             self.autopilot_watchdog_thread = Wathdog(self.autopilot_watchdog_stop_event, self.ping_autopilot_server,
                                                      ConnectionSettings.autopilot_watchdog_timeout)
             self.autopilot_watchdog_thread.setDaemon(True)
+
+        if autopilot_listen_port is not None:
+            self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_listen_port), handler_factory(self.parse_autopilot_msg))
+            self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever)
+            self.autopilot_thread.setDaemon(True)
 
     def start(self):
         self.sonar_thread.start()
@@ -58,7 +64,7 @@ class UdpClient(QObject):
 
     def close(self):
         self.autopilot_watchdog_stop_event.set()
-        self.send_autopilot_msg(AutoPilotRemoteControlRequest(True))
+        self.send_autopilot_msg(ap.RemoteControlRequest(True))
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -84,21 +90,26 @@ class UdpClient(QObject):
     def ping_autopilot_server(self):
         # Get empty msg to keep control
         if self.autopilot_sid == 0:
-            self.send_autopilot_msg(AutoPilotRemoteControlRequest(True))
+            self.send_autopilot_msg(ap.RemoteControlRequest(True))
             logger.info("Asked for remote control")
         else:
-            self.send_autopilot_msg(AutoPilotGetMessage(14))
+            if Settings.pos_msg_source == 1:
+                self.autopilot_watchdog_stop_event.set()
+            self.send_autopilot_msg(ap.GetMessage(ap.MsgType.EMPTY_MESSAGE))
+
+    def get_pos(self):
+        self.send_autopilot_msg(ap.GetMessage(ap.MsgType.ROV_STATE))
 
     def update_wps(self, wp_list):
-        self.send_autopilot_msg(AutoPilotTrackingSpeed(0))
-        self.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.STATION_KEEPING))
-        self.send_autopilot_msg(AutoPilotCommand(AutoPilotCommandOptions.CLEAR_WPS))
-        self.send_autopilot_msg(AutoPilotAddWaypoints(wp_list))
-        self.send_autopilot_msg(AutoPilotGuidanceMode(AutoPilotGuidanceModeOptions.PATH_FOLLOWING))
+        self.send_autopilot_msg(ap.TrackingSpeed(0))
+        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+        self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
+        self.send_autopilot_msg(ap.AddWaypoints(wp_list))
+        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
         if len(wp_list[0]) > 3:
-            self.send_autopilot_msg(AutoPilotTrackingSpeed(wp_list[0][3]))
+            self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
         else:
-            self.send_autopilot_msg(AutoPilotTrackingSpeed(CollisionSettings.tracking_speed))
+            self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
 
     def parse_pos_msg(self, data, socket):
         msg = UdpPosMsg(data)
@@ -106,15 +117,17 @@ class UdpClient(QObject):
         if not msg.error:
             self.cur_pos_msg = msg
 
-    def parse_autopilot_msg(self, data, socket):
+    def parse_autopilot_msg(self, data):
         try:
-            msg = AutoPilotBinary.parse(data)
-            if msg.msg_id == 18:
+            msg = ap.Binary.parse(data)
+            if msg.msg_id is ap.MsgType.ROV_STATE:
+                self.cur_pos_msg = msg
+            elif msg.msg_id is ap.MsgType.REMOTE_CONTROL_REQUEST_REPLY:
                 if msg.acquired:
                     self.autopilot_sid = msg.token
                     logger.info('Received remote control token: {}'.format(msg.token))
             else:
-                raise NotImplemented
+                raise OtherMsgTypeException
         except OtherMsgTypeException:
             logger.debug('Unknown msg from autopilot server')
         except CorruptMsgException:

@@ -8,6 +8,7 @@ import logging
 import cv2
 import threading
 from time import time, strftime
+from scipy.io import savemat
 
 if Settings.input_source == 0:
     import messages.udpMsg as udpMsg
@@ -219,6 +220,9 @@ class CollisionAvoidance:
                         if Settings.show_voronoi_plot:
                             im = self.calc_voronoi_img(vp, None, start_wp, end_wp, end_region, start_region)
                             self.voronoi_plot_item.setImage(im)
+
+                        self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
+                                                 CollisionStatus.NO_FEASIBLE_ROUTE)
                         return CollisionStatus.NO_FEASIBLE_ROUTE
 
                 for wp in wps:
@@ -239,6 +243,8 @@ class CollisionAvoidance:
             if collision_danger:
                 logger.debug('Smooth path violates collision margins')
                 self.path_ok = False
+                self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
+                                         CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN)
                 self.data_storage.update_wps(self.new_wp_list, 0)
                 return CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN
 
@@ -247,6 +253,8 @@ class CollisionAvoidance:
                 self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
             except IndexError:
                 pass
+
+            self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK)
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
@@ -262,8 +270,20 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=im)
+
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
+
+    def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status):
+        if Settings.save_collision_info:
+            savemat('pySonarLog/collision_info{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={
+                'old_wps': self.waypoint_list, 'new_wps': self.new_wp_list, 'voronoi_indices': self.voronoi_wp_list,
+                'voronoi_start_wp': start_wp, 'voronoi_start_region': start_region, 'voronoi_end_wp': end_wp,
+                'voronoi_end_region': end_region, 'voronoi_points': vp.points, 'voronoi_vertices': vp.vertices,
+                'voronoi_ridge_points': vp.ridge_points, 'voronoi_ridge_vertices': vp.ridge_vertices,
+                'voronoi_regions': vp.regions, 'voronoi_point_region': vp.point_region,
+                'pos': np.array([self.lat, self.long, self.psi]), 'range_scale': self.range,
+                'obstacles': self.obstacles, 'status': status.value, 'connection': vp.connection_matrix})
 
     def calc_voronoi_img(self, vp, voronoi_wp_list, start_wp=None, end_wp=None, end_region=None, start_region=None):
         x_min = np.min(vp.points[:, 0])-1000
@@ -332,7 +352,8 @@ class CollisionAvoidance:
 
     def save_paths(self):
         if Settings.save_paths:
-            np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
+            # np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
+            savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
 
     def draw_wps_on_grid(self, im, pos):
         wp_list = self.data_storage.get_wps()[0]
