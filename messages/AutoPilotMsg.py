@@ -105,18 +105,16 @@ class AddWaypoints(Binary):
         :param wp_list: list of (N, E, D)
         :param sid:
         """
-        wp_list.pop(0)
-        wp_list.pop(0)
         self.sid = sid
         self.payload = bytearray(4 * (1 + 3 * len(wp_list)))
         self.payload[:4] = struct.pack('i', len(wp_list))
         for i in range(len(wp_list)):
             self.payload[4 + i*12:4 + (i+1)*12] = struct.pack('ddd', wp_list[i][0], wp_list[i][1], wp_list[i][2])
-        for i in range(len(wp_list)):
-            print(wp_list[i][0], wp_list[i][1], wp_list[i][2])
+        # for i in range(len(wp_list)):
+        #     print(wp_list[i][0], wp_list[i][1], wp_list[i][2])
 
 class Setpoint(Binary):
-    msg_id = MsgType.SET_GUIDANCE_MODE
+    msg_id = MsgType.SETPOINT
 
     def __init__(self, setpoint, dof, absolute, sid=0):
         self.sid = sid

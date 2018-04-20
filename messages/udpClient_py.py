@@ -106,6 +106,7 @@ class UdpClient(QObject):
         self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
         self.send_autopilot_msg(ap.AddWaypoints(wp_list))
         self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
+        self.send_autopilot_msg(ap.Setpoint(0, ap.DofOptions.YAW, True))
         if len(wp_list[0]) > 3:
             self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
         else:

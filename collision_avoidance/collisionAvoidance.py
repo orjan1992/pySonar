@@ -357,6 +357,11 @@ class CollisionAvoidance:
             savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
 
     def draw_wps_on_grid(self, im, pos):
+        # Draw pos
+        cv2.circle(im, (800, 800), 10, (0, 0, 255), 3)
+        cv2.line(im, (800, 810), (800, 790), (0, 0, 255), 3)
+        cv2.line(im, (810, 800), (790, 800), (0, 0, 255), 3)
+
         wp_list = self.data_storage.get_wps()[0]
 
         if len(wp_list) > 0:
