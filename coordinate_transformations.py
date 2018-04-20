@@ -19,6 +19,10 @@ def grid2vehicle(x_grid, y_grid, range):
     y_veh = (x_grid - 801) * range / 801.0
     return x_veh, y_veh
 
+def grid2vehicle_rad(x_grid, y_grid, range):
+    tmp = grid2vehicle(x_grid, y_grid, range)
+    return (tmp[0]**2 + tmp[1]**2)**0.5
+
 def vehicle2grid(x_veh, y_veh, range):
     """
     :param x_veh: longitudinal vehicle direction

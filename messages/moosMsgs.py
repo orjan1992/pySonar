@@ -7,6 +7,7 @@ from ast import literal_eval
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.moosPosMsg import MoosPosMsg
+from coordinate_transformations import wrapTo2Pi
 from settings import *
 import cv2
 from PyQt5.QtCore import QObject, pyqtSignal
@@ -63,7 +64,7 @@ class MoosMsgs(QObject):
                 data = msg.binary_data().encode('latin-1')
                 tmp = unpack('>dddH{:d}B'.format((len(data) - 26)), data)
                 self.logger_bins.debug('Unpacking complte')
-                sonar_msg.bearing = round((tmp[0] + pi/2)*self.RAD2GRAD)
+                sonar_msg.bearing = np.round(wrapTo2Pi(tmp[0] - 3*pi/2)*self.RAD2GRAD).astype(int)
                 sonar_msg.step = round(tmp[1]*self.RAD2GRAD)
                 sonar_msg.range_scale = tmp[2]
                 sonar_msg.length = tmp[3]  # TODO one variable to much, which is needed?
@@ -72,7 +73,7 @@ class MoosMsgs(QObject):
                 sonar_msg.time = msg.time()
 
                 sonar_msg.adc8on = True
-                sonar_msg.chan2 = True
+                sonar_msg.chan2 = False
                 # self.sonar_callback(sonar_msg)
                 self.signal_new_sonar_msg.emit(sonar_msg)
                 self.logger_bins.debug('Callback OK')

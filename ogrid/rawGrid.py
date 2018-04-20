@@ -61,7 +61,7 @@ class RawGrid(object):
                 RawGrid.r_unit = np.sqrt(RawGrid.x_mesh_unit**2 + RawGrid.y_mesh_unit**2)
                 RawGrid.theta = np.arctan2(RawGrid.y_mesh_unit, RawGrid.x_mesh_unit)
                 RawGrid.theta_grad = RawGrid.theta * 3200.0 // np.pi
-                np.savez('OGrid_data/rad_1601.npz', x_mesh=RawGrid.x_mesh_unit,
+                np.savez('ogrid/OGrid_data/rad_1601.npz', x_mesh=RawGrid.x_mesh_unit,
                          y_mesh=RawGrid.y_mesh_unit, r=RawGrid.r_unit, theta=RawGrid.theta, theta_grad=RawGrid.theta_grad)
 
         if not np.any(RawGrid.map != 0):
@@ -235,12 +235,6 @@ class RawGrid(object):
         return True
 
     def trans(self, dx, dy):
-        """
-        :param dx: surge change
-        :param dy: sway change
-        :return:
-        """
-        # Transform to grid cordinates
         dx = dx * RawGrid.MAX_BINS / self.range_scale + self.last_dx
         dy = dy * RawGrid.MAX_BINS / self.range_scale + self.last_dy
         dx_int = np.round(dx).astype(int)
@@ -249,72 +243,45 @@ class RawGrid(object):
         self.last_dy = dy - dy_int
         if dx_int == dy_int == 0:
             return False
-
-        # move
-        # new_grid = np.ones((self.i_max, self.j_max))*self.p_log_zero
         self.lock.acquire()
-        if dx_int > 0:
-            if dy_int > 0:
-                try:
-                    self.grid[dx_int:, :-dy_int] = self.grid[:-dx_int, dy_int:]
-                except Exception as e:
-                    logger.debug('a\tself.grid[{}:, :{}] = grid[:{}, {}:]\n{}'.format(dx_int, -dy_int, -dx_int, dy_int, e))
-                    return False
-            elif dy_int < 0:
-                try:
-                    self.grid[dx_int:, -dy_int:] = self.grid[:-dx_int, :dy_int]
-                except Exception as e:
-                    logger.debug('b\tself.grid[{}:, {}:] = grid[:{}, :{}]\n{}'.format(dx_int, -dy_int, -dx_int, -dy_int, e))
-                    return False
+        if dy_int == 0:
+            if dx_int > 0:
+                self.grid[dx_int:, :] = self.grid[:-dx_int, :]
+                self.grid[:dx_int, :] = self.p_log_zero
+            elif dx_int < 0:
+                self.grid[:dx_int, :] = self.grid[-dx_int:, :]
+                self.grid[dx_int:, :] = self.p_log_zero
+        elif dy_int > 0:
+            if dx_int > 0:
+                self.grid[dx_int:, :-dy_int] = self.grid[:-dx_int, dy_int:]
+                self.grid[:dx_int, :] = self.p_log_zero
+                self.grid[:, -dy_int:] = self.p_log_zero
+            elif dx_int < 0:
+                self.grid[:dx_int, :-dy_int] = self.grid[-dx_int:, dy_int:]
+                self.grid[dx_int:, :] = self.p_log_zero
+                self.grid[:, -dy_int:] = self.p_log_zero
             else:
-                try:
-                    self.grid[dx_int:, :] = self.grid[:-dx_int, :]
-                except Exception as e:
-                    logger.debug('e\tself.grid[{}:, :] = grid[:{}, :]\n{}'.format(dx_int, -dx_int, e))
-                    return False
-        elif dx_int < 0:
-            if dy_int > 0:
-                try:
-                    self.grid[:-dx_int, :-dy_int] = self.grid[dx_int:, dy_int:]
-                except Exception as e:
-                    logger.debug('c\tself.grid[:{}, :{}] = grid[{}:, {}:]\n{}'.format(-dx_int, -dy_int, dx_int, dy_int, e))
-                    return False
-            elif dy_int < 0:
-                try:
-                    self.grid[:-dx_int, -dy_int:] = self.grid[dx_int:, :dy_int]
-                except Exception as e:
-                    logger.debug('d\tself.grid[:{}, {}:] = grid[{}:, :{}]\n{}'.format(-dx_int, -dy_int, dx_int, dy_int, e))
-                    return False
-            else:
-                try:
-                    self.grid[:-dx_int, :] = self.grid[dx_int:, :]
-                except Exception as e:
-                    logger.debug('f\tself.grid[:{}, :] = grid[{}:, :]\n{}'.format(-dx_int, dx_int, e))
-                    return False
+                self.grid[:, :-dy_int] = self.grid[:, dy_int:]
+                self.grid[:, -dy_int:] = self.p_log_zero
         else:
-            if dy_int > 0:
-                try:
-                    self.grid[:, :-dy_int] = self.grid[:, dy_int:]
-                except Exception as e:
-                    logger.debug('c\tself.grid[:, :{}] = grid[:, {}:]\n{}'.format(-dy_int, dy_int, e))
-                    return False
-            elif dy_int < 0:
-                try:
-                    self.grid[:, -dy_int:] = self.grid[:, :dy_int]
-                except Exception as e:
-                    logger.debug('d\tself.grid[:, {}:] = grid[:, :{}]\n{}'.format(-dy_int, dy_int, e))
-                    return False
+            if dx_int > 0:
+                self.grid[dx_int:, -dy_int:] = self.grid[:-dx_int, :dy_int]
+                self.grid[:dx_int, :] = self.p_log_zero
+                self.grid[:, :-dy_int] = self.p_log_zero
+            elif dx_int < 0:
+                self.grid[:dx_int, -dy_int:] = self.grid[-dx_int:, :dy_int]
+                self.grid[dx_int:, :] = self.p_log_zero
+                self.grid[:, :-dy_int] = self.p_log_zero
             else:
-                return False
-        # self.grid = new_grid
+                self.grid[:, -dy_int:] = self.grid[:, :dy_int]
+                self.grid[:, :-dy_int] = self.p_log_zero
         self.lock.release()
-        return True
 
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     grid = RawGrid(False)
-    grid.grid = np.load('occ2.npz')['grid']
+    # grid.
 
     # pol = np.mean(grid.grid.flat[grid.map], axis=2)
     # pol = np.roll(pol, 1, axis=0)

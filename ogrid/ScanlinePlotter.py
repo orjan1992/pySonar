@@ -2,6 +2,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore, QtGui
 from messages.udpMsg import *
+from messages.moosMsgs import *
 from messages.udpClient_py import *
 from scipy import signal
 
@@ -16,9 +17,11 @@ def plot(msg):
 
 
 if __name__ == '__main__':
-    udp_client = UdpClient(4001, 4005, None, None)
-    udp_client.set_sonar_callback(plot)
-    udp_client.start()
+    # udp_client = UdpClient(4001, 4005, None, None)
+    # udp_client.set_sonar_callback(plot)
+    # udp_client.start()
+    client = MoosMsgs(plot, None)
+    client.run()
     app = QtGui.QApplication([])
 
     p1.setYRange(0, 255)

@@ -2,7 +2,7 @@ from ogrid.rawGrid import RawGrid
 import numpy as np
 from scipy.signal import argrelextrema
 from settings import *
-from coordinate_transformations import wrapTo2Pi, wrapToPi, wrapToPiHalf
+from coordinate_transformations import wrapTo2Pi, wrapToPi, wrapToPiHalf, grid2vehicle_rad
 from threading import Lock
 import logging
 logger = logging.getLogger('OccupancyGrid')
@@ -154,31 +154,40 @@ class OccupancyGrid(RawGrid):
 
     def update_occ_zhou(self, msg, threshold):
         if msg.bearing < 0 or msg.bearing > 6399:
-            print(msg.bearing)
+            # print(msg.bearing)
             return
+        theta_rad = msg.bearing * np.pi / 3200.0
+        obstacle_in_line = False
+        self.contour_lock.acquire()
+        if self.contours is not None and len(self.contours) > 0:
+            contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
+            if contour is not None:
+                theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
+                obstacle_in_line = True
+        self.contour_lock.release()
+
         self.range_scale = msg.range_scale
         occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
-        data_ind = self.get_hit_inds(msg, threshold)
-        # print(data_ind)
-        # logger.debug(data_ind)
-        if np.any(data_ind):
-            theta_rad = msg.bearing * np.pi / 3200.0
-            obstacle_in_line = False
-            self.contour_lock.acquire()
-            if self.contours is not None:
-                contour, point = self.check_scan_line_intersection(theta_rad - np.pi)
-                if contour is not None:
-                    theta_i, p1, p2 = self.calc_incident_angle(theta_rad - np.pi, contour, point)
-                    obstacle_in_line = True
-            self.contour_lock.release()
-
-            data_ind_low = data_ind - GridSettings.hit_factor
-            data_ind_high = data_ind + GridSettings.hit_factor
+        hit_ind = self.get_hit_inds(msg, threshold)
+        if obstacle_in_line and not np.any(hit_ind):
+            # r = grid2vehicle_rad(point[1], point[0], self.range_scale)
+            # # print(x, y, point)
+            # hit_ind = np.array([np.round(r*msg.length/self.range_scale).astype(int)])
+            # print(r, hit_ind[0])
+            # hit_factor = 0.7
+            hit_factor = 1
+        else:
+            hit_factor = 1
+        logger.debug((hit_ind, hit_factor))
+        if np.any(hit_ind):
+            hit_extension_factor = GridSettings.hit_factor*msg.length/801
+            data_ind_low = hit_ind - hit_extension_factor
+            data_ind_high = hit_ind + hit_extension_factor
 
             if msg.chan2:
                 cell_ind = False
                 bearing_index = self.high_indexer[msg.bearing]
-                for i in range(len(data_ind)):
+                for i in range(len(hit_ind)):
                     cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_high[bearing_index] > data_ind_low[i],
                                                             self.angle2cell_rad_high[bearing_index] < data_ind_high[i]),
                                              cell_ind)
@@ -194,7 +203,7 @@ class OccupancyGrid(RawGrid):
                     p_max = np.max(p)
                     p_min = np.min(p)
                     p_max_min_2 = 2 * (p_max - p_min)
-                    p = (p - p_min) / p_max_min_2 + 0.5
+                    p = ((p - p_min) / p_max_min_2 + 0.5)*hit_factor
                     mask = 1 - p == 0
                     if np.any(mask):
                         log_p = np.log(p / (1 - p))
@@ -208,7 +217,7 @@ class OccupancyGrid(RawGrid):
                 # TODO: Use digitize instead of loop
                 cell_ind = False
                 bearing_index = self.low_indexer[msg.bearing]
-                for i in range(len(data_ind)):
+                for i in range(len(hit_ind)):
                     cell_ind = np.logical_or(np.logical_and(self.angle2cell_rad_low[bearing_index] > data_ind_low[i],
                                                             self.angle2cell_rad_low[bearing_index] < data_ind_high[i]),
                                              cell_ind)
@@ -237,7 +246,7 @@ class OccupancyGrid(RawGrid):
                         p_min = np.min(p)
                         p_max_min_2 = 2 * (p_max - p_min)
                         if p_max_min_2 != 0:
-                            p = (p - p_min) / p_max_min_2 + 0.5
+                            p = ((p - p_min) / p_max_min_2 + 0.5)*hit_factor
                         mask = 1 - p == 0
                         if np.any(mask):
                             not_mask = np.logical_not(mask)
@@ -520,9 +529,35 @@ class OccupancyGrid(RawGrid):
 
 if __name__=="__main__":
     import matplotlib.pyplot as plt
-    grid = OccupancyGrid(False, 0.1, 0.7, 0.4, 0.6, 16)
+
+    grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free, GridSettings.p_binary_threshold, 16)
     grid.randomize()
-    im, c = grid.get_obstacles()
-    print(len(c))
-    plt.imshow(im)
+    grid2 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+                         GridSettings.p_binary_threshold, 16)
+    grid3 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+                         GridSettings.p_binary_threshold, 16)
+    grid.range_scale = 30
+    grid2.range_scale = 30
+    grid2.grid = grid.grid.copy()
+    grid3.range_scale = 30
+    grid3.grid = grid.grid.copy()
+    sgn = 10.0
+    for i in range(100):
+        a = np.random.randint(-1, 1)
+        b = np.random.randint(-1, 1)
+        # a = -1
+        # b = -1
+        grid.trans3(a*sgn, b*sgn)
+        grid2.trans4(a*sgn, b*sgn)
+        # grid3.trans(sgn, sgn)
+        # sgn = -sgn
+
+    # for i in range(20):
+    #     grid.rotateImage(grid.grid, 5)
+
+    plt.figure(1)
+    # grid.rot(5*np.pi/180)
+    plt.imshow(grid.grid)
+    plt.figure(2)
+    plt.imshow(grid2.grid)
     plt.show()

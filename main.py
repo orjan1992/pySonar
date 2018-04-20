@@ -148,7 +148,7 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance and Settings.show_map:
             self.map_widget = map.MapWidget()
             self.map_widget.setMaximumSize(800, 10**6)
-            right_layout.addWidget(self.map_widget, 0, 2, 1, 1)
+            main_layout.addWidget(self.map_widget)
         self.setLayout(main_layout)
 
         if Settings.show_pos:
@@ -379,8 +379,11 @@ class MainWidget(QtGui.QWidget):
         if status is CollisionStatus.NO_FEASIBLE_ROUTE or status is CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
             left = np.mean(self.grid.grid[:, :800])
             right = np.mean(self.grid.grid[:, 801:])
-            self.udp_client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
-            self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right)*np.pi/2, ap.DofOptions.YAW, True))
+            if Settings.input_source == 0:
+                self.udp_client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+                self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right)*np.pi/2, ap.DofOptions.YAW, True))
+            elif Settings.show_map:
+                self.map_widget.invalidate_wps()
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
@@ -403,8 +406,8 @@ class MainWidget(QtGui.QWidget):
         else:
             raise Exception('Unknown object type in wp_received slot')
         if Settings.show_map:
-            self.map_widget.update_waypoints(self.collision_avoidance.waypoint_list,
-                                             self.collision_avoidance.waypoint_counter, self.collision_stat)
+            wp_list, wp_counter = self.collision_avoidance.data_storage.get_wps()
+            self.map_widget.update_waypoints(wp_list, wp_counter, self.collision_stat)
 
 
     def binary_button_click(self):

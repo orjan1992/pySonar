@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 
 class Settings:
     # 0 == udp, 1 == MOOS
-    input_source = 0
+    input_source = 1
     pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
@@ -13,7 +13,7 @@ class Settings:
     pos_update_speed = 100  # ms
     hist_window = False
     collision_avoidance = True
-    show_map = False
+    show_map = True
     show_wp_on_grid = True
     show_voronoi_plot = False
     show_pos = True
@@ -111,7 +111,7 @@ class GridSettings:
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
     iterations = 1
-    min_area = 1  # pixels/m
+    min_area = 9  # pixels/m
 
 class ConnectionSettings:
         sonar_port = 4001
@@ -134,7 +134,7 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 120
+        threshold = 10
 
         wp_on_grid_color = (0, 153, 0)
         wp_on_grid_thickness = 4

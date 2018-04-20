@@ -72,8 +72,6 @@ class CollisionAvoidance:
                 stat = self.calc_new_wp()
                 if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
                     logger.info('Collision danger: could not calculate feasible path')
-                    # TODO: Implement better handling, mean of left/right half etc
-                    self.msg_client.send_autopilot_msg(ap.TrackingSpeed(0))
                 elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
                     logger.info('Smooth path violates margin')
                 elif stat == CollisionStatus.NEW_ROUTE_OK:
