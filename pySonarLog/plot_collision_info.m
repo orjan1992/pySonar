@@ -1,6 +1,9 @@
 function f = plot_collision_info(fname)
-    load('collision_info20180419-130238.mat')
-    new_wps = new_wps(:, 1:2);
+%     load('collision_info20180419-130238.mat')
+    load(fname)
+    if ~isempty(new_wps)
+        new_wps = new_wps(:, 1:2);
+    end
     old_wps = old_wps(:, 1:2);
     voronoi_ridge_vertices = voronoi_ridge_vertices + 1;
     voronoi_ridge_points = voronoi_ridge_points + 1;
@@ -10,7 +13,7 @@ function f = plot_collision_info(fname)
     range_scale = double(range_scale);
 
 
-    f = figure()
+    f = figure();
     % obstacles
     plot(voronoi_points(:, 1), voronoi_points(:, 2), 'or')
     % ylim([min(voronoi_points(:, 2)), max(voronoi_points(:, 2))]);
@@ -42,17 +45,19 @@ function f = plot_collision_info(fname)
         v1 = voronoi_vertices(voronoi_ridge_vertices(i, 1), :);
         v2 = voronoi_vertices(voronoi_ridge_vertices(i, 2), :);
         if valid
-            plot([v1(1), v2(1)], [v1(2), v2(2)], 'c')
+            plot([v1(1), v2(1)], [v1(2), v2(2)], 'b', 'LineWidth', 1.5)
         else
-            plot([v1(1), v2(1)], [v1(2), v2(2)], 'b')
+            plot([v1(1), v2(1)], [v1(2), v2(2)], 'r')
         end
     end
 
     % paths
     % new_wps = [new_wps; new_wps(1, :)];
-    new_wps_grid = ned2grid(new_wps, pos, range_scale);
-    plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'g', 'LineWidth', 2);
-    plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'og');
+    if ~isempty(new_wps)
+        new_wps_grid = ned2grid(new_wps, pos, range_scale);
+        plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'g', 'LineWidth', 2);
+        plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'og');
+    end
 
     old_wps_grid = ned2grid(old_wps, pos, range_scale);
     plot(old_wps_grid(:, 1), old_wps_grid(:, 2), 'k', 'LineWidth', 2);
@@ -66,7 +71,7 @@ function f = plot_collision_info(fname)
     ax_width = outerpos(3) - ti(1) - ti(3);
     ax_height = outerpos(4) - ti(2) - ti(4);
     ax.Position = [left bottom ax_width ax_height];
-    save(f, strcat('png\',fname, '.png'));
+%     save(f, strcat('png\',fname, '.png'));
 
 
 

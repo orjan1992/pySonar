@@ -192,6 +192,8 @@ class MapWidget(QWidget):
             self.scene.removeItem(polygon)
         self.obstacle_list.clear()
 
+        if obstacles is None:
+            return
         for obs in obstacles:
             polygon = QPolygonF()
             for p in obs:

@@ -170,12 +170,12 @@ class OccupancyGrid(RawGrid):
         occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
         hit_ind = self.get_hit_inds(msg, threshold)
         if obstacle_in_line and not np.any(hit_ind):
-            # r = grid2vehicle_rad(point[1], point[0], self.range_scale)
-            # # print(x, y, point)
-            # hit_ind = np.array([np.round(r*msg.length/self.range_scale).astype(int)])
-            # print(r, hit_ind[0])
-            # hit_factor = 0.7
-            hit_factor = 1
+            r = grid2vehicle_rad(point[1], point[0], self.range_scale)
+            # print(x, y, point)
+            hit_ind = np.array([np.round(r*msg.length/self.range_scale).astype(int)])
+            print(r, hit_ind[0])
+            hit_factor = 0.5
+            # hit_factor = 1
         else:
             hit_factor = 1
         logger.debug((hit_ind, hit_factor))
@@ -435,7 +435,8 @@ class OccupancyGrid(RawGrid):
 
     def get_hit_inds(self, msg, threshold):
         # Smooth graph
-        smooth = np.convolve(msg.data, np.ones((10,)) / 10, mode='full')
+        smooth = np.convolve(msg.data, np.full((GridSettings.smoothing_factor), 1.0/GridSettings.smoothing_factor),
+                             mode='full')
         data_len = len(smooth)
         s1 = smooth[:-2]
         s2 = smooth[1:-1]
@@ -505,6 +506,8 @@ class OccupancyGrid(RawGrid):
         mask = np.logical_or(smooth_peaks - smooth_valleys[:-1] > threshold,
                              smooth_peaks - smooth_valleys[1:] > threshold)
         return np.round(np.array(peaks)[mask] * self.MAX_BINS / msg.dbytes).astype(int)
+        # print(np.array(peaks)[mask])
+        # return smooth, peaks, valleys
 
     def randomize(self):
         self.range_scale = 30
@@ -530,34 +533,50 @@ class OccupancyGrid(RawGrid):
 if __name__=="__main__":
     import matplotlib.pyplot as plt
 
-    grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free, GridSettings.p_binary_threshold, 16)
-    grid.randomize()
-    grid2 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+    # grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free, GridSettings.p_binary_threshold, 16)
+    # grid.randomize()
+    # grid2 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+    #                      GridSettings.p_binary_threshold, 16)
+    # grid3 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+    #                      GridSettings.p_binary_threshold, 16)
+    # grid.range_scale = 30
+    # grid2.range_scale = 30
+    # grid2.grid = grid.grid.copy()
+    # grid3.range_scale = 30
+    # grid3.grid = grid.grid.copy()
+    # sgn = 10.0
+    # for i in range(100):
+    #     a = np.random.randint(-1, 1)
+    #     b = np.random.randint(-1, 1)
+    #     # a = -1
+    #     # b = -1
+    #     grid.trans3(a*sgn, b*sgn)
+    #     grid2.trans4(a*sgn, b*sgn)
+    #     # grid3.trans(sgn, sgn)
+    #     # sgn = -sgn
+    #
+    # # for i in range(20):
+    # #     grid.rotateImage(grid.grid, 5)
+    #
+    # plt.figure(1)
+    # # grid.rot(5*np.pi/180)
+    # plt.imshow(grid.grid)
+    # plt.figure(2)
+    # plt.imshow(grid2.grid)
+    # plt.show()
+    from messages.moosSonarMsg import *
+    grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
                          GridSettings.p_binary_threshold, 16)
-    grid3 = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
-                         GridSettings.p_binary_threshold, 16)
-    grid.range_scale = 30
-    grid2.range_scale = 30
-    grid2.grid = grid.grid.copy()
-    grid3.range_scale = 30
-    grid3.grid = grid.grid.copy()
-    sgn = 10.0
-    for i in range(100):
-        a = np.random.randint(-1, 1)
-        b = np.random.randint(-1, 1)
-        # a = -1
-        # b = -1
-        grid.trans3(a*sgn, b*sgn)
-        grid2.trans4(a*sgn, b*sgn)
-        # grid3.trans(sgn, sgn)
-        # sgn = -sgn
+    data = np.load('ogrid/scanline.npz')['scanline']
+    for s in data:
+        plt.plot(s, color='b')
+        msg = MoosSonarMsg()
+        msg.data = s
+        msg.dbytes = 300
+        smooth, peaks, valleys = grid.get_hit_inds(msg, 10)
+        plt.plot(smooth, color='g')
+        plt.plot(peaks, smooth[peaks], color='r', marker='o')
+        plt.plot(valleys, smooth[valleys], color='c', marker='o')
+        plt.show()
+        a=1
 
-    # for i in range(20):
-    #     grid.rotateImage(grid.grid, 5)
-
-    plt.figure(1)
-    # grid.rot(5*np.pi/180)
-    plt.imshow(grid.grid)
-    plt.figure(2)
-    plt.imshow(grid2.grid)
-    plt.show()

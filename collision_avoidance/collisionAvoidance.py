@@ -80,6 +80,8 @@ class CollisionAvoidance:
                 # logger.info('No collision danger')
                 stat = CollisionStatus.NO_DANGER
             return stat
+        else:
+            return CollisionStatus.NOT_ENOUGH_INFO
 
     def remove_obsolete_wp(self, wp_list):
         i = 0
@@ -133,17 +135,17 @@ class CollisionAvoidance:
                     constrained_wp_index = i
                     last_wp = NE
                     # Check if path reenters grid
-                    for i in range(constrained_wp_index, np.shape(self.waypoint_list)[0]):
-                        NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
-                                                             self.lat, self.long, self.psi, self.range)
-                        if not constrained:
-                            constrained_wp_index = i
-                            if i < np.shape(self.waypoint_list)[0] - 1:
-                                NE, constrained = constrainNED2range(self.waypoint_list[i + 1], self.waypoint_list[i],
-                                                                     self.lat, self.long, self.psi, self.range)
-                                if constrained:
-                                    constrained_wp_index = i
-                                    last_wp = NE
+                    # for i in range(constrained_wp_index, np.shape(self.waypoint_list)[0]):
+                    #     NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
+                    #                                          self.lat, self.long, self.psi, self.range)
+                    #     if not constrained:
+                    #         constrained_wp_index = i
+                    #         if i < np.shape(self.waypoint_list)[0] - 1:
+                    #             NE, constrained = constrainNED2range(self.waypoint_list[i + 1], self.waypoint_list[i],
+                    #                                                  self.lat, self.long, self.psi, self.range)
+                    #             if constrained:
+                    #                 constrained_wp_index = i
+                    #                 last_wp = NE
                     break
             if last_wp is None:
                 last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
@@ -395,6 +397,7 @@ class CollisionStatus(Enum):
     NO_FEASIBLE_ROUTE = 1
     SMOOTH_PATH_VIOLATES_MARGIN = 2
     NEW_ROUTE_OK = 3
+    NOT_ENOUGH_INFO = 4
 
 
 class CollisionData:

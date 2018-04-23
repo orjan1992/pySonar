@@ -38,7 +38,7 @@ class CollisionSettings:
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
 
-    first_wp_dist = 1
+    first_wp_dist = 4 # meters
 
     tracking_speed = 0.5
     dummy_wp_factor = (1.5, 0.1)
@@ -78,10 +78,10 @@ class MapSettings:
 
 class GridSettings:
     half_grid = False
-    p_inital = 0.35
-    p_binary_threshold = 0.78
+    p_inital = 0.5
+    p_binary_threshold = 0.7
     p_free = 0.3
-    p_occ = 0.9
+    p_occ = 0.71
     hit_factor = 50
 
     binary_grid = False
@@ -94,6 +94,7 @@ class GridSettings:
     min_rot = 4  # in 1/16 grad
     cell_factor = 16
     scale_raw_data = False
+    smoothing_factor = 2  # 10 for real data
 
     # zhou model
     kh_high = 0.5445427266222308

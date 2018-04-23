@@ -387,6 +387,7 @@ class MainWidget(QtGui.QWidget):
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
+            return
         elif status is CollisionStatus.NEW_ROUTE_OK:
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
