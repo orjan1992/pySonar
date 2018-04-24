@@ -18,6 +18,7 @@ from collision_avoidance.collisionAvoidance import CollisionAvoidance, Collision
 import map
 from messages.udpMsg import *
 import messages.AutoPilotMsg as ap
+from collision_avoidance.los_controller import LosController
 
 # LOG and EXECPTION stuff
 LOG_FILENAME = 'main.out'
@@ -252,6 +253,7 @@ class MainWidget(QtGui.QWidget):
         self.grid_worker.signals.finished.connect(self.grid_worker_finished)
 
         self.pos_update_timer.start(Settings.pos_update_speed)
+
 
     def init_grid(self):
         if Settings.update_type == 1:

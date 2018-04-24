@@ -96,7 +96,7 @@ class CollisionAvoidance:
         logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
-    def check_collision_margins(self, wp_list, cubic=False):
+    def check_collision_margins(self, wp_list):
         """
         Check if path is colliding
         :param wp_list:
@@ -238,19 +238,17 @@ class CollisionAvoidance:
                 # self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
                 for wp in self.voronoi_wp_list:
                     N, E = grid2NED(wp[0], wp[1], self.range, self.lat, self.long, self.psi)
-                    self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2], self.waypoint_list[self.waypoint_counter][3]])
+                    self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2]])  # , self.waypoint_list[self.waypoint_counter][3]])
 
                 # Smooth waypoints
-                smooth_path = []
                 if not skip_smoothing:
                     if CollisionSettings.use_fermat:
                         self.new_wp_list = fermat(self.new_wp_list)
-                        collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
                     else:
-                        smooth_path = cubic_path(self.new_wp_list)
-                        collision_danger, collision_index = self.check_collision_margins(smooth_path)
-                else:
-                    collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
+                        non_smooth_path = self.new_wp_list.copy()
+                        self.new_wp_list = cubic_path(self.new_wp_list)
+
+                collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
                 # Check if smooth path is collision free
 
                 counter += 1
@@ -259,10 +257,10 @@ class CollisionAvoidance:
                 self.path_ok = False
                 self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
                                          CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN)
-                if not skip_smoothing and not CollisionSettings.use_fermat:
-                    self.data_storage.update_wps(self.new_wp_list, 0, smooth_path)
-                else:
-                    self.data_storage.update_wps(self.new_wp_list, 0)
+                # if not skip_smoothing and not CollisionSettings.use_fermat:
+                #     self.data_storage.update_wps(self.new_wp_list, 0, smooth_path)
+                # else:
+                #     self.data_storage.update_wps(self.new_wp_list, 0)
 
                 return CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN
 
@@ -279,13 +277,13 @@ class CollisionAvoidance:
                     self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
                 else:
                     self.path_ok = True
-                    self.msg_client.update_wps(self.new_wp_list)
-            self.data_storage.update_wps(self.new_wp_list, 0, smooth_path)
+                    if CollisionSettings.use_fermat:
+                        self.msg_client.update_wps(self.new_wp_list)
+                    else:
+                        self.msg_client.update_wps(non_smooth_path)
+            self.data_storage.update_wps(self.new_wp_list, 0)
             if Settings.save_paths:
-                if CollisionSettings.use_fermat:
-                    self.paths.append(smooth_path)
-                else:
-                    self.paths.append(self.new_wp_list)
+                self.paths.append(self.new_wp_list)
             if Settings.show_voronoi_plot or Settings.save_obstacles:
                 im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
                 if Settings.show_voronoi_plot:
@@ -379,16 +377,8 @@ class CollisionAvoidance:
             savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(self.paths), 'pos': np.array(self.pos)})
 
     def draw_wps_on_grid(self, im, pos):
-        # Draw pos
-        cv2.circle(im, (800, 800), 10, (0, 0, 255), 3)
-        cv2.line(im, (800, 810), (800, 790), (0, 0, 255), 3)
-        cv2.line(im, (810, 800), (790, 800), (0, 0, 255), 3)
 
-        if CollisionSettings.use_fermat:
-            wp_list = self.data_storage.get_wps()[0]
-        else:
-            wp_list = self.data_storage.get_smooth_wps()
-            non_smooth_wp = self.data_storage.get_wps()[0]
+        wp_list = self.data_storage.get_wps()[0]
 
         if len(wp_list) > 0:
             vehicle_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
@@ -414,6 +404,10 @@ class CollisionAvoidance:
                     break
                 else:
                     wp1_grid = wp2_grid
+        # Draw pos
+        cv2.circle(im, (800, 800), 10, (0, 0, 255), 3)
+        cv2.line(im, (800, 810), (800, 790), (0, 0, 255), 3)
+        cv2.line(im, (810, 800), (790, 800), (0, 0, 255), 3)
         return im
 
 
@@ -435,7 +429,6 @@ class CollisionData:
     obstacles = []
     range = 30
     wp_list = []
-    smooth_wp_list = []
     wp_counter = 0
 
     def update_pos(self, lat=None, long=None, psi=None):
@@ -466,26 +459,17 @@ class CollisionData:
         self.obs_lock.release()
         return tmp
 
-    def update_wps(self, wp_list, wp_counter, smooth_wp_list=[]):
+    def update_wps(self, wp_list, wp_counter):
         self.wp_lock.acquire()
         if wp_list is not None:
             self.wp_list = wp_list
         if wp_counter is not None:
             self.waypoint_counter = wp_counter
-        self.smooth_wp_list = smooth_wp_list
         self.wp_lock.release()
 
     def get_wps(self):
         self.wp_lock.acquire()
         tmp = self.wp_list, self.wp_counter
-        self.wp_lock.release()
-        return tmp
-
-    def get_smooth_wps(self):
-        self.wp_lock.acquire()
-        tmp = self.smooth_wp_list
-        if len(tmp) < 2:
-            tmp = self.wp_list
         self.wp_lock.release()
         return tmp
 

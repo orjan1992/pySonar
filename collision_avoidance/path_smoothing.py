@@ -87,11 +87,12 @@ def cubic_path(wp_list):
 
     xpath = CubicSpline(omega, wp_array[:, 0])
     ypath = CubicSpline(omega, wp_array[:, 1])
-
-    omega_discrete = np.arange(0, len(wp_list)-.99, CollisionSettings.cubic_smoothing_discrete_step)
-    wp_array_discrete = np.zeros((len(omega_discrete), 2))
+    zpath = CubicSpline(omega, wp_array[:, 2])
+    omega_discrete = np.arange(0, len(wp_list)-.999, CollisionSettings.cubic_smoothing_discrete_step)
+    wp_array_discrete = np.zeros((len(omega_discrete), 3))
     wp_array_discrete[:, 0] = xpath(omega_discrete)
     wp_array_discrete[:, 1] = ypath(omega_discrete)
+    wp_array_discrete[:, 2] = zpath(omega_discrete)
     return np.ndarray.tolist(wp_array_discrete)
 
 

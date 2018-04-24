@@ -43,8 +43,14 @@ class CollisionSettings:
 
     tracking_speed = 0.5
     dummy_wp_factor = (1.5, 0)
-    use_fermat = False
+    use_fermat = True
     cubic_smoothing_discrete_step = 0.1
+
+class LosSettings:
+    enable_los = True
+    roa = 5
+    look_ahead_distance = 15
+    send_new_heading_limit = np.pi/180.0
 
 
 class MapSettings:
