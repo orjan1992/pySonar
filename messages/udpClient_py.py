@@ -8,6 +8,12 @@ import messages.AutoPilotMsg as ap
 import logging
 logger = logging.getLogger('UdpClient')
 
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        thread.start()
+        return thread
+    return wrapper
 
 class UdpClient(QObject):
     # TODO: Implement NMEA messages for WP control or LOS control
@@ -20,6 +26,7 @@ class UdpClient(QObject):
     seanet = SeanetDecode()
     ask_for_desired = False
     in_control = False
+    wp_update_in_progress = threading.Lock()
 
     def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_server_port, autopilot_listen_port):
         super().__init__()
@@ -67,14 +74,8 @@ class UdpClient(QObject):
         if CollisionSettings.send_new_wps and self.in_control:
             logger.info('Shutting down autopilot')
             self.ask_for_desired = True
-            if self.guidance_mode is ap.GuidanceModeOptions.PATH_FOLLOWING:
-                logger.info('In guidance mode. Setting speed to zero')
-                self.send_autopilot_msg(ap.TrackingSpeed(0))
-                while abs(self.cur_pos_msg.surge) > 0.1:
-                    self.ap_pos_received.wait()
-                    self.ap_pos_received.clear()
-            # Speed is zero
-            self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+            thread = self.stop_autopilot()
+            thread.join()
             logger.info('In stationkeeping mode. Waiting for small errors.')
             state_error = None
             self.ap_pos_received.clear()
@@ -87,7 +88,8 @@ class UdpClient(QObject):
             # All errors are small
             self.send_autopilot_msg(ap.RemoteControlRequest(False))
             logger.info('Released control of autopilot')
-        self.autopilot_watchdog_stop_event.set()
+        if CollisionSettings.send_new_wps:
+            self.autopilot_watchdog_stop_event.set()
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -114,23 +116,23 @@ class UdpClient(QObject):
     def ping_autopilot_server(self):
         # Get empty msg to keep control
         if self.autopilot_sid == 0:
-            self.send_autopilot_msg(ap.ControllerOptions([]))
+            # self.send_autopilot_msg(ap.ControllerOptions([]))
             self.send_autopilot_msg(ap.RemoteControlRequest(True))
             logger.info("Asked for remote control")
             return False
         else:
             self.in_control = True
             if Settings.pos_msg_source == 1:
-                self.send_autopilot_msg(ap.ControllerOptions([ap.Dofs.SURGE, ap.Dofs.SWAY, ap.Dofs.HEAVE, ap.Dofs.YAW]))
+                # self.send_autopilot_msg(ap.ControllerOptions([ap.Dofs.SURGE, ap.Dofs.SWAY, ap.Dofs.HEAVE, ap.Dofs.YAW]))
                 self.autopilot_watchdog_stop_event.set()
                 self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
                 self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
-                while self.cur_pos_msg is None:
-                    pass
-                self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.lat, ap.Dofs.SURGE, True))
-                self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.long, ap.Dofs.SWAY, True))
-                self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
-                self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, 10))
+                # while self.cur_pos_msg is None:
+                #     pass
+                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.lat, ap.Dofs.SURGE, True))
+                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.long, ap.Dofs.SWAY, True))
+                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
+                # self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, 10))
             else:
                 self.send_autopilot_msg(ap.GetMessage(ap.MsgType.EMPTY_MESSAGE))
             return True
@@ -141,11 +143,13 @@ class UdpClient(QObject):
         else:
             self.send_autopilot_msg(ap.GetMessage([ap.MsgType.ROV_STATE, ap.MsgType.ROV_STATE_DESIRED]))
 
+    @threaded
     def update_wps(self, wp_list):
-        print(wp_list)
-        self.send_autopilot_msg(ap.TrackingSpeed(0))
-        self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
-        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+        if len(wp_list) < 2:
+            return
+        self.wp_update_in_progress.acquire()
+        thread = self.stop_autopilot()
+        thread.join()
         self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
         self.send_autopilot_msg(ap.AddWaypoints(wp_list))
         self.guidance_mode = ap.GuidanceModeOptions.PATH_FOLLOWING
@@ -155,10 +159,23 @@ class UdpClient(QObject):
             self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
         else:
             self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
+        self.wp_update_in_progress.release()
 
+    @threaded
     def stop_autopilot(self):
+        if self.cur_pos_msg is None:
+            return
         self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
         self.send_autopilot_msg(ap.TrackingSpeed(0))
+        while self.cur_pos_msg.surge > 0.1:
+            self.ap_pos_received.clear()
+            self.ap_pos_received.wait(0.1)
+        self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
+        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+        # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SURGE, True))
+        # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SWAY, True))
+        # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
+        self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, self.cur_pos_msg.alt))
 
     def parse_pos_msg(self, data):
         msg = UdpPosMsg(data)

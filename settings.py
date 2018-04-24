@@ -26,7 +26,7 @@ class Settings:
 
     button_height = 30
     button_width = 200
-    inverted_sonar = True
+    inverted_sonar = False
 
 
 class CollisionSettings:
@@ -43,6 +43,8 @@ class CollisionSettings:
 
     tracking_speed = 0.5
     dummy_wp_factor = (1.5, 0)
+    use_fermat = False
+    cubic_smoothing_discrete_step = 0.1
 
 
 class MapSettings:

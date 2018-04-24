@@ -371,7 +371,7 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         self.collision_worker.set_reliable(self.grid.reliable)
         self.thread_pool.start(self.collision_worker, 6)
-        logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
+        # logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(CollisionStatus, name='collision_worker_finished')
     def collision_loop_finished(self, status):

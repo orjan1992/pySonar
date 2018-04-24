@@ -1,7 +1,8 @@
 import numpy as np
 from settings import CollisionSettings
 import logging
-logger = logging.getLogger('Fermat')
+from scipy.interpolate import CubicSpline
+logger = logging.getLogger('PathSmoothing')
 
 THETA_MAX = ((7 ** 0.5) / 2 - 5 / 4) ** 0.5
 
@@ -77,6 +78,22 @@ def fermat(wp_list):
     new_list.append(wp_list[-1])
     return new_list
 
+def cubic_path(wp_list):
+    if len(wp_list) <= 1:
+        logger.info('Too few waypoints')
+        return wp_list
+    wp_array = np.array(wp_list)
+    omega = np.arange(0, len(wp_list), 1, int)
+
+    xpath = CubicSpline(omega, wp_array[:, 0])
+    ypath = CubicSpline(omega, wp_array[:, 1])
+
+    omega_discrete = np.arange(0, len(wp_list)-.99, CollisionSettings.cubic_smoothing_discrete_step)
+    wp_array_discrete = np.zeros((len(omega_discrete), 2))
+    wp_array_discrete[:, 0] = xpath(omega_discrete)
+    wp_array_discrete[:, 1] = ypath(omega_discrete)
+    return np.ndarray.tolist(wp_array_discrete)
+
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -89,6 +106,9 @@ if __name__ == '__main__':
     smooth_wp_array = np.array(smooth_wp)
     plt.plot(wp_array[:, 0], wp_array[:, 1], 'b')
     plt.plot(smooth_wp_array[:, 0], smooth_wp_array[:, 1], 'r')
+    cubic_array = np.array(cubic_path(wp_list))
+    plt.plot(cubic_array[:, 0], cubic_array[:, 1], 'k')
+
     # plt.xlim([6, 12])
     # plt.ylim([12, 16])
     plt.show()
