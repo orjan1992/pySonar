@@ -19,6 +19,7 @@ class UdpClient(QObject):
     autopilot_sid = 0
     seanet = SeanetDecode()
     ask_for_desired = False
+    in_control = False
 
     def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_server_port, autopilot_listen_port):
         super().__init__()
@@ -63,7 +64,7 @@ class UdpClient(QObject):
             self.autopilot_watchdog_thread.start()
 
     def close(self):
-        if CollisionSettings.send_new_wps:
+        if CollisionSettings.send_new_wps and self.in_control:
             logger.info('Shutting down autopilot')
             self.ask_for_desired = True
             if self.guidance_mode is ap.GuidanceModeOptions.PATH_FOLLOWING:
@@ -84,9 +85,9 @@ class UdpClient(QObject):
                     continue
                 state_error = self.cur_pos_msg - self.cur_desired_pos_msg
             # All errors are small
-            self.autopilot_watchdog_stop_event.set()
             self.send_autopilot_msg(ap.RemoteControlRequest(False))
             logger.info('Released control of autopilot')
+        self.autopilot_watchdog_stop_event.set()
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -118,6 +119,7 @@ class UdpClient(QObject):
             logger.info("Asked for remote control")
             return False
         else:
+            self.in_control = True
             if Settings.pos_msg_source == 1:
                 self.send_autopilot_msg(ap.ControllerOptions([ap.Dofs.SURGE, ap.Dofs.SWAY, ap.Dofs.HEAVE, ap.Dofs.YAW]))
                 self.autopilot_watchdog_stop_event.set()
@@ -154,7 +156,9 @@ class UdpClient(QObject):
         else:
             self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
 
-
+    def stop_autopilot(self):
+        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
+        self.send_autopilot_msg(ap.TrackingSpeed(0))
 
     def parse_pos_msg(self, data):
         msg = UdpPosMsg(data)

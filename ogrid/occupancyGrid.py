@@ -389,8 +389,12 @@ class OccupancyGrid(RawGrid):
         k_size = np.round(CollisionSettings.obstacle_margin * 801.0 / self.range_scale).astype(int)
         im3 = cv2.dilate(im2, np.ones((k_size, k_size), dtype=np.uint8), iterations=1)
         # im3 = cv2.dilate(im2, self.kernel, iterations=FeatureExtraction.iterations)
+        contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
+        convex_contour_list = []
+        for c in contours:
+            convex_contour_list.append(cv2.convexHull(c, returnPoints=True))
         self.contour_lock.acquire()
-        self.contours = cv2.findContours(im3, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
+        self.contours = convex_contour_list
         self.contour_lock.release()
         self.bin_map = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
 
