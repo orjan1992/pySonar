@@ -381,7 +381,7 @@ class MainWidget(QtGui.QWidget):
             right = np.mean(self.grid.grid[:, 801:])
             if Settings.input_source == 0:
                 self.udp_client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
-                self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right)*np.pi/2, ap.DofOptions.YAW, True))
+                self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right) * np.pi / 2, ap.Dofs.YAW, False))
             elif Settings.show_map:
                 self.map_widget.invalidate_wps()
             if Settings.show_map:
@@ -428,7 +428,8 @@ class MainWidget(QtGui.QWidget):
             wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
                               self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
                              self.last_pos_msg.long, self.last_pos_msg.psi)
-            wp0 = [self.last_pos_msg.lat, self.last_pos_msg.long, 0, 0.5]
+            wp0 = vehicle2NED(2, 0, self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi)
+            wp0 = [wp0[0], wp0[1], 0, 0.5]
             self.pos_lock.release()
             wp1 = [wp1[0], wp1[1], 0, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
@@ -506,5 +507,5 @@ if __name__ == '__main__':
         window.login_widget.voronoi_window.close()
     if Settings.save_scan_lines:
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))
-    if ConnectionSettings.autopilot_server_port is not None and Settings.input_source == 0:
-        window.login_widget.udp_client.send_autopilot_msg(RemoteControlRequest(False))
+    if Settings.input_source == 0:
+        window.login_widget.udp_client.close()

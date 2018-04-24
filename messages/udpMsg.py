@@ -4,7 +4,7 @@ import logging
 import numpy as np
 from math import pi, sin, cos, sqrt, atan2
 import re
-from settings import ConnectionSettings
+from settings import ConnectionSettings, Settings
 from enum import Enum
 
 from messages.sensor import Sensor
@@ -92,6 +92,8 @@ class MtHeadData(Sensor):
             except:
                 self.extra_bytes = None
 
+            if Settings.inverted_sonar:
+                self.bearing = 6400 - self.bearing
             # self.time = 0
             # if byte_array[43 + self.dbytes] != 10:
             #     logger.error('No end of message')

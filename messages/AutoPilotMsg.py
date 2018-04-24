@@ -1,6 +1,7 @@
 from enum import Enum
 import struct
 from messages.udpMsg import CorruptMsgException, OtherMsgTypeException, UdpPosMsg
+from numpy import arctan2, sin, cos
 
 class MsgType(Enum):
     ERROR = 0
@@ -62,6 +63,8 @@ class Binary:
                 return RemoteControlRequestReply(msg[8:])
             elif msg_id is MsgType.ROV_STATE:
                 return RovState(msg[8:])
+            elif msg_id is MsgType.ROV_STATE_DESIRED:
+                return RovState(msg[8:], msg_id)
             else:
                 raise OtherMsgTypeException
         except IndexError:
@@ -109,7 +112,7 @@ class AddWaypoints(Binary):
         self.payload = bytearray(4 * (1 + 3 * len(wp_list)))
         self.payload[:4] = struct.pack('i', len(wp_list))
         for i in range(len(wp_list)):
-            self.payload[4 + i*12:4 + (i+1)*12] = struct.pack('ddd', wp_list[i][0], wp_list[i][1], wp_list[i][2])
+            self.payload[4 + i*24:4 + (i+1)*24] = struct.pack('ddd', wp_list[i][0], wp_list[i][1], wp_list[i][2])
         # for i in range(len(wp_list)):
         #     print(wp_list[i][0], wp_list[i][1], wp_list[i][2])
 
@@ -124,7 +127,7 @@ class Setpoint(Binary):
             absolute = 0
         self.payload = struct.pack('dBB', setpoint, dof.value, absolute)
 
-class DofOptions(Enum):
+class Dofs(Enum):
     SURGE = 1
     SWAY = 2
     HEAVE = 3
@@ -180,18 +183,63 @@ class GetMessage(Binary):
 
     def __init__(self, msg_ids, sid=0):
         self.sid = sid
-        if msg_ids is list:
+        try:
             new_list = []
             for msg_id in msg_ids:
                 new_list.append(msg_id.value)
-            self.payload = struct.pack('i{}h'.format(len(msg_ids)), len(msg_ids), *msg_ids)
-        else:
+            self.payload = struct.pack('i{}h'.format(len(msg_ids)), len(msg_ids), *new_list)
+        except TypeError:
             self.payload = struct.pack('ih', 1, msg_ids.value)
 
-class RovState(Binary, UdpPosMsg):
-    msg_id = MsgType.ROV_STATE
+class Tuning(Binary):
+    msg_id = MsgType.CONTROLLER_TUNING
 
-    def __init__(self, msg):
+    def __init__(self, dof, step, sid=0):
+        self.sid = sid
+        self.payload = struct.pack('BdB', dof.value, step, 1)
+
+class VerticalPos(Binary):
+    msg_id = MsgType.SETPOINT_VERTICAL
+
+    def __init__(self, type, setpoint=None, sid=0):
+        self.sid = sid
+        if setpoint is None:
+            self.payload = struct.pack('BB', type.value, 0)
+        else:
+            self.payload = struct.pack('BBd', type.value, 1, setpoint)
+
+class ControllerOptions(Binary):
+    msg_id = MsgType.CONTROLLER_OPTIONS
+
+    def __init__(self, enabled_dofs, enable_output=True, enable_performance=False, sid=0):
+        self.sid = sid
+        enabled = 0
+        try:
+            for dof in enabled_dofs:
+                if dof is Dofs.SURGE:
+                    enabled |= 1
+                elif dof is Dofs.SWAY:
+                    enabled |= 2
+                elif dof is Dofs.HEAVE:
+                    enabled |= 4
+                elif dof is Dofs.ROLL:
+                    enabled |= 8
+                elif dof is Dofs.PITCH:
+                    enabled |= 16
+                elif dof is Dofs.YAW:
+                    enabled |= 32
+        except TypeError:
+            pass
+        self.payload = struct.pack('iBB', enabled, enable_output, enable_performance)
+
+
+class VerticalPosOptions(Enum):
+    ALTITUDE = 0
+    DEPTH = 1
+
+class RovState(Binary):
+    def __init__(self, msg, msg_id=MsgType.ROV_STATE):
+        self.msg_id = msg_id
         try:
             self.lat, self.long, self.down, self.roll, self.pitch, self.psi = struct.unpack('6d', msg[:48])
             self.surge, self.sway, self.heave, self.roll, self.pitch, self.yaw = struct.unpack('6d', msg[48:96])
@@ -201,3 +249,54 @@ class RovState(Binary, UdpPosMsg):
             raise CorruptMsgException
         except IndexError:
             raise CorruptMsgException
+
+    def __sub__(self, other):
+        try:
+            lat_diff = self.lat - other.lat
+        except AttributeError:
+            a=1
+        # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))
+        long_diff = self.long - other.long
+        alpha = arctan2(long_diff, lat_diff)
+        dist = (lat_diff ** 2 + long_diff ** 2)**0.5
+        dpsi = self.psi - other.psi
+
+        dx = cos(alpha - self.psi) * dist
+        dy = sin(alpha - self.psi) * dist
+        return RovStateDiff(dx, dy, dpsi, self.surge - other.surge, self.sway - other.sway)
+
+    def __str__(self):
+        return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
+                                                                                   self.alt, self.lat, self.long)
+
+class RovStateDiff:
+    def __init__(self, dx, dy, dpsi, d_surge, d_sway):
+        self.dx = dx
+        self.dy = dy
+        self.dpsi = dpsi
+        self.surge = d_surge
+        self.sway = d_sway
+
+    def is_small(self):
+        absolute = abs(self)
+        return absolute.dx < 0.1 and absolute.dy < 0.1 and absolute.dpsi < 0.035 and absolute.surge < 0.1
+
+    def __add__(self, other):
+        self.dx += other.dx
+        self.dy += other.dy
+        self.dpsi += other.dpsi
+        self.surge += other.surge
+        self.sway += other.sway
+
+    def __sub__(self, other):
+        self.dx -= other.dx
+        self.dy -= other.dy
+        self.dpsi -= other.dpsi
+        self.surge -= other.surge
+        self.sway -= other.sway
+
+    def __abs__(self):
+        return RovStateDiff(abs(self.dx), abs(self.dy), abs(self.dpsi), abs(self.surge), abs(self.sway))
+
+    def __str__(self):
+        return 'dx: {},\tdy: {}\t, dpsi: {}'.format(self.dx, self.dy, self.dpsi * 180 / pi)

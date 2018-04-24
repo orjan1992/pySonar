@@ -262,8 +262,10 @@ class CollisionAvoidance:
                     self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
                 else:
                     self.path_ok = True
-                    self.msg_client.update_wps(self.new_wp_list)
-                    self.data_storage.update_wps(self.new_wp_list, 0)
+                    tmp_list = self.new_wp_list.copy()
+                    # tmp_list.pop(0)
+                    self.msg_client.update_wps(tmp_list)
+            self.data_storage.update_wps(self.new_wp_list, 0)
 
             if Settings.show_voronoi_plot or Settings.save_obstacles:
                 im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
@@ -271,7 +273,7 @@ class CollisionAvoidance:
                     self.voronoi_plot_item.setImage(im)
                 if Settings.save_obstacles:
                     np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=im)
-
+            print(wrapTo2Pi(np.arctan2(self.new_wp_list[1][1]-self.new_wp_list[0][1], self.new_wp_list[1][0] - self.new_wp_list[0][0]))*180/np.pi, self.new_wp_list)
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
 
@@ -354,7 +356,8 @@ class CollisionAvoidance:
     def save_paths(self):
         if Settings.save_paths:
             # np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
-            savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
+            # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
+            savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(self.paths), 'pos': np.array(self.pos)})
 
     def draw_wps_on_grid(self, im, pos):
         # Draw pos

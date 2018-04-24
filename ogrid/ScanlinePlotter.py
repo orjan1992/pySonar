@@ -2,9 +2,10 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt5 import QtWidgets, QtCore, QtGui
 from messages.udpMsg import *
-from messages.moosMsgs import *
+# from messages.moosMsgs import *
 from messages.udpClient_py import *
 from scipy import signal
+from settings import GridSettings
 
 
 
@@ -13,16 +14,21 @@ class haha(QObject):
     def __init__(self, p1):
         super().__init__()
         self.p1 = p1
-        self.client = MoosMsgs()
+        # self.client = MoosMsgs()
+        # self.client.signal_new_sonar_msg.connect(self.plot)
+        # self.client.run()
+        self.client = UdpClient(4002, 4006, None, None, None)
+        self.client.start()
         self.client.signal_new_sonar_msg.connect(self.plot)
-        self.client.run()
-
 
     @QtCore.pyqtSlot(object, name='new_sonar_msg')
     def plot(self, msg):
         # global curve
         # curve.setData(msg.data)
         self.p1.plotItem.plot(msg.data, clear=True)
+        smooth = np.convolve(msg.data, np.full(GridSettings.smoothing_factor, 1.0/GridSettings.smoothing_factor),
+                             mode='full')
+        self.p1.plotItem.plot(smooth, clear=False, pen=pg.mkPen('b'))
         self.scan_list.append(msg.data)
 
 

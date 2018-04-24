@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 
 class Settings:
     # 0 == udp, 1 == MOOS
-    input_source = 1
+    input_source = 0
     pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
@@ -13,19 +13,20 @@ class Settings:
     pos_update_speed = 100  # ms
     hist_window = False
     collision_avoidance = True
-    show_map = True
+    show_map = False
     show_wp_on_grid = True
     show_voronoi_plot = False
     show_pos = True
     collision_avoidance_interval = 200  # ms
 
     save_obstacles = False
-    save_paths = False
+    save_paths = True
     save_scan_lines = False
     save_collision_info = False
 
     button_height = 30
     button_width = 200
+    inverted_sonar = True
 
 
 class CollisionSettings:
@@ -41,7 +42,7 @@ class CollisionSettings:
     first_wp_dist = 4 # meters
 
     tracking_speed = 0.5
-    dummy_wp_factor = (1.5, 0.1)
+    dummy_wp_factor = (1.5, 0)
 
 
 class MapSettings:
@@ -94,7 +95,7 @@ class GridSettings:
     min_rot = 4  # in 1/16 grad
     cell_factor = 16
     scale_raw_data = False
-    smoothing_factor = 2  # 10 for real data
+    smoothing_factor = 10  # 10 for real data
 
     # zhou model
     kh_high = 0.5445427266222308
@@ -115,8 +116,8 @@ class FeatureExtraction:
     min_area = 9  # pixels/m
 
 class ConnectionSettings:
-        sonar_port = 4001
-        pos_port = 4005
+        sonar_port = 4002
+        pos_port = 4006
         # sonar_port = 4001
         # pos_port = 4005
 
@@ -135,7 +136,7 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 10
+        threshold = 120
 
         wp_on_grid_color = (0, 153, 0)
         wp_on_grid_thickness = 4

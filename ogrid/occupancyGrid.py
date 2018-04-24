@@ -170,10 +170,10 @@ class OccupancyGrid(RawGrid):
         occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
         hit_ind = self.get_hit_inds(msg, threshold)
         if obstacle_in_line and not np.any(hit_ind):
-            r = grid2vehicle_rad(point[1], point[0], self.range_scale)
+            # r = grid2vehicle_rad(point[1], point[0], self.range_scale)
             # print(x, y, point)
-            hit_ind = np.array([np.round(r*msg.length/self.range_scale).astype(int)])
-            print(r, hit_ind[0])
+            # hit_ind = np.array([np.round(r*msg.length/self.range_scale).astype(int)])
+            # print(r, hit_ind[0])
             hit_factor = 0.5
             # hit_factor = 1
         else:
@@ -435,8 +435,9 @@ class OccupancyGrid(RawGrid):
 
     def get_hit_inds(self, msg, threshold):
         # Smooth graph
-        smooth = np.convolve(msg.data, np.full((GridSettings.smoothing_factor), 1.0/GridSettings.smoothing_factor),
-                             mode='full')
+        # smooth = np.convolve(msg.data, np.full(GridSettings.smoothing_factor, 1.0/GridSettings.smoothing_factor),
+        #                      mode='full')
+        smooth = msg.data
         data_len = len(smooth)
         s1 = smooth[:-2]
         s2 = smooth[1:-1]
@@ -573,10 +574,10 @@ if __name__=="__main__":
         msg = MoosSonarMsg()
         msg.data = s
         msg.dbytes = 300
-        smooth, peaks, valleys = grid.get_hit_inds(msg, 10)
+        smooth, peaks, valleys = grid.get_hit_inds(msg, 120)
         plt.plot(smooth, color='g')
-        plt.plot(peaks, smooth[peaks], color='r', marker='o')
-        plt.plot(valleys, smooth[valleys], color='c', marker='o')
+        plt.scatter(peaks, smooth[peaks], color='r', marker='o')
+        plt.scatter(valleys, smooth[valleys], color='c', marker='o')
         plt.show()
         a=1
 
