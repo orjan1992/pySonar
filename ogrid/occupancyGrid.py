@@ -20,6 +20,7 @@ class OccupancyGrid(RawGrid):
         self.p_log_occ = np.log(p_occ / (1 - p_occ))
         self.p_log_free = np.log(p_free / (1 - p_free))
         super().__init__(half_grid, self.p_log_zero)
+        self.im = np.zeros((self.RES, self.RES, 3))
         self.reliable = True
         self.cell_factor = cell_factor
         self.size = int((self.RES - 1) // self.cell_factor)
@@ -368,11 +369,7 @@ class OccupancyGrid(RawGrid):
                         updated[k] = True
         return new_data
 
-    def get_obstacles(self):
-        """
-        calculates obstacles
-        :return: image, contours
-        """
+    def calc_obstacles(self):
         self.grid = np.nan_to_num(self.grid)
         thresh = (self.grid > self.p_log_threshold).astype(dtype=np.uint8)
         contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_TC89_L1)[1]
@@ -403,12 +400,20 @@ class OccupancyGrid(RawGrid):
         # for contour in contours:
         #     self.contour_as_line_list.append(cv2.fitLine(contour[0]))
 
-        im = cv2.applyColorMap(((self.grid + 6)*255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
+        im = cv2.applyColorMap(((self.grid + 6) * 255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
         im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), 5)
         # im[:, 800, :] = np.array([0, 0, 255])
         # im[800, :, :] = np.array([0, 0, 255])
         # im[801, :, :] = np.array([0, 0, 255])
-        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), self.contours
+        self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+
+    def get_obstacles(self):
+        """
+        calculates obstacles
+        :return: image, contours
+        """
+
+        return self.im, self.contours
 
     # def get_hit_inds(self, msg, threshold):
     #     # hit indices by gradient threshold

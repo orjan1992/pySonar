@@ -178,6 +178,20 @@ class MainWidget(QtGui.QWidget):
             pos_layout.addLayout(value_layout)
             right_layout.addLayout(pos_layout)
 
+            if LosSettings.enable_los:
+                cross_track_text = QtGui.QLabel('Cross-track error')
+                cross_track_text.setLineWidth(3)
+                along_track_text = QtGui.QLabel('Along-track error')
+                along_track_text.setLineWidth(3)
+                self.cross_track = QtGui.QLabel('0')
+                self.cross_track.setLineWidth(3)
+                self.along_track = QtGui.QLabel('0')
+                self.along_track.setLineWidth(3)
+                text_layout.addWidget(cross_track_text)
+                text_layout.addWidget(along_track_text)
+                value_layout.addWidget(self.cross_track)
+                value_layout.addWidget(self.along_track)
+
         if Settings.save_scan_lines:
             self.scan_lines = []
 
@@ -253,6 +267,7 @@ class MainWidget(QtGui.QWidget):
         self.grid_worker.signals.finished.connect(self.grid_worker_finished)
 
         self.pos_update_timer.start(Settings.pos_update_speed)
+        self.grid_worker_finished(True)
 
 
     def init_grid(self):
@@ -300,6 +315,10 @@ class MainWidget(QtGui.QWidget):
                 self.north.setText('{:.6f}'.format(msg.lat))
                 self.east.setText('{:.6f}'.format(msg.long))
                 self.heading.setText('{:.1f}'.format(msg.psi*180.0/np.pi))
+                if LosSettings.enable_los:
+                    e, s = self.udp_client.los_controller.get_errors()
+                    self.along_track.setText('{:.2f}'.format(s))
+                    self.cross_track.setText('{:.2f}'.format(e))
             if self.last_pos_msg is None:
                 self.last_pos_msg = deepcopy(msg)
 
@@ -311,16 +330,16 @@ class MainWidget(QtGui.QWidget):
 
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
-            trans = self.grid.trans(diff.dx, diff.dy)
-            rot = self.grid.rot(diff.dpsi)
-            if trans or rot:
-                self.plot_updated = True
+            # trans = self.grid.trans(diff.dx, diff.dy)
+            # rot = self.grid.rot(diff.dpsi)
+            # if trans or rot:
+            #     self.plot_updated = True
 
             # if self.thread_pool.activeThreadCount() < self.thread_pool.maxThreadCount():
             #     diff = (msg - self.last_pos_msg)
             #     self.last_pos_msg = deepcopy(msg)
             #
-            #     self.grid_worker.update(diff)
+            self.grid_worker.update(diff)
             #     self.thread_pool.start(self.grid_worker, 6)
             #     logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
             # else:
@@ -399,6 +418,7 @@ class MainWidget(QtGui.QWidget):
     def grid_worker_finished(self, status):
         if status:
             self.plot_updated = True
+        self.thread_pool.start(self.grid_worker, 6)
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -474,17 +494,20 @@ class CollisionAvoidanceWorkerSignals(QtCore.QObject):
 
 
 class GridWorker(QtCore.QRunnable):
-    def __init__(self, grid):
+    def __init__(self, grid, diff=MoosPosMsgDiff(0, 0, 0)):
         super().__init__()
         self.grid = grid
         self.signals = GridWorkerSignals()
+        self.diff = diff
 
     @QtCore.pyqtSlot()
     def run(self):
         try:
             trans = self.grid.trans(self.diff.dx, self.diff.dy)
             rot = self.grid.rot(self.diff.dpsi)
-            self.signals.finished.emit(trans or rot)
+            self.grid.calc_obstacles()
+            # self.signals.finished.emit(trans or rot)
+            self.signals.finished.emit(True)
             # print('Translate: {}\tRotate: {}'.format(trans, rot))
         except Exception as e:
             logger.error('Grid Worker', e)

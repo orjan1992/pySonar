@@ -31,6 +31,7 @@ class UdpClient(QObject):
     ask_for_desired = False
     in_control = False
     wp_update_in_progress = threading.Lock()
+    e, s = 0, 0
 
     def __init__(self, sonar_port, pos_port, autopilot_ip, autopilot_server_port, autopilot_listen_port):
         super().__init__()
@@ -67,7 +68,9 @@ class UdpClient(QObject):
             self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever, daemon=True)
         if LosSettings.enable_los:
             self.los_stop_event = threading.Event()
-            self.los_controller = LosController(self, 0.1, self.los_stop_event)
+            self.los_start_event = threading.Event()
+            self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event)
+            self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
 
     def start(self):
         self.sonar_thread.start()
@@ -76,8 +79,8 @@ class UdpClient(QObject):
             self.autopilot_thread.start()
         if CollisionSettings.send_new_wps and self.autopilot_server_port is not None:
             self.autopilot_watchdog_thread.start()
-        # if LosSettings.enable_los:
-        #     self.los_controller.start()
+        if LosSettings.enable_los:
+            self.los_thread.start()
 
     def close(self):
         if LosSettings.enable_los:
@@ -162,11 +165,18 @@ class UdpClient(QObject):
         if len(wp_list) < 2:
             return
         if LosSettings.enable_los:
-            self.los_stop_event = threading.Event()
-            self.los_controller = LosController(self, 0.05, self.los_stop_event)
+            # self.los_stop_event = threading.Event()
+            # self.los_controller = LosController(self, 0.05, self.los_stop_event)
+            # self.los_controller.update_pos(self.cur_pos_msg)
+            # self.los_controller.wp_list = wp_list
+            # self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+            # self.los_thread.start()
+            self.los_controller.update_wps(wp_list)
             self.los_controller.update_pos(self.cur_pos_msg)
-            self.los_controller.wp_list = wp_list
-            self.los_controller.start()
+            if not self.los_thread.isAlive():
+                self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+                self.los_thread.start()
+            self.los_start_event.set()
             return
         self.wp_update_in_progress.acquire()
         thread = self.stop_autopilot()
@@ -221,14 +231,15 @@ class UdpClient(QObject):
         # print(msg)
         if not msg.error:
             self.cur_pos_msg = msg
-            if LosSettings.enable_los:
-                self.los_controller.update_pos(msg)
 
     def parse_autopilot_msg(self, data):
         try:
             msg = ap.Binary.parse(data)
             if msg.msg_id is ap.MsgType.ROV_STATE:
                 self.cur_pos_msg = msg
+                if LosSettings.enable_los:
+                    self.los_controller.update_pos(msg)
+                    self.los_start_event.set()
                 self.ap_pos_received.set()
             elif msg.msg_id is ap.MsgType.REMOTE_CONTROL_REQUEST_REPLY:
                 if msg.acquired:

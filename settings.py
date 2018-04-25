@@ -48,9 +48,13 @@ class CollisionSettings:
 
 class LosSettings:
     enable_los = True
-    roa = 5
-    look_ahead_distance = 15
-    send_new_heading_limit = np.pi/180.0
+    roa = 2
+    look_ahead_distance = 5
+    send_new_heading_limit = 0.5*np.pi/180.0
+
+    max_heading_change = 15*np.pi/180.0
+    safe_turning_speed = 0.25
+    braking_distance = 5
 
 
 class MapSettings:
