@@ -65,12 +65,12 @@ def fermat(wp_list):
             for theta in np.linspace(0, theta_end, step, endpoint=False):
                 x = p_0[0] + kappa * (theta ** 0.5) * np.cos(rho * theta + chi_0)
                 y = p_0[1] + kappa * (theta ** 0.5) * np.sin(rho * theta + chi_0)
-                new_list.append([x, y, wp2[2], wp2[3]])
+                new_list.append([x, y, wp2[2]])
             tmp_list = []
             for theta in np.linspace(0, theta_end, step + 1, endpoint=True):
                 x = p_end[0] - kappa * (theta ** 0.5) * np.cos(-rho * theta + chi_end)
                 y = p_end[1] - kappa * (theta ** 0.5) * np.sin(-rho * theta + chi_end)
-                tmp_list.append([x, y, wp3[2], wp3[3]])
+                tmp_list.append([x, y, wp3[2]])
         except ValueError as e:
             logger.error('step={}\tdelta_chi_mag={}'.format(delta_chi_mag / CollisionSettings.fermat_step_factor, delta_chi_mag))
         tmp_list.reverse()

@@ -8,6 +8,9 @@ from messages.SeaNet import SeanetDecode
 import messages.AutoPilotMsg as ap
 import logging
 logger = logging.getLogger('UdpClient')
+# console = logging.StreamHandler()
+# console.setLevel(logging.INFO)
+# logging.getLogger('').addHandler(console)
 
 def threaded(fn):
     def wrapper(*args, **kwargs):
@@ -64,7 +67,7 @@ class UdpClient(QObject):
             self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever, daemon=True)
         if LosSettings.enable_los:
             self.los_stop_event = threading.Event()
-            self.los_controller = LosController(self, 0.05, self.los_stop_event)
+            self.los_controller = LosController(self, 0.1, self.los_stop_event)
 
     def start(self):
         self.sonar_thread.start()
@@ -87,7 +90,7 @@ class UdpClient(QObject):
             logger.info('In stationkeeping mode. Waiting for small errors.')
             state_error = None
             self.ap_pos_received.clear()
-            while state_error is None or not state_error.is_small():
+            while state_error is None or not state_error.is_small(LosSettings.enable_los):
                 self.ap_pos_received.wait()
                 if self.cur_desired_pos_msg is None or self.cur_pos_msg is None:
                     self.ap_pos_received.clear()
@@ -116,6 +119,10 @@ class UdpClient(QObject):
         except UncompleteMsgException:
             logger.debug('Uncomplete sonar msg')
 
+    def switch_ap_mode(self, mode):
+        self.guidance_mode = mode
+        self.send_autopilot_msg(ap.GuidanceMode(mode))
+
     def send_autopilot_msg(self, msg):
         if self.autopilot_sid != 0:
             msg.sid = self.autopilot_sid
@@ -133,8 +140,7 @@ class UdpClient(QObject):
             if Settings.pos_msg_source == 1:
                 # self.send_autopilot_msg(ap.ControllerOptions([ap.Dofs.SURGE, ap.Dofs.SWAY, ap.Dofs.HEAVE, ap.Dofs.YAW]))
                 self.autopilot_watchdog_stop_event.set()
-                self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
-                self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+                self.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
                 # while self.cur_pos_msg is None:
                 #     pass
                 # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.lat, ap.Dofs.SURGE, True))
@@ -167,8 +173,7 @@ class UdpClient(QObject):
         thread.join()
         self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
         self.send_autopilot_msg(ap.AddWaypoints(wp_list))
-        self.guidance_mode = ap.GuidanceModeOptions.PATH_FOLLOWING
-        self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
+        self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING)
         # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.YAW, False))
         # if len(wp_list[0]) > 3:
         #     self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
@@ -180,17 +185,30 @@ class UdpClient(QObject):
     def stop_autopilot(self):
         if self.cur_pos_msg is None:
             return
-        if not self.guidance_mode is ap.GuidanceModeOptions.STATION_KEEPING:
+        if self.guidance_mode is not ap.GuidanceModeOptions.STATION_KEEPING:
             if self.guidance_mode is ap.GuidanceModeOptions.PATH_FOLLOWING:
-            # self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.PATH_FOLLOWING))
+            # self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING))
                 self.send_autopilot_msg(ap.TrackingSpeed(0))
             if self.guidance_mode is ap.GuidanceModeOptions.CRUISE_MODE:
                     self.send_autopilot_msg(ap.CruiseSpeed(0))
-            while self.cur_pos_msg.surge > 0.1:
+            counter = 0
+            n_set = 1
+            max = 20
+            surge = np.ones(max)
+            surge[0] = self.cur_pos_msg.surge
+            acc = 1
+            while abs(np.sum(surge)/n_set) > 0.02:
+                # print(np.sum(surge)/n_set, acc)
                 self.ap_pos_received.clear()
                 self.ap_pos_received.wait(0.1)
-            self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
-            self.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
+                counter += 1
+                if counter == max:
+                    counter = 0
+                surge[counter] = self.cur_pos_msg.surge
+                acc = abs((surge[counter] - surge[counter-1])/0.1)
+                if n_set < max:
+                    n_set += 1
+            self.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
             # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SURGE, True))
             # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SWAY, True))
             # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
@@ -219,12 +237,12 @@ class UdpClient(QObject):
             elif msg.msg_id is ap.MsgType.ROV_STATE_DESIRED:
                 self.cur_desired_pos_msg = msg
                 self.ap_pos_received.set()
-            else:
-                raise OtherMsgTypeException
-        except OtherMsgTypeException:
-            logger.debug('Unknown msg from autopilot server')
+            elif msg.msg_id is ap.MsgType.ERROR or msg.msg_id is ap.MsgType.WARNING_GUIDANCE:
+                logger.error(str(msg))
         except CorruptMsgException:
             logger.debug('Corrupt msg from autopilot server')
+        except OtherMsgTypeException:
+            pass
 
 class Handler(socketserver.BaseRequestHandler):
     """ One instance per connection. """
@@ -261,14 +279,14 @@ if __name__ == '__main__':
     client.start()
     while not client.in_control:
         pass
-    client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.CRUISE_MODE))
-    client.send_autopilot_msg(ap.CruiseSpeed(0.7))
-    counter = 0
-    while counter < 4:
-        sleep(5)
-        client.send_autopilot_msg(ap.Setpoint(counter*np.pi/4, ap.Dofs.YAW, True))
-        counter += 1
-    client.send_autopilot_msg(ap.CruiseSpeed(0))
+    client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
+    client.send_autopilot_msg(ap.CruiseSpeed(0.2))
+    # counter = 0
+    # while counter < 4:
+    #     sleep(5)
+    #     client.send_autopilot_msg(ap.Setpoint(counter*np.pi/4, ap.Dofs.YAW, True))
+    #     counter += 1
+    sleep(5)
     print('closing down')
     client.close()
     print('closed')

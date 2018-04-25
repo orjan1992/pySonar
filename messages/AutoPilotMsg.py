@@ -2,6 +2,8 @@ from enum import Enum
 import struct
 from messages.udpMsg import CorruptMsgException, OtherMsgTypeException, UdpPosMsg
 from numpy import arctan2, sin, cos
+import logging
+logger = logging.getLogger('AutopilotMsg')
 
 class MsgType(Enum):
     ERROR = 0
@@ -65,7 +67,12 @@ class Binary:
                 return RovState(msg[8:])
             elif msg_id is MsgType.ROV_STATE_DESIRED:
                 return RovState(msg[8:], msg_id)
+            elif msg_id is MsgType.ERROR:
+                return Error(msg[8:])
+            elif msg_id is MsgType.WARNING_GUIDANCE:
+                return WarningGuidance(msg[8:])
             else:
+                logger.info('Unknown msg from autopilot server, msg_id: '.format(id_int))
                 raise OtherMsgTypeException
         except IndexError:
             raise CorruptMsgException
@@ -232,6 +239,57 @@ class ControllerOptions(Binary):
             pass
         self.payload = struct.pack('iBB', enabled, enable_output, enable_performance)
 
+class Error(Binary):
+    msg_id = MsgType.ERROR
+
+    def __init__(self, msg):
+        try:
+            self.error = ErrorCode(struct.unpack('i', msg))
+        except struct.error:
+            raise CorruptMsgException
+
+    def __str__(self):
+        return 'Autopilot error: {}'.format(self.error.name)
+
+class ErrorCode(Enum):
+    NO_ERROR = 0
+    PLC_COM = 1
+    PAR_FILE_LOAD = 2
+    CONTROL_SYS = 3
+    STOP_THREAD = 4
+    INVALID_OPERATION = 5
+    LOST_CONNECTION = 9
+
+class WarningGuidance(Binary):
+    msg_id = MsgType.WARNING_GUIDANCE
+
+    def __init__(self, msg):
+        try:
+            warning_code, self.is_active = struct.unpack('B?', msg)
+        except struct.error:
+            raise CorruptMsgException
+        self.north = (1 & warning_code) == 1
+        self.east = (2 & warning_code) == 2
+        self.vert = (4 & warning_code) == 4
+        self.heading = (8 & warning_code) == 8
+        self.path = (16 & warning_code) == 16
+
+    def __str__(self):
+        error_list = []
+        if not self.is_active:
+            error_list.append('No longer active:')
+        if self.north:
+            error_list.append('Guidance Warning: North deviation!')
+        if self.east:
+            error_list.append('Guidance Warning: East deviation!')
+        if self.vert:
+            error_list.append('Guidance Warning: Vertical deviation!')
+        if self.heading:
+            error_list.append('Guidance Warning: Heading deviation!')
+        if self.path:
+            error_list.append('Guidance Warning: Path deviation!')
+        return str(error_list)
+
 
 class VerticalPosOptions(Enum):
     ALTITUDE = 0
@@ -277,9 +335,12 @@ class RovStateDiff:
         self.surge = d_surge
         self.sway = d_sway
 
-    def is_small(self):
+    def is_small(self, los=False):
         absolute = abs(self)
-        return absolute.dx < 0.1 and absolute.dy < 0.1 and absolute.dpsi < 0.035 and absolute.surge < 0.1
+        if los:
+            return absolute.dpsi < 0.035 and absolute.surge < 0.1
+        else:
+            return absolute.dx < 0.1 and absolute.dy < 0.1 and absolute.dpsi < 0.035 and absolute.surge < 0.1
 
     def __add__(self, other):
         self.dx += other.dx

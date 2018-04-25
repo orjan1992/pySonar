@@ -2,7 +2,7 @@ import numpy as np
 from collision_avoidance.voronoi import MyVoronoi
 from collision_avoidance.path_smoothing import *
 from coordinate_transformations import *
-from settings import GridSettings, CollisionSettings, Settings, PlotSettings
+from settings import GridSettings, CollisionSettings, Settings, PlotSettings, LosSettings
 from enum import Enum
 import logging
 import cv2
@@ -235,7 +235,8 @@ class CollisionAvoidance:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
-                # self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
+                if LosSettings.enable_los:
+                    self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
                 for wp in self.voronoi_wp_list:
                     N, E = grid2NED(wp[0], wp[1], self.range, self.lat, self.long, self.psi)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2]])  # , self.waypoint_list[self.waypoint_counter][3]])
