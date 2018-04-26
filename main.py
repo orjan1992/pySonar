@@ -317,13 +317,14 @@ class MainWidget(QtGui.QWidget):
                 self.heading.setText('{:.1f}'.format(msg.psi*180.0/np.pi))
                 if LosSettings.enable_los:
                     e, s = self.udp_client.los_controller.get_errors()
+                    self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
                     self.along_track.setText('{:.2f}'.format(s))
                     self.cross_track.setText('{:.2f}'.format(e))
             if self.last_pos_msg is None:
                 self.last_pos_msg = deepcopy(msg)
 
             if Settings.collision_avoidance:
-                self.collision_avoidance.update_pos(msg.lat, msg.long, msg.psi)
+                self.collision_avoidance.update_pos(msg)
                 if Settings.show_map:
                     self.map_widget.update_pos(msg.lat, msg.long, msg.psi, self.grid.range_scale)
                     # self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
@@ -451,9 +452,9 @@ class MainWidget(QtGui.QWidget):
                               self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
                              self.last_pos_msg.long, self.last_pos_msg.psi)
             wp0 = vehicle2NED(2, 0, self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi)
-            wp0 = [wp0[0], wp0[1], 0, 0.5]
+            wp0 = [wp0[0], wp0[1], 140, 0.5]
             self.pos_lock.release()
-            wp1 = [wp1[0], wp1[1], 0, 0.5]
+            wp1 = [wp1[0], wp1[1], 140, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
             self.udp_client.update_wps([wp0, wp1])
             self.plot_updated = True

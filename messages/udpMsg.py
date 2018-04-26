@@ -172,6 +172,9 @@ class UdpPosMsg(Sensor):
         return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
                                                                                    self.alt, self.lat, self.long)
 
+    def to_tuple(self):
+        return self.lat, self.long, self.alt, self.psi
+
 class UdpPosMsgDiff:
     def __init__(self, dx, dy, dpsi):
         self.dx = dx

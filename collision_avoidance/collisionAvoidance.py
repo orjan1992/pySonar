@@ -20,7 +20,7 @@ logger = logging.getLogger('Collision_avoidance')
 # logger.addHandler(console)
 
 class CollisionAvoidance:
-    # TODO: Should be redesigned to keep waypoint list WP = [lat, long, alt/depth?], surge speed
+    # TODO: Should be redesigned to keep waypoint list WP = [lat, long, alt/depth?], v_surge speed
     save_counter = 0
     path_ok = True
 
@@ -40,15 +40,15 @@ class CollisionAvoidance:
         self.msg_client = msg_client
         self.voronoi_plot_item = voronoi_plot_item
 
-    def update_pos(self, lat=None, long=None, psi=None):
-        self.data_storage.update_pos(lat, long, psi)
+    def update_pos(self, msg):
+        self.data_storage.update_pos(msg)
         if Settings.save_paths:
-            self.pos.append((lat, long, psi))
+            self.pos.append(msg.totuple())
 
     def update_obstacles(self, obstacles, range):
         self.data_storage.update_obstacles(obstacles, range)
 
-    def update_external_wps(self, wp_list, wp_counter):
+    def update_external_wps(self, wp_list=None, wp_counter=None):
         self.path_ok = True
         self.data_storage.update_wps(wp_list, wp_counter)
 
@@ -432,14 +432,14 @@ class CollisionData:
     wp_list = []
     wp_counter = 0
 
-    def update_pos(self, lat=None, long=None, psi=None):
+    def update_pos(self, msg):
         self.pos_lock.acquire(blocking=True)
-        if lat is not None:
-            self.lat = lat
-        if long is not None:
-            self.long = long
-        if psi is not None:
-            self.psi = psi
+        if msg.lat is not None:
+            self.lat = msg.lat
+        if msg.long is not None:
+            self.long = msg.long
+        if msg.psi is not None:
+            self.psi = msg.psi
         self.pos_lock.release()
 
     def get_pos(self):

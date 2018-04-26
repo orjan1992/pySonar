@@ -60,7 +60,7 @@ class UdpClient(QObject):
             self.autopilot_watchdog_thread = Wathdog(self.autopilot_watchdog_stop_event, self.ping_autopilot_server,
                                                      ConnectionSettings.autopilot_watchdog_timeout, daemon=True)
             self.ap_pos_received = threading.Event()
-            self.guidance_mode = ap.GuidanceModeOptions.STATION_KEEPING
+            self.guidance_mode = None
 
         if autopilot_listen_port is not None:
             self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_listen_port),
@@ -70,7 +70,7 @@ class UdpClient(QObject):
             self.los_stop_event = threading.Event()
             self.los_start_event = threading.Event()
             self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event)
-            self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+            self.los_thread = None  # threading.Thread(target=self.los_controller.loop, daemon=True)
 
     def start(self):
         self.sonar_thread.start()
@@ -79,8 +79,8 @@ class UdpClient(QObject):
             self.autopilot_thread.start()
         if CollisionSettings.send_new_wps and self.autopilot_server_port is not None:
             self.autopilot_watchdog_thread.start()
-        if LosSettings.enable_los:
-            self.los_thread.start()
+        # if LosSettings.enable_los:
+        #     self.los_thread.start()
 
     def close(self):
         if LosSettings.enable_los:
@@ -123,8 +123,9 @@ class UdpClient(QObject):
             logger.debug('Uncomplete sonar msg')
 
     def switch_ap_mode(self, mode):
-        self.guidance_mode = mode
-        self.send_autopilot_msg(ap.GuidanceMode(mode))
+        if self.guidance_mode is not mode:
+            self.guidance_mode = mode
+            self.send_autopilot_msg(ap.GuidanceMode(mode))
 
     def send_autopilot_msg(self, msg):
         if self.autopilot_sid != 0:
@@ -171,11 +172,12 @@ class UdpClient(QObject):
             # self.los_controller.wp_list = wp_list
             # self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
             # self.los_thread.start()
+            self.los_stop_event.set()
             self.los_controller.update_wps(wp_list)
             self.los_controller.update_pos(self.cur_pos_msg)
-            if not self.los_thread.isAlive():
-                self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-                self.los_thread.start()
+            self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+            self.los_stop_event.clear()
+            self.los_thread.start()
             self.los_start_event.set()
             return
         self.wp_update_in_progress.acquire()
@@ -208,7 +210,7 @@ class UdpClient(QObject):
             surge[0] = self.cur_pos_msg.surge
             acc = 1
             while abs(np.sum(surge)/n_set) > 0.02:
-                # print(np.sum(surge)/n_set, acc)
+                # print(np.sum(v_surge)/n_set, acc)
                 self.ap_pos_received.clear()
                 self.ap_pos_received.wait(0.1)
                 counter += 1

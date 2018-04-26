@@ -135,12 +135,16 @@ class Setpoint(Binary):
         self.payload = struct.pack('dBB', setpoint, dof.value, absolute)
 
 class Dofs(Enum):
-    SURGE = 1
-    SWAY = 2
-    HEAVE = 3
-    ROLL = 4
-    PITCH = 5
-    YAW = 6
+    SURGE = 0
+    NORTH = 0
+    SWAY = 1
+    EAST = 1
+    HEAVE = 2
+    DEPTH = 2
+    ALTITUDE = 2
+    ROLL = 3
+    PITCH = 4
+    YAW = 5
 
 class PathFollowConfig(Binary):
     msg_id = MsgType.PATH_FOLLOWING_CONFIGURATION
@@ -300,7 +304,7 @@ class RovState(Binary):
         self.msg_id = msg_id
         try:
             self.lat, self.long, self.down, self.roll, self.pitch, self.psi = struct.unpack('6d', msg[:48])
-            self.surge, self.sway, self.heave, self.roll, self.pitch, self.yaw = struct.unpack('6d', msg[48:96])
+            self.v_surge, self.v_sway, self.v_heave, self.roll, self.pitch, self.v_yaw = struct.unpack('6d', msg[48:96])
             self.a_surge, self.a_sway, self.a_heave, self.a_roll, self.a_pitch, self.a_yaw = struct.unpack('6d', msg[96:144])
             self.depth, self.alt = struct.unpack('dd', msg[144:160])
         except struct.error:
@@ -321,11 +325,14 @@ class RovState(Binary):
 
         dx = cos(alpha - self.psi) * dist
         dy = sin(alpha - self.psi) * dist
-        return RovStateDiff(dx, dy, dpsi, self.surge - other.surge, self.sway - other.sway)
+        return RovStateDiff(dx, dy, dpsi, self.v_surge - other.surge, self.v_sway - other.sway)
 
     def __str__(self):
         return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
                                                                                    self.alt, self.lat, self.long)
+
+    def to_tuple(self):
+        return self.lat, self.long, self.down, self.psi, self.v_surge, self.v_sway, self.v_heave, self.v_yaw
 
 class RovStateDiff:
     def __init__(self, dx, dy, dpsi, d_surge, d_sway):
