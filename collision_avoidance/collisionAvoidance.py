@@ -69,9 +69,9 @@ class CollisionAvoidance:
                 logger.info("Collision path detected, start new wp calc")
                 stat = self.calc_new_wp()
                 if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
-                    logger.info('Collision danger: could not calculate feasible path')
+                    logger.info('Collision danger: could not calculate feasible path. Time: {}'.format(time()-t0))
                 elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
-                    logger.info('Smooth path violates margin')
+                    logger.info('Smooth path violates margin. Time: {}'.format(time()-t0))
                 elif stat == CollisionStatus.NEW_ROUTE_OK:
                     logger.info('New route ok. Time: {}'.format(time()-t0))
             else:
@@ -231,7 +231,10 @@ class CollisionAvoidance:
                         self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
                                                  CollisionStatus.NO_FEASIBLE_ROUTE)
                         return CollisionStatus.NO_FEASIBLE_ROUTE
-
+                if counter > 3:
+                    logger.info('Relaxing smoothing beacause of infeasible route')
+                    skip_smoothing = True
+                    wps = old_wps.copy()
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
@@ -379,7 +382,7 @@ class CollisionAvoidance:
 
     def draw_wps_on_grid(self, im, pos):
 
-        wp_list = self.data_storage.get_wps()[0]
+        wp_list, wp_counter = self.data_storage.get_wps()
 
         if len(wp_list) > 0:
             vehicle_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
@@ -387,13 +390,10 @@ class CollisionAvoidance:
                 color = PlotSettings.wp_on_grid_color
             else:
                 color = (255, 0, 0)
-            try:
-                wp1_grid = NED2grid(wp_list[0][0], wp_list[0][1], pos[0], pos[1], pos[2], self.range)
-                if CollisionSettings.use_fermat:
-                    cv2.circle(im, wp1_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
-            except ValueError:
-                return im
-            for i in range(1, len(wp_list)):
+            wp1_grid = NED2grid(wp_list[wp_counter][0], wp_list[wp_counter][1], pos[0], pos[1], pos[2], self.range)
+            if CollisionSettings.use_fermat:
+                cv2.circle(im, wp1_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
+            for i in range(wp_counter+1, len(wp_list)):
                 wp_NED, constrained = constrainNED2range((wp_list[i][0], wp_list[i][1]),
                                                          (wp_list[i-1][0], wp_list[i-1][1]),
                                                          pos[0], pos[1], pos[2], self.range)
