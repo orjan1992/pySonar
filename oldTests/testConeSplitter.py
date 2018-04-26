@@ -1,8 +1,8 @@
 import math
 
 from ogrid.rawGrid import RawGrid
-from readLogFile.readCsvFile import ReadCsvFile
-from readLogFile.readLogFilesdfsdfsdfsd import ReadLogFile
+from oldTests.readLogFile import ReadCsvFile
+from oldTests.readLogFile import ReadLogFile
 
 csv = 0
 if csv:

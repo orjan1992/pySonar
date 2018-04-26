@@ -4,7 +4,7 @@ from struct import unpack
 import numpy as np
 
 from messages.udpMsg import SonarMsg
-from readLogFile.helperFunctions import Wrap2pi, getTimeLog
+from oldTests.readLogFile.helperFunctions import Wrap2pi, getTimeLog
 
 
 class ReadLogFile(object):

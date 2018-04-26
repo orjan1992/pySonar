@@ -535,9 +535,10 @@ class OccupancyGrid(RawGrid):
             y2 = np.max(nonzero[0]) + 1
             x1 = np.min(nonzero[1])
             x2 = np.max(nonzero[1]) + 1
-            self.grid[y1 * self.cell_factor:y2 * self.cell_factor,
-            x1 * self.cell_factor:x2 * self.cell_factor] = np.kron(
-                occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
+            with self.lock:
+                self.grid[y1 * self.cell_factor:y2 * self.cell_factor,
+                x1 * self.cell_factor:x2 * self.cell_factor] = np.kron(
+                    occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
 
 
 if __name__=="__main__":

@@ -4,12 +4,11 @@ import struct
 from itertools import islice
 from math import pi
 import numpy as np
-from datetime import datetime, timedelta
 from os import walk
 
 # from messages.sonarMsg import SonarMsg
 # from messages.posMsg import PosMsg
-from readLogFile.helperFunctions import Wrap2pi, getTimeCsv, get_time_csv_file_name
+from oldTests.readLogFile.helperFunctions import Wrap2pi, getTimeCsv
 import logging; logger = logging.getLogger('readLogFile.ReadCsvFile')
 
 

@@ -10,7 +10,7 @@ import scipy.io
 
 from ogrid.rawGrid import RawGrid
 from ogrid.rawPlot import RawPlot
-from readLogFile.readCsvFile import ReadCsvFile
+from oldTests.readLogFile import ReadCsvFile
 
 LOG_FILENAME = 'ZhouLog.out'
 logging.basicConfig(filename=LOG_FILENAME,
