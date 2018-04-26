@@ -69,7 +69,8 @@ class UdpClient(QObject):
         if LosSettings.enable_los:
             self.los_stop_event = threading.Event()
             self.los_start_event = threading.Event()
-            self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event)
+            self.los_restart_event = threading.Event()
+            self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event, self.los_restart_event)
             self.los_thread = threading.Thread()  # threading.Thread(target=self.los_controller.loop, daemon=True)
 
     def start(self):
@@ -125,6 +126,7 @@ class UdpClient(QObject):
     def switch_ap_mode(self, mode):
         if self.guidance_mode is not mode:
             self.guidance_mode = mode
+            logger.info('Switching to {}'.format(mode.name))
             self.send_autopilot_msg(ap.GuidanceMode(mode))
 
     def send_autopilot_msg(self, msg):
@@ -165,32 +167,46 @@ class UdpClient(QObject):
     def update_wps(self, wp_list):
         if len(wp_list) < 2:
             return
+        with self.wp_update_in_progress:
+            if LosSettings.enable_los:
+                if self.los_thread.isAlive():
+                    self.los_restart_event.set()
+                    self.los_stop_event.set()
+                    self.los_thread.join()
+                    self.los_stop_event.clear()
+                    self.los_restart_event.clear()
+                self.los_controller.update_wps(wp_list)
+                self.los_controller.update_pos(self.cur_pos_msg)
+                self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+                self.los_thread.start()
+                self.los_start_event.set()
+                return
+            thread = self.stop_autopilot()
+            thread.join()
+            self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
+            self.send_autopilot_msg(ap.AddWaypoints(wp_list))
+            self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING)
+            # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.YAW, False))
+            # if len(wp_list[0]) > 3:
+            #     self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
+            # else:
+            self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
+
+    @threaded
+    def stop_and_turn(self, theta):
+        logger.info('Stop and turn {:.2f} deg'.format(theta*180.0/np.pi))
         if LosSettings.enable_los:
             if self.los_thread.isAlive():
                 self.los_stop_event.set()
                 self.los_thread.join()
                 self.los_stop_event.clear()
-            self.los_controller.update_wps(wp_list)
-            self.los_controller.update_pos(self.cur_pos_msg)
-            self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-            self.los_thread.start()
-            self.los_start_event.set()
-            return
-        self.wp_update_in_progress.acquire()
-        thread = self.stop_autopilot()
-        thread.join()
-        self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
-        self.send_autopilot_msg(ap.AddWaypoints(wp_list))
-        self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING)
-        # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.YAW, False))
-        # if len(wp_list[0]) > 3:
-        #     self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
-        # else:
-        self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
-        self.wp_update_in_progress.release()
+        else:
+            self.stop_autopilot()
+        self.send_autopilot_msg(ap.Setpoint(theta+self.cur_pos_msg.psi, ap.Dofs.YAW, True))
 
     @threaded
     def stop_autopilot(self):
+        logger.info('Stopping ROV')
         if self.cur_pos_msg is None:
             return
         if self.guidance_mode is not ap.GuidanceModeOptions.STATION_KEEPING:
