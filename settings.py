@@ -5,7 +5,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 class Settings:
     # 0 == udp, 1 == MOOS
     input_source = 0
-    pos_msg_source = 1 # 0=NMEA, 1=Autopilot
+    pos_msg_source = 0 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
@@ -20,7 +20,7 @@ class Settings:
     collision_avoidance_interval = 200  # ms
 
     save_obstacles = False
-    save_paths = True
+    save_paths = False
     save_scan_lines = False
     save_collision_info = False
 
@@ -34,7 +34,7 @@ class CollisionSettings:
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
     vehicle_margin = 1 # meter
-    send_new_wps = True
+    send_new_wps = False
 
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
@@ -133,7 +133,7 @@ class FeatureExtraction:
     min_area = 9  # pixels/m
 
 class ConnectionSettings:
-        sonar_port = 4002
+        sonar_port = 4001
         pos_port = 4006
         # sonar_port = 4001
         # pos_port = 4005

@@ -287,15 +287,7 @@ class MainWidget(QtGui.QWidget):
 
     @QtCore.pyqtSlot(object, name='new_sonar_msg')
     def new_sonar_msg(self, msg):
-        self.grid.update_distance(msg.range_scale)
-        if Settings.update_type == 0:
-            self.grid.update_raw(msg)
-        elif Settings.update_type == 1:
-            # self.grid.auto_update_zhou(msg, self.threshold_box.value())
-            self.grid.update_occ_zhou(msg, self.threshold_box.value())
-            # self.grid.new_occ_update(msg, self.threshold_box.value())
-        else:
-            raise Exception('Invalid update type')
+        self.grid_worker.add_data_msg(msg, self.threshold_box.value())
         self.plot_updated = True
         if Settings.save_scan_lines:
             self.scan_lines.append(msg.data)
@@ -505,6 +497,8 @@ class GridWorker(QtCore.QRunnable):
         self.diff = diff
         self.random = False
         self.lock = threading.Lock()
+        self.data_list = []
+        self.threshold = PlotSettings.threshold
 
     @QtCore.pyqtSlot()
     def run(self):
@@ -512,12 +506,25 @@ class GridWorker(QtCore.QRunnable):
             with self.lock:
                 random = self.random
                 diff = self.diff
+                msg_list = self.data_list.copy()
+                self.data_list.clear()
+                threshold = self.threshold
             if random:
                 random = False
                 self.grid.randomize()
             else:
                 trans = self.grid.trans(diff.dx, diff.dy)
                 rot = self.grid.rot(diff.dpsi)
+                for msg in msg_list:
+                    self.grid.update_distance(msg.range_scale)
+                    if Settings.update_type == 0:
+                        self.grid.update_raw(msg)
+                    elif Settings.update_type == 1:
+                        # self.grid.auto_update_zhou(msg, self.threshold_box.value())
+                        self.grid.update_occ_zhou(msg, threshold)
+                        # self.grid.new_occ_update(msg, self.threshold_box.value())
+                    else:
+                        raise Exception('Invalid update type')
             with self.lock:
                 self.random = random
             self.grid.calc_obstacles()
@@ -532,6 +539,11 @@ class GridWorker(QtCore.QRunnable):
     def randomize(self):
         with self.lock:
             self.random = True
+
+    def add_data_msg(self, msg, threshold):
+        with self.lock:
+            self.data_list.append(msg)
+            self.threshold = threshold
 
 class GridWorkerSignals(QtCore.QObject):
     finished = QtCore.pyqtSignal(bool, name='grid_worker_finished')
