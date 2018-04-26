@@ -96,9 +96,9 @@ def cubic_path(wp_list):
     return np.ndarray.tolist(wp_array_discrete)
 
 def path_grad(wp_list):
+    wp_array = np.array(wp_list)
+    dist = np.sqrt(np.square(wp_array[1:, 0] - wp_array[:-1, 0]) + np.square(wp_array[1:, 1] - wp_array[:-1, 1]))
     if len(wp_list) > 2:
-        wp_array = np.array(wp_list)
-        dist = np.sqrt(np.square(wp_array[1:, 0] - wp_array[:-1, 0]) + np.square(wp_array[1:, 1] - wp_array[:-1, 1]))
         tmp = dist == 0
         if np.any(tmp):
             mask = np.logical_not(tmp)
@@ -108,11 +108,12 @@ def path_grad(wp_list):
             for i in pop_ind:
                 wp_list.pop(i)
         dist_cum = np.cumsum(dist)
-        theta = np.arctan2(wp_array[1:, 1] - wp_array[:-1, 1], wp_array[1:, 0] - wp_array[:-1, 0])
-        grad = np.gradient(np.unwrap(theta, discont=np.pi / 2), dist_cum)
-        return wp_list, np.abs(grad)
+        theta = np.unwrap(np.arctan2(wp_array[1:, 1] - wp_array[:-1, 1], wp_array[1:, 0] - wp_array[:-1, 0]), discont=np.pi / 2)
+        grad = np.gradient(theta, dist_cum)
+        return wp_list, np.abs(grad), dist
+        # return wp_list, grad, dist_cum, theta
     else:
-        return wp_list, np.array([0])
+        return wp_list, np.array([0]), dist
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -134,38 +135,22 @@ if __name__ == '__main__':
 
     from scipy.io import loadmat
     from scipy.interpolate import interp1d
-    wp_list = np.ndarray.tolist(loadmat('pySonarLog/paths_20180426-095740.mat')['paths'][0])
-    wp_list, grad = path_grad(wp_list)
+    data = loadmat('pySonarLog/paths_20180426-152119.mat')['paths'][0]
+    wp_list = np.ndarray.tolist(data[-1])
+    wp_list, grad, dist_cum, theta = path_grad(wp_list)
     wp_array = np.array(wp_list)
-    plt.figure(1)
-    plt.plot(wp_array[:, 0], wp_array[:, 1])
-    plt.figure(2)
-    plt.plot(grad*180.0/np.pi)
+    plt.subplot(211)
+    plt.plot(dist_cum, grad*180.0/np.pi)
+    plt.subplot(212)
+    plt.plot(dist_cum, theta*180.0/np.pi)
     plt.show()
 
 
-    # dist = np.sqrt(np.square(wp_list[1:, 0] - wp_list[:-1, 0]) + np.square(wp_list[1:, 1] - wp_list[:-1, 1]))
-    # tmp = dist == 0
-    # if np.any(tmp):
-    #     mask = np.logical_not(tmp)
-    #     dist = dist[mask]
-    #     wp_list = wp_list[np.append(mask, True), :]
-    # dist_cum = np.cumsum(dist)
-    # theta = np.arctan2(wp_list[1:, 1] - wp_list[:-1, 1], wp_list[1:, 0] - wp_list[:-1, 0])
-    # theta_un = np.unwrap(theta, discont=np.pi/2)
-    # grad = np.gradient(theta_un, dist_cum)
-    # # theta_int = interp1d(dist_cum, theta)
-    #
-    # plt.figure(1)
-    # plt.plot(theta)
-    # plt.plot(theta_un)
-    # plt.figure(2)
-    # plt.plot(wp_list[:, 0], wp_list[:, 1], '-o')
-    # plt.figure(3)
-    # plt.plot(grad)
-    # plt.figure(4)
-    # plt.plot(dist_cum)
+    # x = np.arange(-np.pi, np.pi*3, 0.5)
+    # y = np.sin(x)
+    # plt.subplot(211)
+    # plt.plot(x, y)
+    # grad = np.gradient(y, x)
+    # plt.subplot(212)
+    # plt.plot(x, grad)
     # plt.show()
-    # # grad = np.gradient()
-    # # plt.plot(wp_list[:, 0], wp_list[:, 1])
-    # # plt.show()
