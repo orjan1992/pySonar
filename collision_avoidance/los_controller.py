@@ -33,7 +33,7 @@ class LosController:
 
     def __init__(self, msg_client, timeout, stopped_event=threading.Event(), start_event=threading.Event()):
         self.normal_surge_speed = LosSettings.cruise_speed
-        self.surge_speed = self.normal_surge_speed
+        self.surge_speed = 0
         self.msg_client = msg_client
         self.timeout = timeout
         self.stopped_event = stopped_event
@@ -57,15 +57,21 @@ class LosController:
         alpha = get_angle(wp1, wp2)
         e, s = get_errors(wp1, (pos.lat, pos.long), alpha)
         delta = segment_length(wp1, wp2) - s
-        chi_r = np.arctan(-e / (self.surge_speed*LosSettings.look_ahead_time))
+        if self.surge_speed == 0:
+            chi_r = np.arctan(-e / (self.normal_surge_speed*LosSettings.look_ahead_time))
+        else:
+            chi_r = np.arctan(-e / (self.surge_speed*LosSettings.look_ahead_time))
         # print(chi_r*180.0/np.pi)
         chi = chi_r + alpha
         return wrapTo2Pi(chi), delta, e
 
     def turn_vel(self, i):
-        if self.wp_grad[i] == 0:
+        if self.wp_grad[i] == 0 and len(self.wp_list) > i + 2:
             return self.normal_surge_speed, -1
-        self.turn_velocity = min(self.normal_surge_speed, LosSettings.safe_turning_speed/(2*self.wp_grad[i]))
+        elif len(self.wp_list) <= i + 2:
+            self.turn_velocity = 0
+        else:
+            self.turn_velocity = min(self.normal_surge_speed, LosSettings.safe_turning_speed / (2 * self.wp_grad[i]))
         diff = self.surge_speed - self.turn_velocity
         dist = -1
         if diff > 0:
@@ -77,14 +83,16 @@ class LosController:
         if speed != self.surge_speed:
             self.surge_speed = speed
             self.msg_client.send_autopilot_msg(ap.CruiseSpeed(speed))
+            logger.info('Surge speed adjusted to {:.2f} m/s'.format(speed))
 
     def loop(self):
         if len(self.wp_list) < 2 or self.pos_msg is None:
             self.start_event.wait()
-
+        self.surge_speed = 0
         # Initial check
         pos_msg, wp_list, wp_counter, wp_grad = self.get_info()
         chi = wrapTo2Pi(get_angle(wp_list[0], wp_list[1]))
+        # TODO: CHeck if on initial path
         if segment_length(wp_list[0], (pos_msg.lat, pos_msg.long)) > LosSettings.roa or \
                 abs(chi - pos_msg.psi) > LosSettings.start_heading_diff:
             self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
@@ -103,9 +111,10 @@ class LosController:
 
         logger.info('Switching to Cruise Mode')
         self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
+        self.set_speed(self.normal_surge_speed)
         turn_speed, slow_down_dist = self.turn_vel(0)
-        self.set_speed(turn_speed)
-        logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
+        print(slow_down_dist)
+        # logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
         self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
         self.msg_client.send_autopilot_msg(ap.Setpoint(chi, ap.Dofs.YAW, True))
 
@@ -113,23 +122,21 @@ class LosController:
             pos_msg, wp_list, wp_counter, wp_grad = self.get_info()
 
             # Get new setpoint
-            try:
-                chi, delta, e = self.get_los_values(wp_list[wp_counter], wp_list[wp_counter + 1], pos_msg)
-            except IndexError:
-                logger.info('Final Waypoint reached!')
-                break
+            chi, delta, e = self.get_los_values(wp_list[wp_counter], wp_list[wp_counter + 1], pos_msg)
 
             # Check if ROA
             if delta < self.roa:
                 wp_counter += 1
-                self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
-                turn_speed, slow_down_dist = self.turn_vel(wp_counter)
-                s = segment_length(wp_list[wp_counter], wp_list[wp_counter])
-                if s < LosSettings.roa:
-                    self.roa = s
-                else:
-                    self.roa = LosSettings.roa
+
                 try:
+                    turn_speed, slow_down_dist = self.turn_vel(wp_counter)
+                    s = segment_length(wp_list[wp_counter], wp_list[wp_counter + 1])
+                    print(s)
+                    if s < LosSettings.roa:
+                        self.roa = s
+                    else:
+                        self.roa = LosSettings.roa
+                    self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
                     chi, delta, e = self.get_los_values(wp_list[wp_counter], wp_list[wp_counter + 1], pos_msg)
                 except IndexError:
                     logger.info('Final Waypoint reached!')

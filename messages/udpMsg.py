@@ -197,7 +197,8 @@ class UncompleteMsgException(Exception):
 
 
 class CorruptMsgException(Exception):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class OtherMsgTypeException(Exception):

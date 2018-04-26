@@ -56,8 +56,10 @@ class Binary:
         try:
             length, sid, id_int = struct.unpack('ihh', msg[:8])
         except struct.error:
+            logger.warning('Could not parse msg header: {}'.format(msg))
             raise CorruptMsgException
         except IndexError:
+            logger.warning('Could not parse msg header: {}'.format(msg))
             raise CorruptMsgException
         try:
             msg_id = MsgType(id_int)
@@ -75,7 +77,11 @@ class Binary:
                 logger.info('Unknown msg from autopilot server, msg_id: '.format(id_int))
                 raise OtherMsgTypeException
         except IndexError:
-            raise CorruptMsgException
+            logger.warning('Could not parse msg: length: {}, sid: {}, id_int: {}'.format(length, sid, id_int))
+            raise CorruptMsgException()
+        except CorruptMsgException:
+            logger.warning('Could not parse msg: length: {}, sid: {}, id_int: {}'.format(length, sid, id_int))
+            raise CorruptMsgException()
 
 
 class Command(Binary):
@@ -186,7 +192,7 @@ class RemoteControlRequestReply(Binary):
             self.token, status = struct.unpack('h?', msg)
             if self.token > 0 and status:
                 self.acquired = True
-        except struct.error:
+        except struct.error as e:
             raise CorruptMsgException
 
 class GetMessage(Binary):
@@ -269,7 +275,7 @@ class WarningGuidance(Binary):
 
     def __init__(self, msg):
         try:
-            warning_code, self.is_active = struct.unpack('B?', msg)
+            warning_code, self.is_active = struct.unpack('I?', msg)
         except struct.error:
             raise CorruptMsgException
         self.north = (1 & warning_code) == 1
@@ -280,8 +286,6 @@ class WarningGuidance(Binary):
 
     def __str__(self):
         error_list = []
-        if not self.is_active:
-            error_list.append('No longer active:')
         if self.north:
             error_list.append('Guidance Warning: North deviation!')
         if self.east:
@@ -325,7 +329,7 @@ class RovState(Binary):
 
         dx = cos(alpha - self.psi) * dist
         dy = sin(alpha - self.psi) * dist
-        return RovStateDiff(dx, dy, dpsi, self.v_surge - other.surge, self.v_sway - other.sway)
+        return RovStateDiff(dx, dy, dpsi, self.v_surge - other.v_surge, self.v_sway - other.v_sway)
 
     def __str__(self):
         return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,

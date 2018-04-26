@@ -43,7 +43,7 @@ class CollisionAvoidance:
     def update_pos(self, msg):
         self.data_storage.update_pos(msg)
         if Settings.save_paths:
-            self.pos.append(msg.totuple())
+            self.pos.append(msg.to_tuple())
 
     def update_obstacles(self, obstacles, range):
         self.data_storage.update_obstacles(obstacles, range)

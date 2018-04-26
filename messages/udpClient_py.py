@@ -70,7 +70,7 @@ class UdpClient(QObject):
             self.los_stop_event = threading.Event()
             self.los_start_event = threading.Event()
             self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event)
-            self.los_thread = None  # threading.Thread(target=self.los_controller.loop, daemon=True)
+            self.los_thread = threading.Thread()  # threading.Thread(target=self.los_controller.loop, daemon=True)
 
     def start(self):
         self.sonar_thread.start()
@@ -166,17 +166,13 @@ class UdpClient(QObject):
         if len(wp_list) < 2:
             return
         if LosSettings.enable_los:
-            # self.los_stop_event = threading.Event()
-            # self.los_controller = LosController(self, 0.05, self.los_stop_event)
-            # self.los_controller.update_pos(self.cur_pos_msg)
-            # self.los_controller.wp_list = wp_list
-            # self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-            # self.los_thread.start()
-            self.los_stop_event.set()
+            if self.los_thread.isAlive():
+                self.los_stop_event.set()
+                self.los_thread.join()
+                self.los_stop_event.clear()
             self.los_controller.update_wps(wp_list)
             self.los_controller.update_pos(self.cur_pos_msg)
             self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-            self.los_stop_event.clear()
             self.los_thread.start()
             self.los_start_event.set()
             return
@@ -207,7 +203,7 @@ class UdpClient(QObject):
             n_set = 1
             max = 20
             surge = np.ones(max)
-            surge[0] = self.cur_pos_msg.surge
+            surge[0] = self.cur_pos_msg.v_surge
             acc = 1
             while abs(np.sum(surge)/n_set) > 0.02:
                 # print(np.sum(v_surge)/n_set, acc)
@@ -216,7 +212,7 @@ class UdpClient(QObject):
                 counter += 1
                 if counter == max:
                     counter = 0
-                surge[counter] = self.cur_pos_msg.surge
+                surge[counter] = self.cur_pos_msg.v_surge
                 acc = abs((surge[counter] - surge[counter-1])/0.1)
                 if n_set < max:
                     n_set += 1
@@ -237,25 +233,28 @@ class UdpClient(QObject):
     def parse_autopilot_msg(self, data):
         try:
             msg = ap.Binary.parse(data)
-            if msg.msg_id is ap.MsgType.ROV_STATE:
-                self.cur_pos_msg = msg
-                if LosSettings.enable_los:
-                    self.los_controller.update_pos(msg)
-                    self.los_start_event.set()
-                self.ap_pos_received.set()
-            elif msg.msg_id is ap.MsgType.REMOTE_CONTROL_REQUEST_REPLY:
-                if msg.acquired:
-                    self.autopilot_sid = msg.token
-                    logger.info('Received remote control token: {}'.format(msg.token))
-            elif msg.msg_id is ap.MsgType.ROV_STATE_DESIRED:
-                self.cur_desired_pos_msg = msg
-                self.ap_pos_received.set()
-            elif msg.msg_id is ap.MsgType.ERROR or msg.msg_id is ap.MsgType.WARNING_GUIDANCE:
-                logger.error(str(msg))
-        except CorruptMsgException:
-            logger.debug('Corrupt msg from autopilot server')
+        except CorruptMsgException as w:
+            return
         except OtherMsgTypeException:
-            pass
+            return
+        if msg.msg_id is ap.MsgType.ROV_STATE:
+            self.cur_pos_msg = msg
+            if LosSettings.enable_los:
+                self.los_controller.update_pos(msg)
+                self.los_start_event.set()
+            self.ap_pos_received.set()
+        elif msg.msg_id is ap.MsgType.REMOTE_CONTROL_REQUEST_REPLY:
+            if msg.acquired:
+                self.autopilot_sid = msg.token
+                logger.info('Received remote control token: {}'.format(msg.token))
+        elif msg.msg_id is ap.MsgType.ROV_STATE_DESIRED:
+            self.cur_desired_pos_msg = msg
+            self.ap_pos_received.set()
+        elif msg.msg_id is ap.MsgType.ERROR:
+            logger.error(str(msg))
+        elif msg.msg_id is ap.MsgType.WARNING_GUIDANCE:
+            if msg.is_active:
+                logger.warning(str(msg))
 
 class Handler(socketserver.BaseRequestHandler):
     """ One instance per connection. """

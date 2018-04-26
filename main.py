@@ -31,6 +31,7 @@ logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('moosPosMsg').disabled = True
 console = logging.StreamHandler()
+console.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
 console.setLevel(logging.INFO)
 logging.getLogger('').addHandler(console)
 

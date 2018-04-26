@@ -42,7 +42,7 @@ class CollisionSettings:
     first_wp_dist = 4 # meters
 
     tracking_speed = 0.5
-    dummy_wp_factor = (1.5, 0)
+    dummy_wp_factor = (2, 0)
     use_fermat = True
     cubic_smoothing_discrete_step = 0.1
 
@@ -55,11 +55,11 @@ class LosSettings:
     send_new_heading_limit = 0.5*np.pi/180.0
 
     max_heading_change = 5*np.pi/180.0  # Rad/m
-    max_acc = 0.15
+    max_acc = 0.12
     safe_turning_speed = 0.25
     braking_distance = 5
 
-    start_heading_diff = 2*np.pi/180.0
+    start_heading_diff = 1*np.pi/180.0
 
 
 class MapSettings:
@@ -125,7 +125,7 @@ class GridSettings:
 
     mu = 1
     randomize_size = 8
-    randomize_max = 1
+    randomize_max = 0.7
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
