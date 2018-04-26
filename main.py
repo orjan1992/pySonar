@@ -24,11 +24,12 @@ from collision_avoidance.los_controller import LosController
 LOG_FILENAME = 'main.out'
 logging.basicConfig(filename=LOG_FILENAME,
                     level=logging.DEBUG,
-                    filemode='w',)
+                    filemode='w', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('main')
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
+logging.getLogger('Collision_avoidance').disabled = True
 logging.getLogger('moosPosMsg').disabled = True
 console = logging.StreamHandler()
 console.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -48,6 +49,7 @@ class MainWindow(QtGui.QMainWindow):
         self.login_widget = MainWidget(self)
         self.central_widget.addWidget(self.login_widget)
         self.setCentralWidget(self.central_widget)
+        self.setWindowTitle('pySonar')
 
 
 # noinspection PyUnresolvedReferences
@@ -394,7 +396,7 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         self.collision_worker.set_reliable(self.grid.reliable)
         self.thread_pool.start(self.collision_worker, 6)
-        # logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
+        logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(CollisionStatus, name='collision_worker_finished')
     def collision_loop_finished(self, status):
@@ -403,8 +405,7 @@ class MainWidget(QtGui.QWidget):
             left = np.mean(self.grid.grid[:, :800])
             right = np.mean(self.grid.grid[:, 801:])
             if Settings.input_source == 0:
-                self.udp_client.send_autopilot_msg(ap.GuidanceMode(ap.GuidanceModeOptions.STATION_KEEPING))
-                self.udp_client.send_autopilot_msg(ap.Setpoint(np.sign(left-right) * np.pi / 2, ap.Dofs.YAW, False))
+                self.udp_client.stop_and_turn(np.sign(left-right) * 15* np.pi / 180.0)
             elif Settings.show_map:
                 self.map_widget.invalidate_wps()
             if Settings.show_map:
@@ -421,6 +422,7 @@ class MainWidget(QtGui.QWidget):
         if status:
             self.plot_updated = True
         self.thread_pool.start(self.grid_worker, 6)
+        logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -452,7 +454,7 @@ class MainWidget(QtGui.QWidget):
             wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
                               self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
                              self.last_pos_msg.long, self.last_pos_msg.psi)
-            wp0 = vehicle2NED(2, 0, self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi)
+            wp0 = vehicle2NED(1, 0, self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi)
             wp0 = [wp0[0], wp0[1], 140, 0.5]
             self.pos_lock.release()
             wp1 = [wp1[0], wp1[1], 140, 0.5]
@@ -462,11 +464,11 @@ class MainWidget(QtGui.QWidget):
 
     def randomize_occ_grid(self):
         if Settings.update_type == 1:
-            self.grid.randomize()
-            self.plot_updated = True
+            # self.grid.randomize()
+            # self.plot_updated = True
+            self.grid_worker.randomize()
         if Settings.collision_avoidance == True:
-
-            self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
+            # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
             self.wp_straight_ahead_clicked()
         else:
             self.plot_updated = True
@@ -501,21 +503,35 @@ class GridWorker(QtCore.QRunnable):
         self.grid = grid
         self.signals = GridWorkerSignals()
         self.diff = diff
+        self.random = False
+        self.lock = threading.Lock()
 
     @QtCore.pyqtSlot()
     def run(self):
         try:
-            trans = self.grid.trans(self.diff.dx, self.diff.dy)
-            rot = self.grid.rot(self.diff.dpsi)
+            with self.lock:
+                random = self.random
+                diff = self.diff
+            if random:
+                random = False
+                self.grid.randomize()
+            else:
+                trans = self.grid.trans(diff.dx, diff.dy)
+                rot = self.grid.rot(diff.dpsi)
+            with self.lock:
+                self.random = random
             self.grid.calc_obstacles()
-            # self.signals.finished.emit(trans or rot)
             self.signals.finished.emit(True)
-            # print('Translate: {}\tRotate: {}'.format(trans, rot))
         except Exception as e:
             logger.error('Grid Worker', e)
 
     def update(self, diff):
-        self.diff = diff
+        with self.lock:
+            self.diff = diff
+
+    def randomize(self):
+        with self.lock:
+            self.random = True
 
 class GridWorkerSignals(QtCore.QObject):
     finished = QtCore.pyqtSignal(bool, name='grid_worker_finished')
