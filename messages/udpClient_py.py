@@ -61,11 +61,11 @@ class UdpClient(QObject):
             self.ap_pos_received = threading.Event()
             self.guidance_mode = None
 
-        if autopilot_listen_port is not None:
+        if autopilot_listen_port is not None and Settings.enable_autopilot:
             self.autopilot_server = socketserver.UDPServer(('0.0.0.0', autopilot_listen_port),
                                                            handler_factory(self.parse_autopilot_msg))
             self.autopilot_thread = threading.Thread(target=self.autopilot_server.serve_forever, daemon=True)
-        if LosSettings.enable_los:
+        if LosSettings.enable_los and Settings.enable_autopilot:
             self.los_stop_event = threading.Event()
             self.los_start_event = threading.Event()
             self.los_restart_event = threading.Event()
@@ -75,35 +75,36 @@ class UdpClient(QObject):
     def start(self):
         self.sonar_thread.start()
         self.pos_thread.start()
-        if self.autopilot_listen_port is not None:
+        if self.autopilot_listen_port is not None and Settings.enable_autopilot:
             self.autopilot_thread.start()
-        if CollisionSettings.send_new_wps and self.autopilot_server_port is not None:
+        if CollisionSettings.send_new_wps and self.autopilot_server_port is not None and Settings.enable_autopilot:
             self.autopilot_watchdog_thread.start()
         # if LosSettings.enable_los:
         #     self.los_thread.start()
 
     def close(self):
-        if LosSettings.enable_los:
-            self.los_stop_event.set()
-        if CollisionSettings.send_new_wps and self.in_control:
-            logger.info('Shutting down autopilot')
-            self.ask_for_desired = True
-            thread = self.stop_autopilot()
-            thread.join()
-            logger.info('In stationkeeping mode. Waiting for small errors.')
-            state_error = None
-            self.ap_pos_received.clear()
-            while state_error is None or not state_error.is_small(LosSettings.enable_los):
-                self.ap_pos_received.wait()
-                if self.cur_desired_pos_msg is None or self.cur_pos_msg is None:
-                    self.ap_pos_received.clear()
-                    continue
-                state_error = self.cur_pos_msg - self.cur_desired_pos_msg
-            # All errors are small
-            self.send_autopilot_msg(ap.RemoteControlRequest(False))
-            logger.info('Released control of autopilot')
-        if CollisionSettings.send_new_wps:
-            self.autopilot_watchdog_stop_event.set()
+        if Settings.enable_autopilot:
+            if LosSettings.enable_los:
+                self.los_stop_event.set()
+            if CollisionSettings.send_new_wps and self.in_control:
+                logger.info('Shutting down autopilot')
+                self.ask_for_desired = True
+                thread = self.stop_autopilot()
+                thread.join()
+                logger.info('In stationkeeping mode. Waiting for small errors.')
+                state_error = None
+                self.ap_pos_received.clear()
+                while state_error is None or not state_error.is_small(LosSettings.enable_los):
+                    self.ap_pos_received.wait()
+                    if self.cur_desired_pos_msg is None or self.cur_pos_msg is None:
+                        self.ap_pos_received.clear()
+                        continue
+                    state_error = self.cur_pos_msg - self.cur_desired_pos_msg
+                # All errors are small
+                self.send_autopilot_msg(ap.RemoteControlRequest(False))
+                logger.info('Released control of autopilot')
+            if CollisionSettings.send_new_wps:
+                self.autopilot_watchdog_stop_event.set()
 
     def set_sonar_callback(self, fnc):
         self.sonar_callback = fnc
@@ -123,15 +124,17 @@ class UdpClient(QObject):
             logger.debug('Uncomplete sonar msg')
 
     def switch_ap_mode(self, mode):
-        if self.guidance_mode is not mode:
-            self.guidance_mode = mode
-            logger.info('Switching to {}'.format(mode.name))
-            self.send_autopilot_msg(ap.GuidanceMode(mode))
+        if Settings.enable_autopilot:
+            if self.guidance_mode is not mode:
+                self.guidance_mode = mode
+                logger.info('Switching to {}'.format(mode.name))
+                self.send_autopilot_msg(ap.GuidanceMode(mode))
 
     def send_autopilot_msg(self, msg):
-        if self.autopilot_sid != 0:
-            msg.sid = self.autopilot_sid
-        self.autopilot_server.socket.sendto(msg.compile(), (self.autopilot_ip, self.autopilot_server_port))
+        if Settings.enable_autopilot:
+            if self.autopilot_sid != 0:
+                msg.sid = self.autopilot_sid
+            self.autopilot_server.socket.sendto(msg.compile(), (self.autopilot_ip, self.autopilot_server_port))
 
     def ping_autopilot_server(self):
         # Get empty msg to keep control
@@ -164,80 +167,83 @@ class UdpClient(QObject):
 
     @threaded
     def update_wps(self, wp_list):
-        if len(wp_list) < 2:
-            return
-        with self.wp_update_in_progress:
-            if LosSettings.enable_los:
-                if self.los_thread.isAlive():
-                    self.los_restart_event.set()
-                    self.los_stop_event.set()
-                    self.los_thread.join()
-                    self.los_stop_event.clear()
-                    self.los_restart_event.clear()
-                self.los_controller.update_wps(wp_list)
-                self.los_controller.update_pos(self.cur_pos_msg)
-                self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-                self.los_thread.start()
-                self.los_start_event.set()
+        if Settings.enable_autopilot:
+            if len(wp_list) < 2:
                 return
-            thread = self.stop_autopilot()
-            thread.join()
-            self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
-            self.send_autopilot_msg(ap.AddWaypoints(wp_list))
-            self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING)
-            # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.YAW, False))
-            # if len(wp_list[0]) > 3:
-            #     self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
-            # else:
-            self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
+            with self.wp_update_in_progress:
+                if LosSettings.enable_los:
+                    if self.los_thread.isAlive():
+                        self.los_restart_event.set()
+                        self.los_stop_event.set()
+                        self.los_thread.join()
+                        self.los_stop_event.clear()
+                        self.los_restart_event.clear()
+                    self.los_controller.update_wps(wp_list)
+                    self.los_controller.update_pos(self.cur_pos_msg)
+                    self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+                    self.los_thread.start()
+                    self.los_start_event.set()
+                    return
+                thread = self.stop_autopilot()
+                thread.join()
+                self.send_autopilot_msg(ap.Command(ap.CommandOptions.CLEAR_WPS))
+                self.send_autopilot_msg(ap.AddWaypoints(wp_list))
+                self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING)
+                # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.YAW, False))
+                # if len(wp_list[0]) > 3:
+                #     self.send_autopilot_msg(ap.TrackingSpeed(wp_list[0][3]))
+                # else:
+                self.send_autopilot_msg(ap.TrackingSpeed(CollisionSettings.tracking_speed))
 
     @threaded
     def stop_and_turn(self, theta):
-        logger.info('Stop and turn {:.2f} deg'.format(theta*180.0/np.pi))
-        if LosSettings.enable_los:
-            if self.los_thread.isAlive():
-                self.los_stop_event.set()
-                self.los_thread.join()
-                self.los_stop_event.clear()
-        else:
-            self.stop_autopilot()
-        self.send_autopilot_msg(ap.Setpoint(theta+self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
+        if Settings.enable_autopilot:
+            logger.info('Stop and turn {:.2f} deg'.format(theta*180.0/np.pi))
+            if LosSettings.enable_los:
+                if self.los_thread.isAlive():
+                    self.los_stop_event.set()
+                    self.los_thread.join()
+                    self.los_stop_event.clear()
+            else:
+                self.stop_autopilot()
+            self.send_autopilot_msg(ap.Setpoint(theta+self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
 
     @threaded
     def stop_autopilot(self):
-        logger.info('Stopping ROV')
-        if self.cur_pos_msg is None:
-            return
-        if self.guidance_mode is not ap.GuidanceModeOptions.STATION_KEEPING:
-            if self.guidance_mode is ap.GuidanceModeOptions.PATH_FOLLOWING:
-            # self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING))
-                self.send_autopilot_msg(ap.TrackingSpeed(0))
-            if self.guidance_mode is ap.GuidanceModeOptions.CRUISE_MODE:
-                    self.send_autopilot_msg(ap.CruiseSpeed(0))
-            counter = 0
-            n_set = 1
-            max = 20
-            surge = np.ones(max)
-            surge[0] = self.cur_pos_msg.v_surge
-            acc = 1
-            while abs(np.sum(surge)/n_set) > 0.02:
-                # print(np.sum(v_surge)/n_set, acc)
-                self.ap_pos_received.clear()
-                self.ap_pos_received.wait(0.1)
-                counter += 1
-                if counter == max:
-                    counter = 0
-                surge[counter] = self.cur_pos_msg.v_surge
-                acc = abs((surge[counter] - surge[counter-1])/0.1)
-                if n_set < max:
-                    n_set += 1
-            self.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
-            # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SURGE, True))
-            # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SWAY, True))
-            # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
-            self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, self.cur_pos_msg.alt))
-        else:
-            return
+        if Settings.enable_autopilot:
+            logger.info('Stopping ROV')
+            if self.cur_pos_msg is None:
+                return
+            if self.guidance_mode is not ap.GuidanceModeOptions.STATION_KEEPING:
+                if self.guidance_mode is ap.GuidanceModeOptions.PATH_FOLLOWING:
+                # self.switch_ap_mode(ap.GuidanceModeOptions.PATH_FOLLOWING))
+                    self.send_autopilot_msg(ap.TrackingSpeed(0))
+                if self.guidance_mode is ap.GuidanceModeOptions.CRUISE_MODE:
+                        self.send_autopilot_msg(ap.CruiseSpeed(0))
+                counter = 0
+                n_set = 1
+                max = 20
+                surge = np.ones(max)
+                surge[0] = self.cur_pos_msg.v_surge
+                acc = 1
+                while abs(np.sum(surge)/n_set) > 0.02:
+                    # print(np.sum(v_surge)/n_set, acc)
+                    self.ap_pos_received.clear()
+                    self.ap_pos_received.wait(0.1)
+                    counter += 1
+                    if counter == max:
+                        counter = 0
+                    surge[counter] = self.cur_pos_msg.v_surge
+                    acc = abs((surge[counter] - surge[counter-1])/0.1)
+                    if n_set < max:
+                        n_set += 1
+                self.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
+                # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SURGE, True))
+                # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SWAY, True))
+                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
+                self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, self.cur_pos_msg.alt))
+            else:
+                return
 
     def parse_pos_msg(self, data):
         msg = UdpPosMsg(data)

@@ -29,7 +29,7 @@ logger = logging.getLogger('main')
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
 logging.getLogger('messages.MoosMsgs.bins').disabled = True
 logging.getLogger('messages.MoosMsgs.pose').disabled = True
-logging.getLogger('Collision_avoidance').disabled = True
+# logging.getLogger('Collision_avoidance').disabled = True
 logging.getLogger('moosPosMsg').disabled = True
 console = logging.StreamHandler()
 console.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
@@ -281,9 +281,10 @@ class MainWidget(QtGui.QWidget):
             self.grid = RawGrid(GridSettings.half_grid)
 
     def clear_grid(self):
-        self.grid.clear_grid()
-        self.plot_updated = False
-        self.update_plot()
+        # self.grid.clear_grid()
+        # self.plot_updated = False
+        # self.update_plot()
+        self.grid_worker.clear_grid()
 
     @QtCore.pyqtSlot(object, name='new_sonar_msg')
     def new_sonar_msg(self, msg):
@@ -496,6 +497,7 @@ class GridWorker(QtCore.QRunnable):
         self.signals = GridWorkerSignals()
         self.diff = diff
         self.random = False
+        self.clear_grid_bool = False
         self.lock = threading.Lock()
         self.data_list = []
         self.threshold = GridSettings.threshold
@@ -504,14 +506,20 @@ class GridWorker(QtCore.QRunnable):
     def run(self):
         try:
             with self.lock:
-                random = self.random
                 diff = self.diff
                 msg_list = self.data_list.copy()
                 self.data_list.clear()
                 threshold = self.threshold
+                random = self.random
+                if self.random:
+                    self.random = False
+                clear_grid = self.clear_grid_bool
+                if self.clear_grid_bool:
+                    self.clear_grid_bool = False
             if random:
-                random = False
                 self.grid.randomize()
+            elif clear_grid:
+                self.grid.clear_grid()
             else:
                 trans = self.grid.trans(diff.dx, diff.dy)
                 rot = self.grid.rot(diff.dyaw)
@@ -525,8 +533,6 @@ class GridWorker(QtCore.QRunnable):
                         # self.grid.new_occ_update(msg, self.threshold_box.value())
                     else:
                         raise Exception('Invalid update type')
-            with self.lock:
-                self.random = random
             self.grid.calc_obstacles()
             self.signals.finished.emit(True)
         except Exception as e:
@@ -544,6 +550,10 @@ class GridWorker(QtCore.QRunnable):
         with self.lock:
             self.data_list.append(msg)
             self.threshold = threshold
+
+    def clear_grid(self):
+        with self.lock:
+            self.clear_grid_bool = True
 
 class GridWorkerSignals(QtCore.QObject):
     finished = QtCore.pyqtSignal(bool, name='grid_worker_finished')

@@ -20,12 +20,12 @@ logger = logging.getLogger('Collision_avoidance')
 # logger.addHandler(console)
 
 class CollisionAvoidance:
-    # TODO: Should be redesigned to keep waypoint list WP = [lat, long, alt/depth?], v_surge speed
+    # TODO: Should be redesigned to keep waypoint list WP = [north, east, alt/depth?], v_surge speed
     save_counter = 0
     path_ok = True
 
     def __init__(self, msg_client=None, voronoi_plot_item=None):
-        self.lat = self.long = self.psi = 0.0
+        self.north = self.east = self.yaw = 0.0
         self.range = 0.0
         self.obstacles = []
         self.waypoint_counter = 0
@@ -60,7 +60,7 @@ class CollisionAvoidance:
         """
         if reliable:
             t0 = time()
-            self.lat, self.long, self.psi = self.data_storage.get_pos()
+            self.north, self.east, self.yaw = self.data_storage.get_pos()
             self.waypoint_list, self.waypoint_counter = self.data_storage.get_wps()
             self.obstacles, self.range = self.data_storage.get_obstacles()
             self.bin_map = cv2.drawContours(np.zeros((GridSettings.height, GridSettings.width),
@@ -103,13 +103,13 @@ class CollisionAvoidance:
         :return: True if path is going outside collision margins, index of last wp before collision
         """
         if np.shape(wp_list)[0] > 0:
-            old_wp = (self.lat, self.long)
+            old_wp = (self.north, self.east)
             grid_old_wp = (801, 801)
             line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
             for i in range(self.waypoint_counter, np.shape(wp_list)[0]):
                 NE, constrained = constrainNED2range(wp_list[i], old_wp,
-                                                     self.lat, self.long, self.psi, self.range)
-                grid_wp = NED2grid(NE[0], NE[1], self.lat, self.long, self.psi, self.range)
+                                                     self.north, self.east, self.yaw, self.range)
+                grid_wp = NED2grid(NE[0], NE[1], self.north, self.east, self.yaw, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), grid_old_wp, grid_wp,
                                (255, 255, 255), line_width)
                 old_wp = NE
@@ -135,19 +135,19 @@ class CollisionAvoidance:
             constrained_wp_index = self.waypoint_counter
             for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
                 NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
-                                                     self.lat, self.long, self.psi, self.range)
+                                                     self.north, self.east, self.yaw, self.range)
                 if constrained:
                     constrained_wp_index = i
                     last_wp = NE
                     # Check if path reenters grid
                     # for i in range(constrained_wp_index, np.shape(self.waypoint_list)[0]):
                     #     NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
-                    #                                          self.lat, self.long, self.psi, self.range)
+                    #                                          self.north, self.east, self.yaw, self.range)
                     #     if not constrained:
                     #         constrained_wp_index = i
                     #         if i < np.shape(self.waypoint_list)[0] - 1:
                     #             NE, constrained = constrainNED2range(self.waypoint_list[i + 1], self.waypoint_list[i],
-                    #                                                  self.lat, self.long, self.psi, self.range)
+                    #                                                  self.north, self.east, self.yaw, self.range)
                     #             if constrained:
                     #                 constrained_wp_index = i
                     #                 last_wp = NE
@@ -166,7 +166,7 @@ class CollisionAvoidance:
             # points.extend(self.border_step_list)
             constrained_wp_grid = NED2grid(self.waypoint_list[constrained_wp_index][0],
                                            self.waypoint_list[constrained_wp_index][1],
-                                           self.lat, self.long, self.psi, self.range)
+                                           self.north, self.east, self.yaw, self.range)
             x_min = min(constrained_wp_grid[0], 0)-1
             x_max = max(constrained_wp_grid[0], GridSettings.height)+1
             y_min = min(constrained_wp_grid[1], 0)-1
@@ -238,10 +238,10 @@ class CollisionAvoidance:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
-                if LosSettings.enable_los:
+                if CollisionSettings.use_fermat:
                     self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
                 for wp in self.voronoi_wp_list:
-                    N, E = grid2NED(wp[0], wp[1], self.range, self.lat, self.long, self.psi)
+                    N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2]])  # , self.waypoint_list[self.waypoint_counter][3]])
 
                 # Smooth waypoints
@@ -306,7 +306,7 @@ class CollisionAvoidance:
                 'voronoi_end_region': end_region, 'voronoi_points': vp.points, 'voronoi_vertices': vp.vertices,
                 'voronoi_ridge_points': vp.ridge_points, 'voronoi_ridge_vertices': vp.ridge_vertices,
                 'voronoi_regions': vp.regions, 'voronoi_point_region': vp.point_region,
-                'pos': np.array([self.lat, self.long, self.psi]), 'range_scale': self.range,
+                'pos': np.array([self.north, self.east, self.yaw]), 'range_scale': self.range,
                 'obstacles': self.obstacles, 'status': status.value, 'connection': vp.connection_matrix})
 
     def calc_voronoi_img(self, vp, voronoi_wp_list, start_wp=None, end_wp=None, end_region=None, start_region=None):
@@ -424,9 +424,9 @@ class CollisionData:
     pos_lock = threading.Lock()
     obs_lock = threading.Lock()
     wp_lock = threading.Lock()
-    lat = 0
-    long = 0
-    psi = 0
+    north = 0
+    east = 0
+    yaw = 0
     obstacles = []
     range = 30
     wp_list = []
@@ -434,17 +434,17 @@ class CollisionData:
 
     def update_pos(self, msg):
         self.pos_lock.acquire(blocking=True)
-        if msg.lat is not None:
-            self.lat = msg.lat
-        if msg.long is not None:
-            self.long = msg.long
-        if msg.psi is not None:
-            self.psi = msg.psi
+        if msg.north is not None:
+            self.north = msg.north
+        if msg.east is not None:
+            self.east = msg.east
+        if msg.yaw is not None:
+            self.yaw = msg.yaw
         self.pos_lock.release()
 
     def get_pos(self):
         self.pos_lock.acquire()
-        tmp = self.lat, self.long, self.psi
+        tmp = self.north, self.east, self.yaw
         self.pos_lock.release()
         return tmp
 

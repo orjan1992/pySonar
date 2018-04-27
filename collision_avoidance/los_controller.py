@@ -5,6 +5,8 @@ import logging
 import numpy as np
 from coordinate_transformations import wrapToPi, wrapTo2Pi
 from collision_avoidance.path_smoothing import path_grad
+from datetime import datetime
+from scipy.io import savemat
 logger = logging.getLogger('LosController')
 
 def get_angle(wp1, wp2):
@@ -102,6 +104,12 @@ class LosController:
             logger.info('To few waypoints. Returning to Stationkeeping.')
             self.msg_client.stop_autopilot()
             return
+
+        if LosSettings.log_paths:
+            chi_log = []
+            surge_log = []
+            timestamp = []
+
         self.surge_speed = 0
         # Initial check
         pos_msg, wp_list, wp_counter, wp_grad, segment_lengths = self.get_info()
@@ -137,6 +145,10 @@ class LosController:
 
         self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
         self.set_speed(self.normal_surge_speed)
+        if LosSettings.log_paths:
+            chi_log.append(chi)
+            surge_log.append(self.surge_speed)
+            timestamp.append(datetime.now().strftime("%H:%M:%S"))
         turn_speed, slow_down_dist = self.turn_vel(0)
         # logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
         self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
@@ -196,6 +208,9 @@ class LosController:
             self.msg_client.stop_autopilot()
         else:
             logger.info('WP loop finished: Restarting loop')
+        if LosSettings.log_paths:
+            savemat('pySonarLog/Los_log_{}'.format(datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
+                'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp})
 
 
     def update_pos(self, msg):

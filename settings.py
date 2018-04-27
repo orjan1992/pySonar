@@ -24,9 +24,11 @@ class Settings:
     collision_avoidance_interval = 200  # ms
 
     save_obstacles = False
-    save_paths = True
     save_scan_lines = False
-    save_collision_info = True
+
+
+    save_paths = False
+    save_collision_info = False
 
     button_height = 30
     button_width = 200
@@ -64,7 +66,7 @@ class LosSettings:
     braking_distance = 5
 
     start_heading_diff = 1*np.pi/180.0
-
+    log_paths = True
 
 class MapSettings:
     display_grid = True
