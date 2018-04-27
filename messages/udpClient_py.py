@@ -20,7 +20,6 @@ def threaded(fn):
     return wrapper
 
 class UdpClient(QObject):
-    # TODO: Implement NMEA messages for WP control or LOS control
     signal_new_sonar_msg = pyqtSignal(object, name='new_sonar_msg')
     buffer = io.BytesIO()
     cur_pos_msg = None

@@ -155,27 +155,32 @@ class RawGrid(object):
             self.last_distance = distance
         if factor == 1:
             return
-        # if factor < 0:
-        #     print('distance: {},\told_distance: {}'.format(distance, self.last_distance))
-        # new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
-        # if factor < 1:
-        #     # old distance > new distance
-        #     new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
-        #                                                factor + self.origin_j)).astype(dtype=int),
-        #                                      (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
-        #                                                factor + self.origin_i)).astype(dtype=int))]
-        # else:
-        #     # old distance < new distance
-        #     i_lim = int(round(0.5 * self.i_max / factor))
-        #     j_lim = int(round(0.5 * self.j_max / factor))
-        #     new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
-        #         np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
-        #                               factor + self.origin_j)).astype(dtype=int),
-        #                     (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
-        #                               factor + self.origin_i)).astype(dtype=int))]
-        # self.lock.acquire()
-        # self.grid = new_grid
-        # self.lock.release()
+        if factor < 0:
+            print('distance: {},\told_distance: {}'.format(distance, self.last_distance))
+        new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
+        try:
+            if factor < 1:
+                # old distance > new distance
+                new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
+                                                           factor + self.origin_j)).astype(dtype=int),
+                                                 (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
+                                                           factor + self.origin_i)).astype(dtype=int))]
+            else:
+                # old distance < new distance
+                i_lim = int(round(0.5 * self.i_max / factor))
+                j_lim = int(round(0.5 * self.j_max / factor))
+                new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
+                    np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
+                                          factor + self.origin_j)).astype(dtype=int),
+                                (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
+                                          factor + self.origin_i)).astype(dtype=int))]
+        except IndexError:
+            logger.warning('Could not update grid size.')
+            self.last_distance = distance
+            return
+        self.lock.acquire()
+        self.grid = new_grid
+        self.lock.release()
         
         self.last_distance = distance
 
@@ -279,18 +284,17 @@ class RawGrid(object):
 
 
 if __name__ == "__main__":
+    from ogrid.occupancyGrid import OccupancyGrid
     import matplotlib.pyplot as plt
-    grid = RawGrid(False)
-    # grid.
+    grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
+                         GridSettings.p_binary_threshold, 16)
+    grid.last_distance = 50
+    grid.randomize()
+    tmp = grid.grid.copy()
+    grid.update_distance(30)
+    plt.subplot(121)
+    plt.imshow(grid.grid)
+    plt.subplot(122)
+    plt.imshow(tmp)
+    plt.show()
 
-    # pol = np.mean(grid.grid.flat[grid.map], axis=2)
-    # pol = np.roll(pol, 1, axis=0)
-    for i in range(20):
-        grid.rotateImage(grid.grid, 5)
-
-    # plt.figure(1)
-    # plt.imshow(grid.grid)
-    # plt.figure(2)
-    # # grid.rot(-5*np.pi/180.0)
-    # plt.imshow(rotateImage(grid.grid, 5))
-    # plt.show()
