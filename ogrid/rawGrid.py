@@ -15,7 +15,7 @@ class RawGrid(object):
     oLog_type = np.float32
     old_delta_x = 0
     old_delta_y = 0
-    old_delta_psi = 0
+    old_delta_yaw = 0
     MIN_ROT = 0.1 * math.pi / 180
     i_max = 1601
     j_max = 1601
@@ -225,12 +225,12 @@ class RawGrid(object):
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)
         return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
 
-    def rot(self, dpsi):
-        if dpsi == 0:
+    def rot(self, dyaw):
+        if dyaw == 0:
             return True
         try:
-            # new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dpsi*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, self.p_log_zero)
-            new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dpsi*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, borderValue=self.p_log_zero)
+            # new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dyaw*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, self.p_log_zero)
+            new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dyaw*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, borderValue=self.p_log_zero)
             self.lock.acquire()
             self.grid = new_grid
             self.lock.release()

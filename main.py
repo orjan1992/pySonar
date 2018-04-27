@@ -97,7 +97,7 @@ class MainWidget(QtGui.QWidget):
         self.threshold_box = QtGui.QSpinBox()
         self.threshold_box.setMinimum(0)
         self.threshold_box.setMaximum(20000)
-        self.threshold_box.setValue(PlotSettings.threshold)
+        self.threshold_box.setValue(GridSettings.threshold)
 
         # Randomize button
         self.randomize_button = QtGui.QPushButton('Randomize')
@@ -307,9 +307,9 @@ class MainWidget(QtGui.QWidget):
             else:
                 msg = self.moos_msg_client.cur_pos_msg
             if Settings.show_pos:
-                self.north.setText('{:.6f}'.format(msg.lat))
-                self.east.setText('{:.6f}'.format(msg.long))
-                self.heading.setText('{:.1f}'.format(msg.psi*180.0/np.pi))
+                self.north.setText('{:.2f}'.format(msg.north))
+                self.east.setText('{:.2f}'.format(msg.east))
+                self.heading.setText('{:.1f}'.format(msg.yaw*180.0/np.pi))
                 if LosSettings.enable_los:
                     e, s = self.udp_client.los_controller.get_errors()
                     self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
@@ -321,13 +321,13 @@ class MainWidget(QtGui.QWidget):
             if Settings.collision_avoidance:
                 self.collision_avoidance.update_pos(msg)
                 if Settings.show_map:
-                    self.map_widget.update_pos(msg.lat, msg.long, msg.psi, self.grid.range_scale)
+                    self.map_widget.update_pos(msg.north, msg.east, msg.yaw, self.grid.range_scale)
                     # self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
 
             diff = (msg - self.last_pos_msg)
             self.last_pos_msg = deepcopy(msg)
             # trans = self.grid.trans(diff.dx, diff.dy)
-            # rot = self.grid.rot(diff.dpsi)
+            # rot = self.grid.rot(diff.dyaw)
             # if trans or rot:
             #     self.plot_updated = True
 
@@ -362,11 +362,11 @@ class MainWidget(QtGui.QWidget):
                         if self.last_pos_msg is None:
                             im = self.collision_avoidance.draw_wps_on_grid(im, (0,0,0))
                         else:
-                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi))
+                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw))
 
                 if Settings.show_map:
-                    self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.lat,
-                                                     self.last_pos_msg.long, self.last_pos_msg.psi)
+                    self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.north,
+                                                     self.last_pos_msg.east, self.last_pos_msg.yaw)
                 self.img_item.setImage(im)
             else:
                 raise Exception('Invalid plot type')
@@ -444,9 +444,9 @@ class MainWidget(QtGui.QWidget):
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(0, 0, 0, 0)
             wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
-                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.lat,
-                             self.last_pos_msg.long, self.last_pos_msg.psi)
-            wp0 = vehicle2NED(1, 0, self.last_pos_msg.lat, self.last_pos_msg.long, self.last_pos_msg.psi)
+                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                             self.last_pos_msg.east, self.last_pos_msg.yaw)
+            wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
             wp0 = [wp0[0], wp0[1], 140, 0.5]
             self.pos_lock.release()
             wp1 = [wp1[0], wp1[1], 140, 0.5]
@@ -498,7 +498,7 @@ class GridWorker(QtCore.QRunnable):
         self.random = False
         self.lock = threading.Lock()
         self.data_list = []
-        self.threshold = PlotSettings.threshold
+        self.threshold = GridSettings.threshold
 
     @QtCore.pyqtSlot()
     def run(self):
@@ -514,7 +514,7 @@ class GridWorker(QtCore.QRunnable):
                 self.grid.randomize()
             else:
                 trans = self.grid.trans(diff.dx, diff.dy)
-                rot = self.grid.rot(diff.dpsi)
+                rot = self.grid.rot(diff.dyaw)
                 for msg in msg_list:
                     self.grid.update_distance(msg.range_scale)
                     if Settings.update_type == 0:

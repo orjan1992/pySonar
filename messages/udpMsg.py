@@ -8,6 +8,7 @@ from settings import ConnectionSettings, Settings
 from enum import Enum
 
 from messages.sensor import Sensor
+from settings import Map
 logger = logging.getLogger('SonarMsg')
 
 
@@ -113,7 +114,7 @@ class UdpPosMsg(Sensor):
     sensor = 1
     sensorStr = 'Position'
     id = 0
-    psi = 0.0
+    yaw = 0.0
     roll = 0.0
     pitch = 0.0
     depth = 0.0
@@ -141,7 +142,7 @@ class UdpPosMsg(Sensor):
                 self.error = True
                 return
         try:
-            self.psi = float(str_array[1])*np.pi / 180.0
+            self.yaw = float(str_array[1])*np.pi / 180.0
             self.roll = float(str_array[2])*np.pi / 180.0
             self.pitch = float(str_array[3])*np.pi / 180.0
             # self.depth = float(str_array[4])
@@ -151,45 +152,46 @@ class UdpPosMsg(Sensor):
             self.alt = float(str_array[4])
             self.lat = float(str_array[5])
             self.long = float(str_array[6])
+            self.north, self.east = Map.map_proj(self.lat, self.long)
         except:
             logger.info('NMEA msg to short')
             self.error = True
             return
 
     def __sub__(self, other):
-        lat_diff = self.lat - other.lat
-        # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))
-        long_diff = self.long - other.long
-        alpha = atan2(long_diff, lat_diff)
-        dist = sqrt(lat_diff ** 2 + long_diff ** 2)
-        dpsi = self.psi - other.psi
+        north_diff = self.north - other.north
+        # print('(self {}) - (other {}) = {}'.format(self.north, other.north, north_diff))
+        east_diff = self.east - other.east
+        alpha = atan2(east_diff, north_diff)
+        dist = sqrt(north_diff ** 2 + east_diff ** 2)
+        dyaw = self.yaw - other.yaw
 
-        dx = cos(alpha - self.psi) * dist
-        dy = sin(alpha - self.psi) * dist
-        return UdpPosMsgDiff(dx, dy, dpsi)
+        dx = cos(alpha - self.yaw) * dist
+        dy = sin(alpha - self.yaw) * dist
+        return UdpPosMsgDiff(dx, dy, dyaw)
 
     def __str__(self):
-        return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
-                                                                                   self.alt, self.lat, self.long)
+        return 'yaw: {}, roll: {}, pitch: {}, alt: {}, north: {}, east: {}'.format(self.yaw, self.roll, self.pitch,
+                                                                                   self.alt, self.north, self.east)
 
     def to_tuple(self):
-        return self.lat, self.long, self.alt, self.psi
+        return self.north, self.east, self.alt, self.yaw
 
 class UdpPosMsgDiff:
-    def __init__(self, dx, dy, dpsi):
+    def __init__(self, dx, dy, dyaw):
         self.dx = dx
         self.dy = dy
-        self.dpsi = dpsi
+        self.dyaw = dyaw
 
     def __add__(self, other):
         _dx = self.dx + other.dx
         _dy = self.dy + other.dy
-        _dpsi = self.dpsi + other.dpsi
+        _dyaw = self.dyaw + other.dyaw
         logger.debug('self={}, other={}, sum={}'.format(self.dx, other.dx, _dx))
-        return UdpPosMsgDiff(_dx, _dy, _dpsi)
+        return UdpPosMsgDiff(_dx, _dy, _dyaw)
 
     def __str__(self):
-        return 'dx: {},\tdy: {}\t, dpsi: {}'.format(self.dx, self.dy, self.dpsi * 180 / pi)
+        return 'dx: {},\tdy: {}\t, dyaw: {}'.format(self.dx, self.dy, self.dyaw * 180 / pi)
 
 
 class UncompleteMsgException(Exception):

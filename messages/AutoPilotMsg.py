@@ -307,7 +307,7 @@ class RovState(Binary):
     def __init__(self, msg, msg_id=MsgType.ROV_STATE):
         self.msg_id = msg_id
         try:
-            self.lat, self.long, self.down, self.roll, self.pitch, self.psi = struct.unpack('6d', msg[:48])
+            self.north, self.east, self.down, self.roll, self.pitch, self.yaw = struct.unpack('6d', msg[:48])
             self.v_surge, self.v_sway, self.v_heave, self.roll, self.pitch, self.v_yaw = struct.unpack('6d', msg[48:96])
             self.a_surge, self.a_sway, self.a_heave, self.a_roll, self.a_pitch, self.a_yaw = struct.unpack('6d', msg[96:144])
             self.depth, self.alt = struct.unpack('dd', msg[144:160])
@@ -318,57 +318,57 @@ class RovState(Binary):
 
     def __sub__(self, other):
         try:
-            lat_diff = self.lat - other.lat
+            north_diff = self.north - other.north
         except AttributeError:
             a=1
-        # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))
-        long_diff = self.long - other.long
-        alpha = arctan2(long_diff, lat_diff)
-        dist = (lat_diff ** 2 + long_diff ** 2)**0.5
-        dpsi = self.psi - other.psi
+        # print('(self {}) - (other {}) = {}'.format(self.north, other.north, north_diff))
+        east_diff = self.east - other.east
+        alpha = arctan2(east_diff, north_diff)
+        dist = (north_diff ** 2 + east_diff ** 2)**0.5
+        dyaw = self.yaw - other.yaw
 
-        dx = cos(alpha - self.psi) * dist
-        dy = sin(alpha - self.psi) * dist
-        return RovStateDiff(dx, dy, dpsi, self.v_surge - other.v_surge, self.v_sway - other.v_sway)
+        dx = cos(alpha - self.yaw) * dist
+        dy = sin(alpha - self.yaw) * dist
+        return RovStateDiff(dx, dy, dyaw, self.v_surge - other.v_surge, self.v_sway - other.v_sway)
 
     def __str__(self):
-        return 'psi: {}, roll: {}, pitch: {}, alt: {}, lat: {}, long: {}'.format(self.psi, self.roll, self.pitch,
-                                                                                   self.alt, self.lat, self.long)
+        return 'yaw: {}, roll: {}, pitch: {}, alt: {}, north: {}, east: {}'.format(self.yaw, self.roll, self.pitch,
+                                                                                   self.alt, self.north, self.east)
 
     def to_tuple(self):
-        return self.lat, self.long, self.down, self.psi, self.v_surge, self.v_sway, self.v_heave, self.v_yaw
+        return self.north, self.east, self.down, self.yaw, self.v_surge, self.v_sway, self.v_heave, self.v_yaw
 
 class RovStateDiff:
-    def __init__(self, dx, dy, dpsi, d_surge, d_sway):
+    def __init__(self, dx, dy, dyaw, d_surge, d_sway):
         self.dx = dx
         self.dy = dy
-        self.dpsi = dpsi
+        self.dyaw = dyaw
         self.surge = d_surge
         self.sway = d_sway
 
     def is_small(self, los=False):
         absolute = abs(self)
         if los:
-            return absolute.dpsi < 0.035 and absolute.surge < 0.1
+            return absolute.dyaw < 0.035 and absolute.surge < 0.1
         else:
-            return absolute.dx < 0.1 and absolute.dy < 0.1 and absolute.dpsi < 0.035 and absolute.surge < 0.1
+            return absolute.dx < 0.1 and absolute.dy < 0.1 and absolute.dyaw < 0.035 and absolute.surge < 0.1
 
     def __add__(self, other):
         self.dx += other.dx
         self.dy += other.dy
-        self.dpsi += other.dpsi
+        self.dyaw += other.dyaw
         self.surge += other.surge
         self.sway += other.sway
 
     def __sub__(self, other):
         self.dx -= other.dx
         self.dy -= other.dy
-        self.dpsi -= other.dpsi
+        self.dyaw -= other.dyaw
         self.surge -= other.surge
         self.sway -= other.sway
 
     def __abs__(self):
-        return RovStateDiff(abs(self.dx), abs(self.dy), abs(self.dpsi), abs(self.surge), abs(self.sway))
+        return RovStateDiff(abs(self.dx), abs(self.dy), abs(self.dyaw), abs(self.surge), abs(self.sway))
 
     def __str__(self):
-        return 'dx: {},\tdy: {}\t, dpsi: {}'.format(self.dx, self.dy, self.dpsi * 180 / pi)
+        return 'dx: {},\tdy: {}\t, dyaw: {}'.format(self.dx, self.dy, self.dyaw * 180 / pi)

@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from PyQt5.QtGui import QColor, QBrush, QPen
+from pyproj import Proj
 
 class Settings:
     # 0 == udp, 1 == MOOS
@@ -11,6 +12,9 @@ class Settings:
     # 0 == raw update, 1 == zhou update
     update_type = 1
     pos_update_speed = 100  # ms
+
+    enable_autopilot = False
+
     hist_window = False
     collision_avoidance = True
     show_map = False
@@ -20,9 +24,9 @@ class Settings:
     collision_avoidance_interval = 200  # ms
 
     save_obstacles = False
-    save_paths = False
+    save_paths = True
     save_scan_lines = False
-    save_collision_info = False
+    save_collision_info = True
 
     button_height = 30
     button_width = 200
@@ -47,7 +51,7 @@ class CollisionSettings:
     cubic_smoothing_discrete_step = 0.1
 
 class LosSettings:
-    enable_los = True
+    enable_los = False
     cruise_speed = 0.5
     look_ahead_time = 8
     roa = 2
@@ -95,6 +99,7 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
+    threshold = 200
     half_grid = False
     p_inital = 0.5
     p_binary_threshold = 0.7
@@ -153,8 +158,10 @@ class PlotSettings:
         colors = [[0.2, 0.2, 0.2, 0], [0.0, 1.0, 1.0, 1.0], [1.0, 1.0, 0.0, 1.0], [1.0, 0.0, 0.0, 1.0]]
         max_val = 50.0
         min_val = -50.0
-        threshold = 120
 
         wp_on_grid_color = (0, 153, 0)
         wp_on_grid_thickness = 4
         wp_on_grid_radius = 20
+
+class Map:
+    map_proj = Proj(proj='utm', zone=31, ellps='WGS84')

@@ -38,40 +38,40 @@ def vehicle2grid(x_veh, y_veh, range):
     #     raise ValueError('x is outside grid')
     return x_grid, y_grid
 
-def vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi):
+def vehicle2NED(x_veh, y_veh, N_veh, E_veh, yaw):
     """
     :param x_veh: x_coord in vehicle frame
     :param y_veh: y_coord in vehicle frame
     :param N_veh: North pos of vehicle
     :param E_veh: East pos of vehicle
-    :param psi: heading of vehicle
+    :param yaw: heading of vehicle
     :return: (N, E) translated from x_veh, y_veh
     """
     r = np.sqrt(x_veh**2 + y_veh**2)
     alpha = np.arctan2(y_veh, x_veh)
-    north = N_veh + r * np.cos(alpha + psi)
-    east = E_veh + r * np.sin(alpha + psi)
+    north = N_veh + r * np.cos(alpha + yaw)
+    east = E_veh + r * np.sin(alpha + yaw)
     return north, east
 
-def NED2vehicle(north, east, N_veh, E_veh, psi):
+def NED2vehicle(north, east, N_veh, E_veh, yaw):
     """
     :param north: north coord of pos
     :param east: east coord of pos
     :param N_veh: North pos of vehicle
     :param E_veh: East pos of vehicle
-    :param psi: heading of vehicle
+    :param yaw: heading of vehicle
     :return: (x_veh, y_veh) translated from (north, east)
     """
 
     x = north - N_veh
     y = east - E_veh
     r = np.sqrt(x**2 + y**2)
-    alpha = np.arctan2(y, x) - psi
+    alpha = np.arctan2(y, x) - yaw
     x_veh = r*np.cos(alpha)
     y_veh = r*np.sin(alpha)
     return x_veh, y_veh
 
-def grid2NED(x_grid, y_grid, range, N_veh, E_veh, psi):
+def grid2NED(x_grid, y_grid, range, N_veh, E_veh, yaw):
     """
     grid zero is upper left corner
     :param x_grid: Horizontal grid coordinates, positive to the right
@@ -79,38 +79,38 @@ def grid2NED(x_grid, y_grid, range, N_veh, E_veh, psi):
     :param range: grid range
     :param N_veh: North pos of vehicle
     :param E_veh: East pos of vehicle
-    :param psi: heading of vehicle
+    :param yaw: heading of vehicle
     :return: (N, E_veh) translated from x_veh, y_veh
     """
     x_veh, y_veh = grid2vehicle(x_grid, y_grid, range)
-    return vehicle2NED(x_veh, y_veh, N_veh, E_veh, psi)
+    return vehicle2NED(x_veh, y_veh, N_veh, E_veh, yaw)
 
-def NED2grid(north, east, N_veh, E_veh, psi, range):
+def NED2grid(north, east, N_veh, E_veh, yaw, range):
     """
     :param north: north coord of pos
     :param east: east coord of pos
     :param N_veh: North pos of vehicle
     :param E_veh: East pos of vehicle
-    :param psi: heading of vehicle
+    :param yaw: heading of vehicle
     :param range: grid range
     :return: (x_grid, y_grid)
     """
-    x_veh, y_veh = NED2vehicle(north, east, N_veh, E_veh, psi)
+    x_veh, y_veh = NED2vehicle(north, east, N_veh, E_veh, yaw)
     return vehicle2grid(x_veh, y_veh, range)
 
-def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
+def constrainNED2range(WP, old_WP, N_veh, E_veh, yaw, range):
     """
     :param WP: (N, E)
     :param old_WP: (N_last, E_last)
     :param N_veh: North pos of vehicle
     :param E_veh: East pos of vehicle
-    :param psi: heading of vehicle
+    :param yaw: heading of vehicle
     :param range: grid range
     :return: constrained WP in NED frame
     """
-    x_veh, y_veh = NED2vehicle(WP[0], WP[1], N_veh, E_veh, psi)
+    x_veh, y_veh = NED2vehicle(WP[0], WP[1], N_veh, E_veh, yaw)
     if x_veh > range or x_veh < -range or abs(y_veh) > range:
-        x_veh_old, y_veh_old = NED2vehicle(old_WP[0], old_WP[1], N_veh, E_veh, psi)
+        x_veh_old, y_veh_old = NED2vehicle(old_WP[0], old_WP[1], N_veh, E_veh, yaw)
         alpha = np.arctan2(y_veh - y_veh_old, x_veh - x_veh_old)
         # dist = ((x_veh - x_veh_old)**2 + (y_veh - y_veh_old)**2)**0.5
         # if x_veh > 0:
@@ -120,11 +120,11 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, psi, range):
         else:
             y_veh_new = range * np.sign(y_veh)
             x_veh_new = x_veh_old + (range - abs(y_veh_old)) * np.cos(alpha)
-        return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
+        return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, yaw), True
         # else:
         #     x_veh_new = 0
         #     y_veh_new = y_veh_old + x_veh_old * np.sin(alpha)
-        #     return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, psi), True
+        #     return vehicle2NED(x_veh_new, y_veh_new, N_veh, E_veh, yaw), True
     else:
         return WP, False
 
@@ -196,5 +196,5 @@ def wrapToPiHalf(angle):
 if __name__ == '__main__':
     N_veh = 0
     E_veh = 0
-    psi = 0
+    yaw = 0
     print(constrainNED2range((60, 60), (0, 0), 0, 0, 0, 30))

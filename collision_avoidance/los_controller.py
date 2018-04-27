@@ -56,7 +56,7 @@ class LosController:
 
     def get_los_values(self, wp1, wp2, pos):
         alpha = get_angle(wp1, wp2)
-        e, s = get_errors(wp1, (pos.lat, pos.long), alpha)
+        e, s = get_errors(wp1, (pos.north, pos.east), alpha)
         delta = segment_length(wp1, wp2) - s
         if self.surge_speed == 0:
             chi_r = np.arctan(-e / (self.normal_surge_speed*LosSettings.look_ahead_time))
@@ -108,8 +108,8 @@ class LosController:
         chi, delta, e = self.get_los_values(wp_list[0], wp_list[1], pos_msg)
         start_chi = wrapTo2Pi(get_angle(wp_list[0], wp_list[1]))
         # TODO: CHeck if on initial path
-        if (segment_length(wp_list[0], (pos_msg.lat, pos_msg.long)) > LosSettings.roa or
-                abs(start_chi - pos_msg.psi) > LosSettings.start_heading_diff) and \
+        if (segment_length(wp_list[0], (pos_msg.north, pos_msg.east)) > LosSettings.roa or
+                abs(start_chi - pos_msg.yaw) > LosSettings.start_heading_diff) and \
                 not (segment_lengths[0] - delta > 0 and abs(e) < LosSettings.roa):
             logger.info('Not on path, s: {:.2f}, e: {:.2f}'.format(segment_lengths[0] - delta, e))
             # Wait for low speed before stationkeeping
@@ -131,8 +131,8 @@ class LosController:
                                                                   wp_list[0][2], start_chi*180.0/np.pi))
 
             while self.start_event.wait() and not self.stopped_event.isSet() and \
-                    (segment_length(wp_list[0], (pos_msg.lat, pos_msg.long)) > 1 or
-                            abs(start_chi - pos_msg.psi) > LosSettings.start_heading_diff):
+                    (segment_length(wp_list[0], (pos_msg.north, pos_msg.east)) > 1 or
+                            abs(start_chi - pos_msg.yaw) > LosSettings.start_heading_diff):
                 pos_msg = self.get_pos()
 
         self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)

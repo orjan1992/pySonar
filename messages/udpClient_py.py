@@ -150,7 +150,7 @@ class UdpClient(QObject):
                 #     pass
                 # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.lat, ap.Dofs.SURGE, True))
                 # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.long, ap.Dofs.SWAY, True))
-                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
+                # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
                 # self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, 10))
             else:
                 self.send_autopilot_msg(ap.GetMessage(ap.MsgType.EMPTY_MESSAGE))
@@ -201,7 +201,7 @@ class UdpClient(QObject):
                 self.los_stop_event.clear()
         else:
             self.stop_autopilot()
-        self.send_autopilot_msg(ap.Setpoint(theta+self.cur_pos_msg.psi, ap.Dofs.YAW, True))
+        self.send_autopilot_msg(ap.Setpoint(theta+self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
 
     @threaded
     def stop_autopilot(self):
@@ -234,7 +234,7 @@ class UdpClient(QObject):
             self.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
             # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SURGE, True))
             # self.send_autopilot_msg(ap.Setpoint(0, ap.Dofs.SWAY, True))
-            # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.psi, ap.Dofs.YAW, True))
+            # self.send_autopilot_msg(ap.Setpoint(self.cur_pos_msg.yaw, ap.Dofs.YAW, True))
             self.send_autopilot_msg(ap.VerticalPos(ap.VerticalPosOptions.ALTITUDE, self.cur_pos_msg.alt))
         else:
             return
