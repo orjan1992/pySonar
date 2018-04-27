@@ -4,16 +4,17 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 from pyproj import Proj
 
 class Settings:
+    enable_autopilot = False
+    auto_settings = True
     # 0 == udp, 1 == MOOS
     input_source = 0
-    pos_msg_source = 0 # 0=NMEA, 1=Autopilot
+    pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
     # 0 == raw update, 1 == zhou update
     update_type = 1
     pos_update_speed = 100  # ms
 
-    enable_autopilot = False
 
     hist_window = False
     collision_avoidance = True
@@ -28,11 +29,20 @@ class Settings:
 
 
     save_paths = False
-    save_collision_info = False
+    save_collision_info = True
 
     button_height = 30
     button_width = 200
     inverted_sonar = False
+
+    ## Auto settings
+    if auto_settings:
+        if enable_autopilot:
+            pos_msg_source = 1
+            collision_avoidance = True
+        else:
+            pos_msg_source = 0
+            collision_avoidance = False
 
 
 class CollisionSettings:
@@ -40,7 +50,7 @@ class CollisionSettings:
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
     vehicle_margin = 1 # meter
-    send_new_wps = False
+    send_new_wps = True
 
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8
@@ -52,8 +62,16 @@ class CollisionSettings:
     use_fermat = True
     cubic_smoothing_discrete_step = 0.1
 
+    if Settings.auto_settings:
+        if Settings.enable_autopilot:
+            use_fermat = True
+            send_new_wps = True
+        else:
+            use_fermat = False
+            send_new_wps = False
+
 class LosSettings:
-    enable_los = False
+    enable_los = True
     cruise_speed = 0.5
     look_ahead_time = 8
     roa = 2
@@ -67,6 +85,12 @@ class LosSettings:
 
     start_heading_diff = 1*np.pi/180.0
     log_paths = True
+
+    if Settings.auto_settings:
+        if Settings.enable_autopilot:
+            enable_los = True
+        else:
+            enable_los = False
 
 class MapSettings:
     display_grid = True
@@ -166,4 +190,6 @@ class PlotSettings:
         wp_on_grid_radius = 20
 
 class Map:
-    map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
+    map_proj = Proj(proj='utm',zone=31,ellps='WGS84')
+    # map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
+

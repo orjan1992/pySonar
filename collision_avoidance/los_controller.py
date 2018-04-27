@@ -195,7 +195,10 @@ class LosController:
             if abs(chi - self.last_chi) > LosSettings.send_new_heading_limit:
                 self.msg_client.send_autopilot_msg(ap.Setpoint(wrapTo2Pi(chi), ap.Dofs.YAW, True))
                 self.last_chi = chi
-
+            if LosSettings.log_paths:
+                chi_log.append(chi)
+                surge_log.append(self.surge_speed)
+                timestamp.append(datetime.now().strftime("%H:%M:%S"))
             with self.lock:
                 self.wp_counter = wp_counter
                 self.e = e
@@ -210,7 +213,7 @@ class LosController:
             logger.info('WP loop finished: Restarting loop')
         if LosSettings.log_paths:
             savemat('pySonarLog/Los_log_{}'.format(datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
-                'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp})
+                'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list})
 
 
     def update_pos(self, msg):

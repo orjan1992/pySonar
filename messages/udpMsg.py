@@ -152,7 +152,7 @@ class UdpPosMsg(Sensor):
             self.alt = float(str_array[4])
             self.lat = float(str_array[5])
             self.long = float(str_array[6])
-            self.north, self.east = Map.map_proj(self.lat, self.long)
+            self.east, self.north = Map.map_proj(self.long, self.lat)
         except:
             logger.info('NMEA msg to short')
             self.error = True

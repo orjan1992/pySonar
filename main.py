@@ -311,7 +311,7 @@ class MainWidget(QtGui.QWidget):
                 self.north.setText('{:.2f}'.format(msg.north))
                 self.east.setText('{:.2f}'.format(msg.east))
                 self.heading.setText('{:.1f}'.format(msg.yaw*180.0/np.pi))
-                if LosSettings.enable_los:
+                if LosSettings.enable_los and Settings.enable_autopilot:
                     e, s = self.udp_client.los_controller.get_errors()
                     self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
                     self.along_track.setText('{:.2f}'.format(s))
