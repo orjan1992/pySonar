@@ -109,6 +109,8 @@ class LosController:
             chi_log = []
             surge_log = []
             timestamp = []
+            delta_log = []
+            e_log = []
 
         self.surge_speed = 0
         # Initial check
@@ -149,6 +151,8 @@ class LosController:
             chi_log.append(chi)
             surge_log.append(self.surge_speed)
             timestamp.append(datetime.now().strftime("%H:%M:%S"))
+            delta_log .append(delta)
+            e_log.append(e)
         turn_speed, slow_down_dist = self.turn_vel(0)
         # logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
         self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
@@ -199,6 +203,8 @@ class LosController:
                 chi_log.append(chi)
                 surge_log.append(self.surge_speed)
                 timestamp.append(datetime.now().strftime("%H:%M:%S"))
+                delta_log .append(delta)
+                e_log.append(e)
             with self.lock:
                 self.wp_counter = wp_counter
                 self.e = e
@@ -213,7 +219,8 @@ class LosController:
             logger.info('WP loop finished: Restarting loop')
         if LosSettings.log_paths:
             savemat('pySonarLog/Los_log_{}'.format(datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
-                'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list})
+                'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list,
+                'delta': np.array(delta_log), 'cross_track': np.array(e_log)})
 
 
     def update_pos(self, msg):

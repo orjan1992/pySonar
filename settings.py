@@ -33,7 +33,7 @@ class Settings:
 
     button_height = 30
     button_width = 200
-    inverted_sonar = False
+    inverted_sonar = True
 
     ## Auto settings
     if auto_settings:

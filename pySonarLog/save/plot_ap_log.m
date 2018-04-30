@@ -51,9 +51,8 @@ end
 
 %% Heading
 heading_plot = figure();
-plot(ap_time, unwrap(yaw), ap_time, unwrap(yaw_ref));
-hold on;
-% for i = 1:length(data)
-%     plot(los_time{i}, unwrap(data(i).chi), 'r');
-% end
-plot(los_time, unwrap(chi));
+plot(ap_time, unwrap(yaw)*180/pi, ap_time, unwrap(yaw_ref)*180/pi, los_time, unwrap(chi)*180/pi);
+legend('Real', 'Reference signal', 'Los output');
+xlim([datetime(date(1), date(2), date(3), 14, 43, 00), datetime(date(1), date(2), date(3), 14, 45, 30)])
+xlabel('Time');
+ylabel('Yaw - [Deg]');
