@@ -1,7 +1,7 @@
-function fig = plot_map(disp_anchor_line, disp_cables, disp_installation_line, ...
+function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, disp_installation_line, ...
                         disp_installation_point, disp_obstruction_point, disp_restricted_areas, ...
                         disp_pipelines, disp_protection, disp_safety_zone, disp_wells)
-    path = 'Snorre B WGS84';
+    path = 'D:\SkyStorage\OneDrive - NTNU\Code\pySonar\pySonarLog\save\Snorre B WGS84';
     if ~exist('disp_anchor_line', 'var')
         disp_anchor_line = true;
     end
@@ -36,10 +36,14 @@ function fig = plot_map(disp_anchor_line, disp_cables, disp_installation_line, .
     n = 1;
     s = struct;
 
+
+    if ~exist('fig', 'var')
+        fig = figure();
+    else
+        figure(fig);
+    end
+    hold on
     colorOrder = [get(gca, 'ColorOrder'); get(gca, 'ColorOrder')];
-
-
-    fig = figure();
     % leg = {};
     leg_text = {};
     leg_counter = 1;
@@ -49,7 +53,6 @@ function fig = plot_map(disp_anchor_line, disp_cables, disp_installation_line, .
             s = setfield(s, char(name(1)), m_shaperead(char(strcat(listing(i).folder, '\', name(1)))));
         end
     end
-    hold on
 
     %% Restricted areas
     if disp_restricted_areas
@@ -214,6 +217,6 @@ function fig = plot_map(disp_anchor_line, disp_cables, disp_installation_line, .
     xlabel('East')
     ylabel('North')
     legend(leg, leg_text);
-
+end
 %% ROV
 % plot(458020.9429046898, 6821614.360178768, 'or');

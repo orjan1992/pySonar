@@ -17,6 +17,8 @@ from messages.moosPosMsg import *
 from collision_avoidance.collisionAvoidance import CollisionAvoidance, CollisionStatus
 import map
 from messages.udpMsg import *
+from scipy.io import savemat
+from time import strftime
 import messages.AutoPilotMsg as ap
 from collision_avoidance.los_controller import LosController
 
@@ -336,7 +338,7 @@ class MainWidget(QtGui.QWidget):
             #     diff = (msg - self.last_pos_msg)
             #     self.last_pos_msg = deepcopy(msg)
             #
-            self.grid_worker.update(diff)
+            self.grid_worker.update(diff, msg)
             #     self.thread_pool.start(self.grid_worker, 6)
             #     logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
             # else:
@@ -501,6 +503,10 @@ class GridWorker(QtCore.QRunnable):
         self.lock = threading.Lock()
         self.data_list = []
         self.threshold = GridSettings.threshold
+        self.pos = MoosPosMsg(0, 0, 0)
+
+        if Settings.save_obstacles:
+            self.save_obs_counter = 0
 
     @QtCore.pyqtSlot()
     def run(self):
@@ -516,6 +522,8 @@ class GridWorker(QtCore.QRunnable):
                 clear_grid = self.clear_grid_bool
                 if self.clear_grid_bool:
                     self.clear_grid_bool = False
+                if Settings.save_obstacles:
+                    pos = self.pos
             if random:
                 self.grid.randomize()
             elif clear_grid:
@@ -535,12 +543,21 @@ class GridWorker(QtCore.QRunnable):
                         raise Exception('Invalid update type')
             self.grid.calc_obstacles()
             self.signals.finished.emit(True)
+
+            if Settings.save_obstacles:
+                self.save_obs_counter += 1
+                if self.save_obs_counter % 20 == 0:
+                    savemat('pySonarLog/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
+                            mdict={'grid': self.grid.grid, 'obs': self.grid.contours,
+                                   'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
+                    self.save_obs_counter = 0
         except Exception as e:
             logger.error('Grid Worker', e)
 
-    def update(self, diff):
+    def update(self, diff, pos):
         with self.lock:
             self.diff = diff
+            self.pos = pos
 
     def randomize(self):
         with self.lock:

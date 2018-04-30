@@ -24,12 +24,12 @@ class Settings:
     show_pos = True
     collision_avoidance_interval = 200  # ms
 
-    save_obstacles = False
+    save_obstacles = True
     save_scan_lines = False
 
 
     save_paths = False
-    save_collision_info = True
+    save_collision_info = False
 
     button_height = 30
     button_width = 200

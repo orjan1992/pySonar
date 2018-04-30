@@ -288,12 +288,12 @@ class CollisionAvoidance:
             self.data_storage.update_wps(self.new_wp_list, 0)
             if Settings.save_paths:
                 self.paths.append(self.new_wp_list)
-            if Settings.show_voronoi_plot or Settings.save_obstacles:
-                im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
-                if Settings.show_voronoi_plot:
-                    self.voronoi_plot_item.setImage(im)
-                if Settings.save_obstacles:
-                    np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=im)
+            # if Settings.show_voronoi_plot or Settings.save_obstacles:
+            #     im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
+            #     if Settings.show_voronoi_plot:
+            #         self.voronoi_plot_item.setImage(im)
+            #     if Settings.save_obstacles:
+            #         np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=im)
             # print(wrapTo2Pi(np.arctan2(self.new_wp_list[1][1]-self.new_wp_list[0][1], self.new_wp_list[1][0] - self.new_wp_list[0][0]))*180/np.pi, self.new_wp_list)
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
