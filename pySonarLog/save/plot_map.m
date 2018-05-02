@@ -3,10 +3,10 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
                         disp_pipelines, disp_protection, disp_safety_zone, disp_wells)
     path = 'D:\SkyStorage\OneDrive - NTNU\Code\pySonar\pySonarLog\save\Snorre B WGS84';
     if ~exist('disp_anchor_line', 'var')
-        disp_anchor_line = true;
+        disp_anchor_line = false;
     end
     if ~exist('disp_cables', 'var')
-        disp_cables = true;
+        disp_cables = false;
     end
     if ~exist('disp_installation_line', 'var')
         disp_installation_line = true;
@@ -21,7 +21,7 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         disp_restricted_areas = false;
     end
     if ~exist('disp_pipelines', 'var')
-        disp_pipelines = true;
+        disp_pipelines = false;
     end
     if ~exist('disp_protection', 'var')
         disp_protection = false;
@@ -35,7 +35,6 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
     listing = dir(path);
     n = 1;
     s = struct;
-
 
     if ~exist('fig', 'var')
         fig = figure();
@@ -107,7 +106,7 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         first = true;
         for k=1:length(s.Wells.ncst) 
             if first
-                wells = plot(s.Wells.ncst{k}(1), s.Wells.ncst{k}(2), '*', 'Color', colorOrder(leg_counter, :));
+                wells = plot(s.Wells.ncst{k}(1), s.Wells.ncst{k}(2), 'o', 'Color', colorOrder(leg_counter, :));
                 leg(leg_counter) = wells;
                 leg_text{leg_counter} = 'Wells';
                 leg_counter = leg_counter + 1;
@@ -140,7 +139,7 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         first = true;
         for k=1:length(s.Obstruction_point.ncst) 
             if first
-                obstruction = plot(s.Obstruction_point.ncst{k}(1), s.Obstruction_point.ncst{k}(2), '*', 'Color', colorOrder(leg_counter, :));
+                obstruction = plot(s.Obstruction_point.ncst{k}(1), s.Obstruction_point.ncst{k}(2), 'x', 'Color', colorOrder(leg_counter, :));
                 leg(leg_counter) = obstruction;
                 leg_text{leg_counter} = 'Obstruction Point';
                 leg_counter = leg_counter + 1;
@@ -169,15 +168,15 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
     %% Installation_line
     if disp_installation_line
         first = true;
-        for k=1:length(s.Installation_line.ncst)
+        for k=[1 3:length(s.Installation_line.ncst)]
             if first
-                Installation_line = plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', colorOrder(leg_counter, :)); 
+                Installation_line = plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', colorOrder(5, :), 'LineWidth', 2); 
                 leg(leg_counter) = Installation_line;
                 leg_text{leg_counter} = 'Installation Line';
                 leg_counter = leg_counter + 1; 
                 first = false;
             else
-                plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', get(Installation_line, 'Color')); 
+                plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', get(Installation_line, 'Color'), 'LineWidth', 2); 
             end
         end
     end
@@ -187,7 +186,7 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         first = true;
         for k=1:length(s.Installation_point.ncst) 
             if first
-                Installation_point = plot(s.Installation_point.ncst{k}(1), s.Installation_point.ncst{k}(2), '*', 'Color', colorOrder(leg_counter, :));
+                Installation_point = plot(s.Installation_point.ncst{k}(1), s.Installation_point.ncst{k}(2), '*', 'Color', colorOrder(4, :));
                 leg(leg_counter) = Installation_point;
                 leg_text{leg_counter} = 'Installation Point';
                 leg_counter = leg_counter + 1; 
@@ -214,8 +213,8 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         end
     end
 
-    xlabel('East')
-    ylabel('North')
+    xlabel('East [m]')
+    ylabel('North [m]')
     legend(leg, leg_text);
 end
 %% ROV

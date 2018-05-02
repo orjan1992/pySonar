@@ -546,9 +546,9 @@ class GridWorker(QtCore.QRunnable):
 
             if Settings.save_obstacles:
                 self.save_obs_counter += 1
-                if self.save_obs_counter % 20 == 0:
-                    savemat('pySonarLog/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
-                            mdict={'grid': self.grid.grid, 'obs': self.grid.contours,
+                if self.save_obs_counter % 100 == 0:
+                    savemat('C:/Users/Ørjan/Desktop/logs/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
+                            mdict={'grid': self.grid.grid.astype(np.float16), 'obs': self.grid.contours,
                                    'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
                     self.save_obs_counter = 0
         except Exception as e:

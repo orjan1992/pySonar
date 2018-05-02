@@ -11,6 +11,11 @@ from settings import GridSettings
 
 class haha(QObject):
     scan_list = []
+    ad_low = []
+    ad_span = []
+    bearing = []
+    range_scale = []
+
     def __init__(self, p1):
         super().__init__()
         self.p1 = p1
@@ -30,6 +35,10 @@ class haha(QObject):
                              mode='full')
         self.p1.plotItem.plot(smooth, clear=False, pen=pg.mkPen('b'))
         self.scan_list.append(msg.data)
+        self.ad_low.append(msg.ad_low)
+        self.ad_span.append(msg.ad_span)
+        self.bearing.append(msg.bearing)
+        self.range_scale.append(msg.range_scale)
 
 
 if __name__ == '__main__':
@@ -47,4 +56,8 @@ if __name__ == '__main__':
     p1.show()
 
     app.exec_()
-    np.savez('scanline.npz', scanline=np.array(b.scan_list))
+    from scipy.io import savemat
+    # np.savez('scanline.npz', scanline=np.array(b.scan_list))
+    savemat('scanlines.mat', {'scanlines': np.array(b.scan_list), 'ad_low': np.array(b.ad_low),
+                              'ad_span': np.array(b.ad_span), 'bearing': np.array(b.bearing),
+                              'range_scale': np.array(b.range_scale)})

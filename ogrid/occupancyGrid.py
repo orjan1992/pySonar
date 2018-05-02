@@ -267,7 +267,7 @@ class OccupancyGrid(RawGrid):
 
         self.lock.acquire()
         self.occ2raw(occ_grid)
-        self.grid = self.grid.clip(-10, 10)
+        self.grid = self.grid.clip(-5, 5)
         self.lock.release()
 
     def calc_incident_angle(self, angle, contour, point):
@@ -403,9 +403,9 @@ class OccupancyGrid(RawGrid):
 
         im = cv2.applyColorMap(((self.grid + 6) * 255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
         im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), 5)
-        # im[:, 800, :] = np.array([0, 0, 255])
-        # im[800, :, :] = np.array([0, 0, 255])
-        # im[801, :, :] = np.array([0, 0, 255])
+        im[:, 800, :] = np.array([0, 0, 255])
+        im[800, :, :] = np.array([0, 0, 255])
+        im[801, :, :] = np.array([0, 0, 255])
         self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
     def get_obstacles(self):

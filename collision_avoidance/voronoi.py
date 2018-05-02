@@ -13,12 +13,12 @@ class MyVoronoi(Voronoi):
     connection_matrix = 0
     shortest_path = []
 
-    def __init__(self, points):
+    def __init__(self, points, *args, **kwargs):
         self.point_region = None
         self.regions = None
         self.vertices = None
         self.ridge_vertices = None
-        super(MyVoronoi, self).__init__(points)
+        super(MyVoronoi, self).__init__(points, *args, **kwargs)
 
     def add_wp(self, wp):
         region_index = self.point_region[np.argmin(np.sqrt(np.square(self.points[:, 0] - wp[0]) + np.square(self.points[:, 1] - wp[1])))]
@@ -74,6 +74,9 @@ class MyVoronoi(Voronoi):
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
+            # else:
+            #     if bin_map[p1y, p1x] == 0:
+
 
     def dijkstra(self, start_in, stop_in, collision_ind=None):
         if collision_ind is not None:

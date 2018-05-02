@@ -145,13 +145,15 @@ class UdpPosMsg(Sensor):
             self.yaw = float(str_array[1])*np.pi / 180.0
             self.roll = float(str_array[2])*np.pi / 180.0
             self.pitch = float(str_array[3])*np.pi / 180.0
-            # self.depth = float(str_array[4])
-            # self.alt = float(str_array[5])
-            # self.lat = float(str_array[6])
-            # self.long = float(str_array[7])
-            self.alt = float(str_array[4])
-            self.lat = float(str_array[5])
-            self.long = float(str_array[6])
+            if len(str_array) == 7:
+                self.alt = float(str_array[4])
+                self.lat = float(str_array[5])
+                self.long = float(str_array[6])
+            else:
+                self.depth = float(str_array[4])
+                self.alt = float(str_array[5])
+                self.lat = float(str_array[6])
+                self.long = float(str_array[7])
             self.east, self.north = Map.map_proj(self.long, self.lat)
         except:
             logger.info('NMEA msg to short')

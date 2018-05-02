@@ -29,11 +29,11 @@ class Settings:
 
 
     save_paths = False
-    save_collision_info = False
+    save_collision_info = True
 
     button_height = 30
     button_width = 200
-    inverted_sonar = True
+    inverted_sonar = False
 
     ## Auto settings
     if auto_settings:
@@ -125,10 +125,10 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
-    threshold = 200
+    threshold = 160
     half_grid = False
     p_inital = 0.5
-    p_binary_threshold = 0.7
+    p_binary_threshold = 0.6
     p_free = 0.3
     p_occ = 0.71
     hit_factor = 50
