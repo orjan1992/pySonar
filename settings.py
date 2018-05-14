@@ -140,7 +140,7 @@ class GridSettings:
         height = 1601
     max_unset_pixels = 1601.0 * 801.0 / 4.0
     min_rot = 0.5*np.pi/180  # in rad
-    min_trans = 2  # in pixels
+    min_trans = 1  # in pixels
     cell_factor = 16
     scale_raw_data = False
     smoothing_factor = 10  # 10 for real data

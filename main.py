@@ -301,11 +301,10 @@ class MainWidget(QtGui.QWidget):
 
 
     def new_pos_msg(self):
-        if self.pos_lock.acquire():
+        with self.pos_lock:
             if Settings.input_source == 0:
                 msg = self.udp_client.cur_pos_msg
                 if msg is None:
-                    self.pos_lock.release()
                     return
             else:
                 msg = self.moos_msg_client.cur_pos_msg
@@ -318,8 +317,8 @@ class MainWidget(QtGui.QWidget):
                     self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
                     self.along_track.setText('{:.2f}'.format(s))
                     self.cross_track.setText('{:.2f}'.format(e))
-            if self.last_pos_msg is None:
-                self.last_pos_msg = deepcopy(msg)
+            # if self.last_pos_msg is None:
+            #     self.last_pos_msg = deepcopy(msg)
 
             if Settings.collision_avoidance:
                 self.collision_avoidance.update_pos(msg)
@@ -327,8 +326,10 @@ class MainWidget(QtGui.QWidget):
                     self.map_widget.update_pos(msg.north, msg.east, msg.yaw, self.grid.range_scale)
                     # self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
 
-            diff = (msg - self.last_pos_msg)
-            self.last_pos_msg = deepcopy(msg)
+            self.grid_worker.update(msg)
+
+            # diff = (msg - self.last_pos_msg)
+            # self.last_pos_msg = deepcopy(msg)
             # trans = self.grid.trans(diff.dx, diff.dy)
             # rot = self.grid.rot(diff.dyaw)
             # if trans or rot:
@@ -338,12 +339,10 @@ class MainWidget(QtGui.QWidget):
             #     diff = (msg - self.last_pos_msg)
             #     self.last_pos_msg = deepcopy(msg)
             #
-            self.grid_worker.update(diff, msg)
             #     self.thread_pool.start(self.grid_worker, 6)
             #     logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
             # else:
             #     logger.debug('Skipped iteration because of few available threads')
-            self.pos_lock.release()
 
     def update_plot(self):
         if self.plot_updated:
@@ -505,8 +504,9 @@ class GridWorker(QtCore.QRunnable):
         self.threshold = GridSettings.threshold
         self.pos = MoosPosMsg(0, 0, 0)
         self.last_pos = None
-        self.runtime = np.zeros(50)
-        self.runtime_counter = 0
+        # self.runtime = np.zeros(50)
+        # self.runtime_counter = 0
+        # self.dx = 0
 
         if Settings.save_obstacles:
             self.save_obs_counter = 0
@@ -529,8 +529,8 @@ class GridWorker(QtCore.QRunnable):
                 clear_grid = self.clear_grid_bool
                 if self.clear_grid_bool:
                     self.clear_grid_bool = False
-                if Settings.save_obstacles:
-                    pos = self.pos
+                # if Settings.save_obstacles:
+                pos = self.pos
             if random:
                 self.grid.randomize()
             elif clear_grid:
@@ -542,6 +542,7 @@ class GridWorker(QtCore.QRunnable):
                         self.last_pos = pos
                 else:
                     diff = pos - self.last_pos
+                    # self.dx += diff.dx
                     # logger.debug(str(diff))
                     self.last_pos = pos
                     self.grid.trans_and_rot(diff)
@@ -558,18 +559,19 @@ class GridWorker(QtCore.QRunnable):
                         self.grid.calc_obstacles()
                     elif len(msg_list) > 1:
                         grid = self.grid.update_occ_zhou(msg_list[0], threshold, multi_update=True)
-                        for i in range(1, len(msg_list)-1):
-                            grid = self.grid.update_occ_zhou(msg_list[i], threshold, multi_update=True, multigrid=grid)
+                        if len(msg_list) > 2:
+                            for i in range(1, len(msg_list)-1):
+                                grid = self.grid.update_occ_zhou(msg_list[i], threshold, multi_update=True, multigrid=grid)
                         self.grid.update_occ_zhou(msg_list[-1], threshold, multi_update=False, multigrid=grid)
                     else:
                         pass
                 else:
                     raise Exception('Invalid update type')
-                self.runtime[self.runtime_counter] = (time()-t1)*1000
-                self.runtime_counter += 1
-                if self.runtime_counter == 50:
-                    self.runtime_counter = 0
-                logger.info('Grid loop time: {:3.2f} ms\tlist_len: {}'.format(np.mean(self.runtime), len(msg_list)))
+                # self.runtime[self.runtime_counter] = (time()-t1)*1000
+                # self.runtime_counter += 1
+                # if self.runtime_counter == 50:
+                #     self.runtime_counter = 0
+                # logger.info('Grid loop time: {:3.2f} ms\tlist_len: {}'.format(np.mean(self.runtime), len(msg_list)))
                 # logger.info(len(msg_list))
             self.signals.finished.emit(True)
         except Exception as e:
@@ -587,9 +589,8 @@ class GridWorker(QtCore.QRunnable):
                     mdict={'grid': self.grid.grid, 'obs': c,
                            'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
 
-    def update(self, diff, pos):
+    def update(self, pos):
         with self.lock:
-            self.diff = diff
             self.pos = pos
 
     def randomize(self):
@@ -615,7 +616,7 @@ if __name__ == '__main__':
     window = MainWindow()
     window.show()
     app.exec_()
-
+    # print(window.login_widget.grid_worker.dx)
     if Settings.collision_avoidance:
         window.login_widget.collision_avoidance.save_paths()
     if Settings.show_voronoi_plot:

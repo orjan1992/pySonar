@@ -424,13 +424,13 @@ class OccupancyGrid(RawGrid):
         return self.im, self.contours
 
     # def trans_and_rot(self, diff):
-    #     dx = diff.dx * RawGrid.MAX_BINS / self.range_scale + self.last_dx
-    #     dy = diff.dy * RawGrid.MAX_BINS / self.range_scale + self.last_dy
+    #     dx = diff.dx * RawGrid.MAX_BINS / self.range_scale + self.dx_remainder
+    #     dy = diff.dy * RawGrid.MAX_BINS / self.range_scale + self.dy_remainder
     #     dx_int = np.round(dx).astype(int)
     #     dy_int = np.round(dy).astype(int)
     #     if dx_int < GridSettings.min_trans and dy_int < GridSettings.min_trans:
-    #         self.last_dx += dx_int
-    #         self.last_dy += dy_int
+    #         self.dx_remainder += dx_int
+    #         self.dy_remainder += dy_int
     #         return False
     #     if abs(dyaw) < GridSettings.min_rot:
 

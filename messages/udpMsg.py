@@ -175,9 +175,9 @@ class UdpPosMsg(Sensor):
         alpha = atan2(east_diff, north_diff)
         dist = sqrt(north_diff ** 2 + east_diff ** 2)
         dyaw = self.yaw - other.yaw
-
-        dx = cos(alpha - self.yaw) * dist
-        dy = sin(alpha - self.yaw) * dist
+        yaw_mean = (self.yaw + other.yaw) / 2
+        dx = cos(alpha - yaw_mean) * dist
+        dy = sin(alpha - yaw_mean) * dist
         return UdpPosMsgDiff(dx, dy, dyaw)
 
     def __str__(self):
@@ -218,8 +218,11 @@ class OtherMsgTypeException(Exception):
 
 
 if __name__ == '__main__':
-    wp_list = [[5.0, 20.0, 12], [2.0, 2.0, 1.0]]
-    msg = AutoPilot_AddWaypoints(wp_list, 10)
-    a = msg.compile()
-    b = struct.unpack('IHHIffffff', a)
-    print(b)
+    pos1 = UdpPosMsg(bytearray('$ROV,0,0,0,0,0,0', 'ascii'))
+    pos1.north = 0
+    pos1.east = 0
+    pos2 = UdpPosMsg(bytearray('$ROV,0,0,0,0,0,0', 'ascii'))
+    pos2.north = 10
+    pos2.east = 10
+    pos2.yaw = np.pi/2
+    print(str(pos2-pos1))

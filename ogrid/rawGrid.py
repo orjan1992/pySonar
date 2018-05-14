@@ -35,8 +35,8 @@ class RawGrid(object):
     last_data = np.zeros(MAX_BINS, dtype=np.uint8)
     last_distance = None
     range_scale = 1.0
-    last_dx = 0
-    last_dy = 0
+    dx_remainder = 0
+    dy_remainder = 0
     reliable = False
     im = np.zeros((RES, RES), dtype=float)
     contours = []
@@ -258,17 +258,18 @@ class RawGrid(object):
         return True
 
     def trans(self, dx, dy):
-        dx = dx * RawGrid.MAX_BINS / self.range_scale + self.last_dx
-        dy = dy * RawGrid.MAX_BINS / self.range_scale + self.last_dy
-        dx_int = np.round(dx).astype(int)
-        dy_int = np.round(dy).astype(int)
-        self.last_dx = dx - dx_int
-        self.last_dy = dy - dy_int
+        dx = dx * RawGrid.MAX_BINS / self.range_scale + self.dx_remainder
+        dy = dy * RawGrid.MAX_BINS / self.range_scale + self.dy_remainder
+        dx_int = np.floor(dx).astype(int)
+        dy_int = np.floor(dy).astype(int)
+        self.dx_remainder = dx - dx_int
+        self.dy_remainder = dy - dy_int
         # logger.info((dx_int, dy_int))
-        if dx_int < GridSettings.min_trans and dy_int < GridSettings.min_trans:
-            self.last_dx += dx_int
-            self.last_dy += dy_int
+        if abs(dx_int) < GridSettings.min_trans and abs(dy_int) < GridSettings.min_trans:
+            self.dx_remainder += dx_int
+            self.dy_remainder += dy_int
             return False
+
         self.lock.acquire()
         if dy_int == 0:
             if dx_int > 0:
@@ -303,22 +304,47 @@ class RawGrid(object):
                 self.grid[:, :-dy_int] = self.p_log_zero
         self.lock.release()
 
-    def trans_and_rot(self, diff):
-        return self.rot(diff.dyaw) and self.trans(diff.dx, diff.dy)
+    # def trans_and_rot(self, diff):
+    #     return self.rot(diff.dyaw) and self.trans(diff.dx, diff.dy)
 
+    def trans_and_rot(self, diff):
+        dyaw = diff.dyaw + self.rot_remainder
+        dx = diff.dx * RawGrid.MAX_BINS / self.range_scale + self.dx_remainder
+        dy = diff.dy * RawGrid.MAX_BINS / self.range_scale + self.dy_remainder
+        if abs(dyaw) < GridSettings.min_rot and abs(dx) < GridSettings.min_trans and abs(dy) < GridSettings.min_trans:
+            self.rot_remainder = dyaw
+            self.dx_remainder = dx
+            self.dy_remainder = dy
+            return False
+        else:
+            self.rot_remainder = 0
+            self.dx_remainder = 0
+            self.dy_remainder = 0
+        try:
+            rot_mat = cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dyaw*180.0/np.pi, 1.0)
+            rot_mat[0, 2] += dy
+            rot_mat[1, 2] += dx
+            new_grid = cv2.warpAffine(self.grid, rot_mat, (self.RES, self.RES), cv2.INTER_LINEAR, borderValue=self.p_log_zero)
+            self.lock.acquire()
+            self.grid = new_grid
+            self.lock.release()
+        except TypeError:
+            a = 1
 
 if __name__ == "__main__":
     from ogrid.occupancyGrid import OccupancyGrid
+    from messages.udpMsg import *
     import matplotlib.pyplot as plt
     grid = OccupancyGrid(False, GridSettings.p_inital, GridSettings.p_occ, GridSettings.p_free,
                          GridSettings.p_binary_threshold, 16)
-    grid.last_distance = 50
     grid.randomize()
+    grid.range_scale = 50
     tmp = grid.grid.copy()
-    grid.update_distance(30)
+    grid.trans_and_rot(UdpPosMsgDiff(10, 0, 0))
     plt.subplot(121)
     plt.imshow(grid.grid)
     plt.subplot(122)
     plt.imshow(tmp)
     plt.show()
+
 
