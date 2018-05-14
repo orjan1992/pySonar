@@ -18,7 +18,7 @@ from collision_avoidance.collisionAvoidance import CollisionAvoidance, Collision
 import map
 from messages.udpMsg import *
 from scipy.io import savemat
-from time import strftime
+from time import strftime, time
 import messages.AutoPilotMsg as ap
 from collision_avoidance.los_controller import LosController
 
@@ -391,7 +391,7 @@ class MainWidget(QtGui.QWidget):
     def collision_avoidance_loop(self):
         self.collision_worker.set_reliable(self.grid.reliable)
         self.thread_pool.start(self.collision_worker, 6)
-        logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
+        # logger.debug('Start collision worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(CollisionStatus, name='collision_worker_finished')
     def collision_loop_finished(self, status):
@@ -417,7 +417,7 @@ class MainWidget(QtGui.QWidget):
         if status:
             self.plot_updated = True
         self.thread_pool.start(self.grid_worker, 6)
-        logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
+        # logger.debug('Start grid worker: {} of {}'.format(self.thread_pool.activeThreadCount(), self.thread_pool.maxThreadCount()))
 
     @QtCore.pyqtSlot(object, name='new_wp')
     def wp_received(self, var):
@@ -504,15 +504,22 @@ class GridWorker(QtCore.QRunnable):
         self.data_list = []
         self.threshold = GridSettings.threshold
         self.pos = MoosPosMsg(0, 0, 0)
+        self.last_pos = None
+        self.runtime = np.zeros(50)
+        self.runtime_counter = 0
 
         if Settings.save_obstacles:
             self.save_obs_counter = 0
+            self.save_obs_timer = QtCore.QTimer()
+            self.save_obs_timer.timeout.connect(self.save_obs)
+            self.save_obs_timer.setSingleShot(False)
+            self.save_obs_timer.start(10000)
 
     @QtCore.pyqtSlot()
     def run(self):
         try:
             with self.lock:
-                diff = self.diff
+                # diff = self.diff
                 msg_list = self.data_list.copy()
                 self.data_list.clear()
                 threshold = self.threshold
@@ -529,30 +536,56 @@ class GridWorker(QtCore.QRunnable):
             elif clear_grid:
                 self.grid.clear_grid()
             else:
-                trans = self.grid.trans(diff.dx, diff.dy)
-                rot = self.grid.rot(diff.dyaw)
-                for msg in msg_list:
-                    self.grid.update_distance(msg.range_scale)
-                    if Settings.update_type == 0:
-                        self.grid.update_raw(msg)
-                    elif Settings.update_type == 1:
-                        # self.grid.auto_update_zhou(msg, self.threshold_box.value())
-                        self.grid.update_occ_zhou(msg, threshold)
-                        # self.grid.new_occ_update(msg, self.threshold_box.value())
-                    else:
-                        raise Exception('Invalid update type')
-            self.grid.calc_obstacles()
-            self.signals.finished.emit(True)
+                t1 = time()
+                if self.last_pos is None:
+                    if pos.north != 0 and pos.east != 0:
+                        self.last_pos = pos
+                else:
+                    diff = pos - self.last_pos
+                    # logger.debug(str(diff))
+                    self.last_pos = pos
+                    self.grid.trans_and_rot(diff)
+                if Settings.plot_type == 0:
+                    for msg in msg_list:
+                        self.grid.update_distance(msg.range_scale)
 
-            if Settings.save_obstacles:
-                self.save_obs_counter += 1
-                if self.save_obs_counter % 100 == 0:
-                    savemat('C:/Users/Ørjan/Desktop/logs/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
-                            mdict={'grid': self.grid.grid.astype(np.float16), 'obs': self.grid.contours,
-                                   'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
-                    self.save_obs_counter = 0
+                        self.grid.update_raw(msg)
+                        self.grid.calc_obstacles(threshold)
+                elif Settings.plot_type == 2:
+                    # self.grid.auto_update_zhou(msg, self.threshold_box.value())
+                    if len(msg_list) == 1:
+                        self.grid.update_occ_zhou(msg_list[0], threshold)
+                        self.grid.calc_obstacles()
+                    elif len(msg_list) > 1:
+                        grid = self.grid.update_occ_zhou(msg_list[0], threshold, multi_update=True)
+                        for i in range(1, len(msg_list)-1):
+                            grid = self.grid.update_occ_zhou(msg_list[i], threshold, multi_update=True, multigrid=grid)
+                        self.grid.update_occ_zhou(msg_list[-1], threshold, multi_update=False, multigrid=grid)
+                    else:
+                        pass
+                else:
+                    raise Exception('Invalid update type')
+                self.runtime[self.runtime_counter] = (time()-t1)*1000
+                self.runtime_counter += 1
+                if self.runtime_counter == 50:
+                    self.runtime_counter = 0
+                logger.info('Grid loop time: {:3.2f} ms\tlist_len: {}'.format(np.mean(self.runtime), len(msg_list)))
+                # logger.info(len(msg_list))
+            self.signals.finished.emit(True)
         except Exception as e:
             logger.error('Grid Worker', e)
+
+    def save_obs(self):
+        with self.lock:
+            pos = self.pos
+        if self.grid.contours is None:
+            c = []
+        else:
+            c = self.grid.contours
+        if pos.north != 0 and pos.east != 0:
+            savemat('C:/Users/Ørjan/Desktop/logs/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
+                    mdict={'grid': self.grid.grid, 'obs': c,
+                           'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
 
     def update(self, diff, pos):
         with self.lock:

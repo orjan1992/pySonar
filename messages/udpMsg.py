@@ -124,7 +124,12 @@ class UdpPosMsg(Sensor):
     error = False
 
     def __init__(self, data):
-        string = data.decode('ascii')
+        try:
+            string = data.decode('ascii')
+        except UnicodeDecodeError:
+            logger.info('Could not decode message')
+            self.error = True
+            return
         str_array = re.split('\*|,', string)
         if str_array[0] != '$ROV':
             logger.info('Not NMEA msg from ROV')
@@ -145,16 +150,19 @@ class UdpPosMsg(Sensor):
             self.yaw = float(str_array[1])*np.pi / 180.0
             self.roll = float(str_array[2])*np.pi / 180.0
             self.pitch = float(str_array[3])*np.pi / 180.0
-            if len(str_array) == 7:
-                self.alt = float(str_array[4])
-                self.lat = float(str_array[5])
-                self.long = float(str_array[6])
-            else:
-                self.depth = float(str_array[4])
-                self.alt = float(str_array[5])
-                self.lat = float(str_array[6])
-                self.long = float(str_array[7])
+            # if len(str_array) == 7:
+            self.alt = float(str_array[4])
+            self.lat = float(str_array[5])
+            self.long = float(str_array[6])
+            # else:
+            #     self.depth = float(str_array[4])
+            #     self.alt = float(str_array[5])
+            #     self.lat = float(str_array[6])
+            #     self.long = float(str_array[7])
             self.east, self.north = Map.map_proj(self.long, self.lat)
+            if Map.apply_pos_offset:
+                self.north += -Map.pos_offset[0]
+                self.east += -Map.pos_offset[1]
         except:
             logger.info('NMEA msg to short')
             self.error = True

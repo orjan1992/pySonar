@@ -12,7 +12,7 @@ logger = logging.getLogger('RawGrid')
 class RawGrid(object):
     cur_step = 0
     PI2 = math.pi / 2
-    oLog_type = np.float32
+    oLog_type = np.uint8
     old_delta_x = 0
     old_delta_y = 0
     old_delta_yaw = 0
@@ -38,6 +38,12 @@ class RawGrid(object):
     last_dx = 0
     last_dy = 0
     reliable = False
+    im = np.zeros((RES, RES), dtype=float)
+    contours = []
+
+    rot_remainder = 0
+    dx_remainder = 0
+    dy_remainder = 0
 
     def __init__(self, half_grid, p_zero=0):
         if half_grid:
@@ -145,42 +151,42 @@ class RawGrid(object):
 
     def update_distance(self, distance):
         # TODO: fix negative indexes
-        try:
-            factor = distance / self.last_distance
-        except TypeError:
-            factor = 1
-            self.last_distance = distance
-        except ZeroDivisionError:
-            factor = 1
-            self.last_distance = distance
-        if factor == 1:
-            return
-        if factor < 0:
-            print('distance: {},\told_distance: {}'.format(distance, self.last_distance))
-        new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
-        try:
-            if factor < 1:
-                # old distance > new distance
-                new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
-                                                           factor + self.origin_j)).astype(dtype=int),
-                                                 (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
-                                                           factor + self.origin_i)).astype(dtype=int))]
-            else:
-                # old distance < new distance
-                i_lim = int(round(0.5 * self.i_max / factor))
-                j_lim = int(round(0.5 * self.j_max / factor))
-                new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
-                    np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
-                                          factor + self.origin_j)).astype(dtype=int),
-                                (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
-                                          factor + self.origin_i)).astype(dtype=int))]
-        except IndexError:
-            logger.warning('Could not update grid size.')
-            self.last_distance = distance
-            return
-        self.lock.acquire()
-        self.grid = new_grid
-        self.lock.release()
+        # try:
+        #     factor = distance / self.last_distance
+        # except TypeError:
+        #     factor = 1
+        #     self.last_distance = distance
+        # except ZeroDivisionError:
+        #     factor = 1
+        #     self.last_distance = distance
+        # if factor == 1:
+        #     return
+        # if factor < 0:
+        #     print('distance: {},\told_distance: {}'.format(distance, self.last_distance))
+        # new_grid = np.full(np.shape(self.grid), self.p_log_zero, dtype=self.oLog_type)
+        # try:
+        #     if factor < 1:
+        #         # old distance > new distance
+        #         new_grid = self.grid[np.meshgrid((np.round((np.arange(0, self.j_max, 1) - self.origin_j) *
+        #                                                    factor + self.origin_j)).astype(dtype=int),
+        #                                          (np.round((np.arange(0, self.i_max, 1) - self.origin_i) *
+        #                                                    factor + self.origin_i)).astype(dtype=int))]
+        #     else:
+        #         # old distance < new distance
+        #         i_lim = int(round(0.5 * self.i_max / factor))
+        #         j_lim = int(round(0.5 * self.j_max / factor))
+        #         new_grid[i_lim:-i_lim, j_lim:-j_lim] = self.grid[
+        #             np.meshgrid((np.round((np.arange(j_lim, self.j_max - j_lim, 1) - self.origin_j) *
+        #                                   factor + self.origin_j)).astype(dtype=int),
+        #                         (np.round((np.arange(i_lim, self.i_max - i_lim, 1) - self.origin_i) *
+        #                                   factor + self.origin_i)).astype(dtype=int))]
+        # except IndexError:
+        #     logger.warning('Could not update grid size.')
+        #     self.last_distance = distance
+        #     return
+        # self.lock.acquire()
+        # self.grid = new_grid
+        # self.lock.release()
         
         self.last_distance = distance
 
@@ -191,7 +197,7 @@ class RawGrid(object):
         
         logger.info('Grid cleared')
 
-    def adaptive_threshold(self, threshold):
+    def calc_obstacles(self, threshold):
         # Finding histogram, calculating gradient
         hist = np.histogram(self.grid.astype(np.uint8).ravel(), 256)[0]
         # Check if more than half of pixels is set
@@ -223,17 +229,29 @@ class RawGrid(object):
         _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)
-        return cv2.cvtColor(im, cv2.COLOR_BGR2RGB), contours
+        self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        self.contours = contours
+
+    def get_obstacles(self):
+        """
+        calculates obstacles
+        :return: image, contours
+        """
+
+        return self.im, self.contours
 
     def rot(self, dyaw):
-        if dyaw == 0:
-            return True
+        dyaw += self.rot_remainder
+        if abs(dyaw) < GridSettings.min_rot:
+            self.rot_remainder = dyaw
+            return False
         try:
             # new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dyaw*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, cv2.BORDER_CONSTANT, self.p_log_zero)
             new_grid = cv2.warpAffine(self.grid, cv2.getRotationMatrix2D((self.origin_i, self.origin_j), dyaw*180.0/np.pi, 1.0), (self.RES, self.RES), cv2.INTER_LINEAR, borderValue=self.p_log_zero)
             self.lock.acquire()
             self.grid = new_grid
             self.lock.release()
+            self.rot_remainder = 0
         except TypeError:
             a = 1
 
@@ -246,7 +264,10 @@ class RawGrid(object):
         dy_int = np.round(dy).astype(int)
         self.last_dx = dx - dx_int
         self.last_dy = dy - dy_int
-        if dx_int == dy_int == 0:
+        # logger.info((dx_int, dy_int))
+        if dx_int < GridSettings.min_trans and dy_int < GridSettings.min_trans:
+            self.last_dx += dx_int
+            self.last_dy += dy_int
             return False
         self.lock.acquire()
         if dy_int == 0:
@@ -281,6 +302,9 @@ class RawGrid(object):
                 self.grid[:, -dy_int:] = self.grid[:, :dy_int]
                 self.grid[:, :-dy_int] = self.p_log_zero
         self.lock.release()
+
+    def trans_and_rot(self, diff):
+        return self.rot(diff.dyaw) and self.trans(diff.dx, diff.dy)
 
 
 if __name__ == "__main__":

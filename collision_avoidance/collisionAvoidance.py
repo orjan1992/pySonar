@@ -378,7 +378,7 @@ class CollisionAvoidance:
         if Settings.save_paths:
             # np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
             # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
-            savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(self.paths), 'pos': np.array(self.pos)})
+            savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(self.paths), 'pos': np.array(self.pos)})
 
     def draw_wps_on_grid(self, im, pos):
 

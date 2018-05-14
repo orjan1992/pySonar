@@ -1,6 +1,6 @@
 clear, close all
 
-save_figs = true;
+save_figs = false;
 fig(1) = figure();
 new_pos = [6821549.44242929, 457963.280194848];
 [fig(1), leg_text, leg] = plot_obs_on_map('obstacles20180502-122919', 'r', fig(1), new_pos);

@@ -12,6 +12,7 @@ class OccupancyGrid(RawGrid):
     # sign = None
     contours = None
     dummy = 1
+    oLog_type = np.float
     bin_map = np.zeros((RawGrid.i_max, RawGrid.j_max), dtype=np.uint8)
 
     def __init__(self, half_grid, p_zero, p_occ, p_free, p_bin_threshold, cell_factor):
@@ -153,7 +154,7 @@ class OccupancyGrid(RawGrid):
             logger.debug('Overflow when calculating probability')
         return p
 
-    def update_occ_zhou(self, msg, threshold):
+    def update_occ_zhou(self, msg, threshold, multi_update=False, multigrid=None):
         if msg.bearing < 0 or msg.bearing > 6399:
             # print(msg.bearing)
             return
@@ -168,7 +169,10 @@ class OccupancyGrid(RawGrid):
         self.contour_lock.release()
 
         self.range_scale = msg.range_scale
-        occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+        if multigrid is None:
+            occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
+        else:
+            occ_grid = multigrid
         hit_ind = self.get_hit_inds(msg, threshold)
         if obstacle_in_line and not np.any(hit_ind):
             # r = grid2vehicle_rad(point[1], point[0], self.range_scale)
@@ -179,7 +183,7 @@ class OccupancyGrid(RawGrid):
             # hit_factor = 1
         else:
             hit_factor = 1
-        logger.debug((hit_ind, hit_factor))
+        # logger.debug((hit_ind, hit_factor))
         if np.any(hit_ind):
             hit_extension_factor = GridSettings.hit_factor*msg.length/801
             data_ind_low = hit_ind - hit_extension_factor
@@ -265,10 +269,13 @@ class OccupancyGrid(RawGrid):
             else:
                 occ_grid.flat[self.angle2cell_low[self.low_indexer[msg.bearing]]] = self.p_log_free - self.p_log_zero
 
-        self.lock.acquire()
-        self.occ2raw(occ_grid)
-        self.grid = self.grid.clip(-5, 5)
-        self.lock.release()
+        if multi_update:
+            return occ_grid
+        else:
+            self.lock.acquire()
+            self.occ2raw(occ_grid)
+            self.grid = self.grid.clip(-5, 5)
+            self.lock.release()
 
     def calc_incident_angle(self, angle, contour, point):
         """
@@ -415,6 +422,17 @@ class OccupancyGrid(RawGrid):
         """
 
         return self.im, self.contours
+
+    # def trans_and_rot(self, diff):
+    #     dx = diff.dx * RawGrid.MAX_BINS / self.range_scale + self.last_dx
+    #     dy = diff.dy * RawGrid.MAX_BINS / self.range_scale + self.last_dy
+    #     dx_int = np.round(dx).astype(int)
+    #     dy_int = np.round(dy).astype(int)
+    #     if dx_int < GridSettings.min_trans and dy_int < GridSettings.min_trans:
+    #         self.last_dx += dx_int
+    #         self.last_dy += dy_int
+    #         return False
+    #     if abs(dyaw) < GridSettings.min_rot:
 
     # def get_hit_inds(self, msg, threshold):
     #     # hit indices by gradient threshold

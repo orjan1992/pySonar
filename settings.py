@@ -27,8 +27,7 @@ class Settings:
     save_obstacles = True
     save_scan_lines = False
 
-
-    save_paths = False
+    save_paths = True
     save_collision_info = True
 
     button_height = 30
@@ -39,10 +38,10 @@ class Settings:
     if auto_settings:
         if enable_autopilot:
             pos_msg_source = 1
-            collision_avoidance = True
+            # collision_avoidance = True
         else:
             pos_msg_source = 0
-            collision_avoidance = False
+            # collision_avoidance = False
 
 
 class CollisionSettings:
@@ -140,7 +139,8 @@ class GridSettings:
     else:
         height = 1601
     max_unset_pixels = 1601.0 * 801.0 / 4.0
-    min_rot = 4  # in 1/16 grad
+    min_rot = 0.5*np.pi/180  # in rad
+    min_trans = 2  # in pixels
     cell_factor = 16
     scale_raw_data = False
     smoothing_factor = 10  # 10 for real data
@@ -190,6 +190,9 @@ class PlotSettings:
         wp_on_grid_radius = 20
 
 class Map:
-    map_proj = Proj(proj='utm',zone=31,ellps='WGS84')
+    # map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
+    map_proj = Proj(proj='utm', zone='31N', ellps='intl')
+    apply_pos_offset = True
+    pos_offset = [-19.535787283442914, -86.253202902036720]
     # map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
 
