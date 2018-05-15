@@ -327,9 +327,9 @@ class MainWidget(QtGui.QWidget):
                     # self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
 
             self.grid_worker.update(msg)
+            self.last_pos_msg = deepcopy(msg)
 
             # diff = (msg - self.last_pos_msg)
-            # self.last_pos_msg = deepcopy(msg)
             # trans = self.grid.trans(diff.dx, diff.dy)
             # rot = self.grid.rot(diff.dyaw)
             # if trans or rot:
@@ -444,7 +444,7 @@ class MainWidget(QtGui.QWidget):
                 self.grid.range_scale = 30
             self.pos_lock.acquire()
             if self.last_pos_msg is None:
-                self.last_pos_msg = MoosPosMsg(0, 0, 0, 0)
+                return
             wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
                               self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
                              self.last_pos_msg.east, self.last_pos_msg.yaw)
@@ -457,14 +457,34 @@ class MainWidget(QtGui.QWidget):
             self.plot_updated = True
 
     def randomize_occ_grid(self):
-        if Settings.update_type == 1:
-            # self.grid.randomize()
-            # self.plot_updated = True
-            self.grid_worker.randomize()
-        if Settings.collision_avoidance == True:
-            # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
-            self.wp_straight_ahead_clicked()
-        else:
+        # if Settings.update_type == 1:
+        #     # self.grid.randomize()
+        #     # self.plot_updated = True
+        #     self.grid_worker.randomize()
+        # if Settings.collision_avoidance == True:
+        #     # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
+        #     self.wp_straight_ahead_clicked()
+        # else:
+        #     self.plot_updated = True
+        if Settings.collision_avoidance:
+            wp = np.load('collision_avoidance/smooth_wgs84.npz')['smooth']
+            # wp_list = np.ndarray.tolist(wp)
+            wp_list = [[6821587.4301, 457961.291, 4],
+                [6821573.0927, 457944.6148, 4],
+                [6821563.7182, 457947.2479, 4],
+                [6821563.1668, 457959.5356, 4],
+                [6821574.1955, 457981.478, 4],
+                [6821553.2409, 457994.6434, 4],
+                [6821521.2575, 457996.8376, 4],
+                [6821493.1341, 457993.7657, 4],
+                [6821482.1053, 458013.5139, 4]]
+            # wp_list.pop(0)
+            # wp_list.pop(0)
+            wp0 = vehicle2NED(0, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
+            wp_list.insert(0, [wp0[0], wp0[1], 2.0])
+            self.collision_avoidance.update_external_wps(wp_list, 0)
+            self.collision_avoidance.save_paths(wp_list)
+            self.udp_client.update_wps(wp_list)
             self.plot_updated = True
 
     def update_collision_margin(self):
@@ -555,13 +575,17 @@ class GridWorker(QtCore.QRunnable):
                 elif Settings.plot_type == 2:
                     # self.grid.auto_update_zhou(msg, self.threshold_box.value())
                     if len(msg_list) == 1:
+                        self.grid.update_distance(msg_list[0].range_scale)
                         self.grid.update_occ_zhou(msg_list[0], threshold)
                         self.grid.calc_obstacles()
                     elif len(msg_list) > 1:
+                        self.grid.update_distance(msg_list[0].range_scale)
                         grid = self.grid.update_occ_zhou(msg_list[0], threshold, multi_update=True)
                         if len(msg_list) > 2:
                             for i in range(1, len(msg_list)-1):
+                                self.grid.update_distance(msg_list[i].range_scale)
                                 grid = self.grid.update_occ_zhou(msg_list[i], threshold, multi_update=True, multigrid=grid)
+                        self.grid.update_distance(msg_list[-1].range_scale)
                         self.grid.update_occ_zhou(msg_list[-1], threshold, multi_update=False, multigrid=grid)
                     else:
                         pass
@@ -586,7 +610,7 @@ class GridWorker(QtCore.QRunnable):
             c = self.grid.contours
         if pos.north != 0 and pos.east != 0:
             savemat('C:/Users/Ørjan/Desktop/logs/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
-                    mdict={'grid': self.grid.grid, 'obs': c,
+                    mdict={'grid': self.grid.grid.astype(np.float16), 'obs': c,
                            'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
 
     def update(self, pos):

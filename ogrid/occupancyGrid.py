@@ -168,7 +168,6 @@ class OccupancyGrid(RawGrid):
                 obstacle_in_line = True
         self.contour_lock.release()
 
-        self.range_scale = msg.range_scale
         if multigrid is None:
             occ_grid = np.zeros((self.size, self.size), dtype=self.oLog_type)
         else:

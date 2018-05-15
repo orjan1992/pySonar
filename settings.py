@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 from pyproj import Proj
 
 class Settings:
-    enable_autopilot = False
+    enable_autopilot = True
     auto_settings = True
     # 0 == udp, 1 == MOOS
     input_source = 0
@@ -48,7 +48,7 @@ class CollisionSettings:
     border_step = 100
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
-    vehicle_margin = 1 # meter
+    vehicle_margin = 2 # meter
     send_new_wps = True
 
     fermat_kappa_max = 0.5  # max curvature
@@ -72,7 +72,7 @@ class CollisionSettings:
 class LosSettings:
     enable_los = True
     cruise_speed = 0.5
-    look_ahead_time = 8
+    look_ahead_time = 16
     roa = 2
     # look_ahead_distance =
     send_new_heading_limit = 0.5*np.pi/180.0
@@ -90,6 +90,20 @@ class LosSettings:
             enable_los = True
         else:
             enable_los = False
+
+    # inital_wp_list = [[6821801, 458050, 2, 0.5],
+    #                 [6821790, 458030, 2, 0.5],
+    #                 [6821760, 458060, 2, 0.5],
+    #                 [6821740, 458080, 2, 0.5],
+    #                 [6821740, 458110, 2, 0.5],
+    #                 [6821750, 458125, 2, 0.5],
+    #                 [6821730, 458135, 2, 0.5],
+    #                 [6821707, 458065, 2, 0.5],
+    #                 [6821680, 458035, 2, 0.5],
+    #                 [6821676, 458080, 2, 0.5],
+    #                 [6821750, 458100, 2, 0.5],
+    #                 [6821795, 458060, 2, 0.5]]
+    # inital_wp_list = np.load('collision_avoidance/smooth.npz')['smooth']
 
 class MapSettings:
     display_grid = True
@@ -124,7 +138,7 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
-    threshold = 160
+    threshold = 170
     half_grid = False
     p_inital = 0.5
     p_binary_threshold = 0.6
@@ -171,9 +185,10 @@ class ConnectionSettings:
 
 
         # Other settings
-        autopilot_server_port = 4015
-        autopilot_listen_port = 4010
-        autopilot_ip = '127.0.0.1'
+        autopilot_server_port = 4010
+        autopilot_listen_port = 4015
+        autopilot_ip = '10.3.2.40'
+        # autopilot_ip = '0.0.0.0'
         use_nmea_checksum = False
         autopilot_watchdog_timeout = 0.5
 
@@ -190,9 +205,10 @@ class PlotSettings:
         wp_on_grid_radius = 20
 
 class Map:
-    # map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
-    map_proj = Proj(proj='utm', zone='31N', ellps='intl')
+    map_proj = Proj(proj='utm', zone='31N', ellps='WGS84')
+    # map_proj = Proj(proj='utm', zone='31N', ellps='intl')
     apply_pos_offset = True
-    pos_offset = [-19.535787283442914, -86.253202902036720]
+    # pos_offset = [-19.535787283442914, -86.253202902036720]
+    pos_offset = [0, 0]
     # map_proj = Proj(proj='utm', zone=31, ellps='WGS84')
 

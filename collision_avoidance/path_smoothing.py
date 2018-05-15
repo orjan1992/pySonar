@@ -117,40 +117,15 @@ def path_grad(wp_list):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    # # wp_list = [(0, 0, 0, 0), (10, 6, 0, 0), (4, 8, 0, 0), (15, 16, 0, 0), (6, 18, 0, 0), (17, 21, 0, 0)]
-    # wp_list = [(3, 10, 0, 0), (5, 5, 0, 0), (7.5, 15, 0, 0), (15, 15, 0, 0), (15, 6, 0, 0)]
-    # # wp_list.reverse()
-    # wp_array = np.array(wp_list)
-    #
-    # smooth_wp = fermat(wp_list)
-    # smooth_wp_array = np.array(smooth_wp)
-    # plt.plot(wp_array[:, 0], wp_array[:, 1], 'b')
-    # plt.plot(smooth_wp_array[:, 0], smooth_wp_array[:, 1], 'r')
-    # cubic_array = np.array(cubic_path(wp_list))
-    # plt.plot(cubic_array[:, 0], cubic_array[:, 1], 'k')
-    #
-    # # plt.xlim([6, 12])
-    # # plt.ylim([12, 16])
-    # plt.show()
+    from scipy.io import loadmat, savemat
+    tmp = loadmat('wp_wgs84.mat')
+    wp_array = np.zeros((np.shape(tmp['wp'])[0], 3))
+    wp_array[:, :2] = tmp['wp']
+    wp_array[:, 2] = 2
 
-    from scipy.io import loadmat
-    from scipy.interpolate import interp1d
-    data = loadmat('pySonarLog/paths_20180426-152119.mat')['paths'][0]
-    wp_list = np.ndarray.tolist(data[-1])
-    wp_list, grad, dist_cum, theta = path_grad(wp_list)
-    wp_array = np.array(wp_list)
-    plt.subplot(211)
-    plt.plot(dist_cum, grad*180.0/np.pi)
-    plt.subplot(212)
-    plt.plot(dist_cum, theta*180.0/np.pi)
+    wp_list = np.ndarray.tolist(wp_array)
+    smooth = np.array(fermat(wp_list))
+    savemat('smooth_wgs84.mat', {'wp': smooth})
+    np.savez('smooth_wgs84.npz', smooth=smooth)
+    plt.plot(smooth[:, 1], smooth[:, 0])
     plt.show()
-
-
-    # x = np.arange(-np.pi, np.pi*3, 0.5)
-    # y = np.sin(x)
-    # plt.subplot(211)
-    # plt.plot(x, y)
-    # grad = np.gradient(y, x)
-    # plt.subplot(212)
-    # plt.plot(x, grad)
-    # plt.show()
