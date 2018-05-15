@@ -82,6 +82,7 @@ class CollisionAvoidance:
             return CollisionStatus.NOT_ENOUGH_INFO
 
     def remove_obsolete_wp(self, wp_list):
+        # TODO: THis needs another solution. Wrong wps are sometimes removed
         i = 0
         counter = 0
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
@@ -300,7 +301,7 @@ class CollisionAvoidance:
 
     def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status):
         if Settings.save_collision_info:
-            savemat('pySonarLog/collision_info{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={
+            savemat('C:/Users/Ørjan/Desktop/logs/collision_info{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={
                 'old_wps': self.waypoint_list, 'new_wps': self.new_wp_list, 'voronoi_indices': self.voronoi_wp_list,
                 'voronoi_start_wp': start_wp, 'voronoi_start_region': start_region, 'voronoi_end_wp': end_wp,
                 'voronoi_end_region': end_region, 'voronoi_points': vp.points, 'voronoi_vertices': vp.vertices,
@@ -393,20 +394,26 @@ class CollisionAvoidance:
             else:
                 color = (255, 0, 0)
             wp1_grid = NED2grid(wp_list[wp_counter][0], wp_list[wp_counter][1], pos[0], pos[1], pos[2], self.range)
+            # constrained = ned2constrained_grid(wp_list[wp_counter], pos, pos, self.range)[1]
+            # if constrained:
             if CollisionSettings.use_fermat:
                 cv2.circle(im, wp1_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
-            for i in range(wp_counter+1, len(wp_list)):
-                wp_NED, constrained = constrainNED2range((wp_list[i][0], wp_list[i][1]),
-                                                         (wp_list[i-1][0], wp_list[i-1][1]),
-                                                         pos[0], pos[1], pos[2], self.range)
-                wp2_grid = NED2grid(wp_NED[0], wp_NED[1], pos[0], pos[1], pos[2], self.range)
-                if CollisionSettings.use_fermat:
-                    cv2.circle(im, wp2_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
-                cv2.line(im, wp1_grid, wp2_grid, color, vehicle_width)
-                if constrained:
-                    break
+            c_counter = 0
+            i = wp_counter + 1
+            draw_next = True
+            while i < len(wp_list):
+                wp2_grid, constrained = ned2constrained_grid(wp_list[i], wp_list[i-1], pos, self.range)
+                if draw_next:
+                    if CollisionSettings.use_fermat:
+                        cv2.circle(im, wp2_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
+                    cv2.line(im, wp1_grid, wp2_grid, color, vehicle_width)
+                if constrained == 1:
+                    draw_next = False
                 else:
-                    wp1_grid = wp2_grid
+                    draw_next = True
+
+                wp1_grid = wp2_grid
+                i += 1
         # Draw pos
         cv2.circle(im, (800, 800), 10, (0, 0, 255), 3)
         cv2.line(im, (800, 810), (800, 790), (0, 0, 255), 3)

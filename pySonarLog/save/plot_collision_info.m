@@ -19,7 +19,7 @@ function f = plot_collision_info(fname)
     plot(voronoi_points(:, 1), voronoi_points(:, 2), 'or')
     % ylim([min(voronoi_points(:, 2)), max(voronoi_points(:, 2))]);
     % xlim([min(voronoi_points(:, 1)), max(voronoi_points(:, 1))]);
-    axis manual;
+%     axis manual;
     set(gca, 'YDir','reverse')
     hold on
     for i = 1:length(obstacles)
@@ -58,15 +58,15 @@ function f = plot_collision_info(fname)
     %% paths
 
     old_wps_grid = ned2grid(old_wps, pos, range_scale);
-    plot(old_wps_grid(:, 1), old_wps_grid(:, 2), 'k', 'LineWidth', 2);
+    l(1) = plot(old_wps_grid(:, 1), old_wps_grid(:, 2), 'k', 'LineWidth', 2);
     plot(old_wps_grid(:, 1), old_wps_grid(:, 2), 'ko');
 
     if ~isempty(new_wps)
         new_wps_grid = ned2grid(new_wps, pos, range_scale);
-        plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'g', 'LineWidth', 2);
+        l(2) = plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'g', 'LineWidth', 2);
         plot(new_wps_grid(:, 1), new_wps_grid(:, 2), 'og');
     end
-
+    legend(l, {'old', 'new'});
     ax = gca;
     outerpos = ax.OuterPosition;
     ti = ax.TightInset; 

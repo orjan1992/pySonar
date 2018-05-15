@@ -128,6 +128,24 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, yaw, range):
     else:
         return WP, False
 
+def ned2constrained_grid(wp1, wp0, pos, range):
+    # 0= not constrained, 1 constrained normal way, 2 constrained inverse
+    status = 0
+    wp_NED, constrained = constrainNED2range((wp1[0], wp1[1]),
+                                             (wp0[0], wp0[1]),
+                                             pos[0], pos[1], pos[2], range)
+    if constrained:
+        status = 1
+        wp_NED_extra, constrained = constrainNED2range((wp0[0], wp0[1]),
+                                                 (wp1[0], wp1[1]),
+                                                 pos[0], pos[1], pos[2], range)
+        if constrained:
+            status = 2
+            wp_grid_extra = NED2grid(wp_NED_extra[0], wp_NED_extra[1], pos[0], pos[1], pos[2], range)
+            return wp_grid_extra, status
+    wp_grid = NED2grid(wp_NED[0], wp_NED[1], pos[0], pos[1], pos[2], range)
+    return wp_grid, status
+
 def sat2uint(val, sat):
     if val < 0:
         return 0
