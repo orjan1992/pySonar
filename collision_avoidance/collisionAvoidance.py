@@ -36,6 +36,7 @@ class CollisionAvoidance:
         if Settings.save_paths:
             self.pos = []
             self.paths = []
+            self.path_time = []
         self.bin_map = np.zeros((GridSettings.height, GridSettings.width), dtype=np.uint8)
         self.msg_client = msg_client
         self.voronoi_plot_item = voronoi_plot_item
@@ -320,6 +321,7 @@ class CollisionAvoidance:
             self.data_storage.update_wps(self.new_wp_list, 0)
             if Settings.save_paths:
                 self.paths.append(self.new_wp_list)
+                self.path_time.append(strftime("%Y%m%d-%H%M%S"))
             # if Settings.show_voronoi_plot or Settings.save_obstacles:
             #     im = self.calc_voronoi_img(vp, self.voronoi_wp_list, start_wp, end_wp, end_region, start_region)
             #     if Settings.show_voronoi_plot:
@@ -411,9 +413,11 @@ class CollisionAvoidance:
         if Settings.save_paths:
             if paths is None:
                 paths = self.paths
+            else:
+                self.path_time.append(strftime("%Y%m%d-%H%M%S"))
             # np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
             # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
-            savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(paths), 'pos': np.array(self.pos)})
+            savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': paths, 'pos': np.array(self.pos), 'path_time': self.path_time})
 
     def draw_wps_on_grid(self, im2, pos):
 
