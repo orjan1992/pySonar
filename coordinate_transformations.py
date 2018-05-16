@@ -146,6 +146,26 @@ def ned2constrained_grid(wp1, wp0, pos, range):
     wp_grid = NED2grid(wp_NED[0], wp_NED[1], pos[0], pos[1], pos[2], range)
     return wp_grid, status
 
+def norm_cross_product(wp_list):
+    c1 = np.array([wp_list[1][0]-wp_list[0][0], wp_list[1][1]-wp_list[0][0]], dtype=float)
+    n1 = np.linalg.norm(c1)
+    if n1 == 0:
+        raise ValueError('Zero norm')
+    c1 /= n1
+    c2 = np.array([wp_list[2][0]-wp_list[0][0], wp_list[2][1]-wp_list[0][0]], dtype=float)
+    n2 = np.linalg.norm(c2)
+    if n2 == 0:
+        raise ValueError('Zero norm')
+    c2 /= n2
+    return np.cross(c1, c2)
+
+def angle_diff(wp_list):
+    c1 = np.array([wp_list[1][0] - wp_list[0][0], wp_list[1][1] - wp_list[0][0]], dtype=float)
+    c2 = np.array([wp_list[2][0] - wp_list[0][0], wp_list[2][1] - wp_list[0][0]], dtype=float)
+    alpha1 = np.arctan2(c1[1], c1[0])
+    alpha2 = np.arctan2(c2[1], c2[0])
+    return abs(wrapToPi(alpha2 - alpha1))
+
 def sat2uint(val, sat):
     if val < 0:
         return 0

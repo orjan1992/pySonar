@@ -82,10 +82,20 @@ class CollisionAvoidance:
             return CollisionStatus.NOT_ENOUGH_INFO
 
     def remove_obsolete_wp(self, wp_list):
-        # TODO: THis needs another solution. Wrong wps are sometimes removed
+        # Remove colinear wps
         i = 0
         counter = 0
+        while i < len(wp_list) - 2:
+            if angle_diff(wp_list[i:i+3]) < CollisionSettings.colinear_angle:
+                wp_list.remove(wp_list[i + 1])
+                counter += 1
+            else:
+                i += 1
+
+        # remove obsolete wps
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
+
+        i = 0
         while i < len(wp_list) - 2:
             lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
                            (255, 255, 255), line_width)
@@ -94,6 +104,21 @@ class CollisionAvoidance:
             else:
                 wp_list.remove(wp_list[i+1])
                 counter += 1
+
+        # not_complete = True
+        # while not_complete:
+        #     not_complete = False
+        #     i = 0
+        #     while i < len(wp_list) - 2:
+        #         lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
+        #                        (255, 255, 255), line_width)
+        #         if np.any(np.logical_and(self.bin_map, lin)):
+        #             i += 1
+        #         else:
+        #             wp_list.remove(wp_list[i+1])
+        #             i += 1
+        #             counter += 1
+        #             not_complete = True
         logger.debug('{} redundant wps removed'.format(counter))
         return wp_list
 
@@ -193,8 +218,6 @@ class CollisionAvoidance:
                     use_constraint_wp = True
 
             vp.gen_obs_free_connections(self.range, self.bin_map)
-            self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
-            self.voronoi_wp_list = []
 
             collision_danger = True
             collision_index = 0
@@ -202,6 +225,8 @@ class CollisionAvoidance:
             wps = None
             skip_smoothing = False
             while collision_danger and counter < 5:
+                self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
+                self.voronoi_wp_list = []
                 # Find shortest route
                 if counter > 0:
                     print('smooth path violates constraints, trying again: {}'.format(counter))
@@ -211,6 +236,8 @@ class CollisionAvoidance:
                             wps = vp.dijkstra(constraint_wp, end_wp, None)
                         else:
                             wps = vp.dijkstra(start_wp, end_wp, None)
+
+                        orig_list = wps.copy()
                     else:
                         old_wps = wps.copy()
                         wps = wps[:collision_index]
@@ -218,7 +245,11 @@ class CollisionAvoidance:
                             wps.extend(vp.dijkstra(old_wps[collision_index-1], end_wp, old_wps[collision_index]))
                         else:
                             wps = vp.dijkstra(start_wp, end_wp, None)
-                except RuntimeError:
+                        # if use_constraint_wp:
+                        #     wps = vp.dijkstra(constraint_wp, end_wp, wps[collision_index])
+                        # else:
+                        #     wps = vp.dijkstra(start_wp, end_wp, wps[collision_index])
+                except RuntimeError as e:
                     if 1 < counter < 5:
                         logger.info('Relaxing smoothing beacause of infeasible route')
                         skip_smoothing = True
@@ -230,7 +261,7 @@ class CollisionAvoidance:
                             self.voronoi_plot_item.setImage(im)
 
                         self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
-                                                 CollisionStatus.NO_FEASIBLE_ROUTE)
+                                                 CollisionStatus.NO_FEASIBLE_ROUTE, [])
                         return CollisionStatus.NO_FEASIBLE_ROUTE
                 if counter > 3:
                     logger.info('Relaxing smoothing beacause of infeasible route')
@@ -261,7 +292,7 @@ class CollisionAvoidance:
                 logger.debug('Smooth path violates collision margins')
                 self.path_ok = False
                 self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
-                                         CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN)
+                                         CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN, orig_list)
                 # if not skip_smoothing and not CollisionSettings.use_fermat:
                 #     self.data_storage.update_wps(self.new_wp_list, 0, smooth_path)
                 # else:
@@ -275,7 +306,7 @@ class CollisionAvoidance:
             except IndexError:
                 pass
 
-            self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK)
+            self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK, orig_list)
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
@@ -299,7 +330,7 @@ class CollisionAvoidance:
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
 
-    def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status):
+    def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status, orig_list):
         if Settings.save_collision_info:
             savemat('C:/Users/Ørjan/Desktop/logs/collision_info{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={
                 'old_wps': self.waypoint_list, 'new_wps': self.new_wp_list, 'voronoi_indices': self.voronoi_wp_list,
@@ -308,7 +339,8 @@ class CollisionAvoidance:
                 'voronoi_ridge_points': vp.ridge_points, 'voronoi_ridge_vertices': vp.ridge_vertices,
                 'voronoi_regions': vp.regions, 'voronoi_point_region': vp.point_region,
                 'pos': np.array([self.north, self.east, self.yaw]), 'range_scale': self.range,
-                'obstacles': self.obstacles, 'status': status.value, 'connection': vp.connection_matrix})
+                'obstacles': self.obstacles, 'status': status.value, 'connection': vp.connection_matrix,
+                'orig_list': orig_list})
 
     def calc_voronoi_img(self, vp, voronoi_wp_list, start_wp=None, end_wp=None, end_region=None, start_region=None):
         x_min = np.min(vp.points[:, 0])-1000
@@ -388,7 +420,8 @@ class CollisionAvoidance:
         wp_list, wp_counter = self.data_storage.get_wps()
 
         if len(wp_list) > 0:
-            vehicle_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
+            vehicle_width = np.round(PlotSettings.vehicle_width_drawing_factor* CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
+            circle_r = np.round(vehicle_width*.5*1.2).astype(int)
             if self.path_ok:
                 color = PlotSettings.wp_on_grid_color
             else:
@@ -397,7 +430,7 @@ class CollisionAvoidance:
             # constrained = ned2constrained_grid(wp_list[wp_counter], pos, pos, self.range)[1]
             # if constrained:
             if CollisionSettings.use_fermat:
-                cv2.circle(im, wp1_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
+                cv2.circle(im, wp1_grid, vehicle_width, color, circle_r)
             c_counter = 0
             i = wp_counter + 1
             draw_next = True
@@ -405,7 +438,7 @@ class CollisionAvoidance:
                 wp2_grid, constrained = ned2constrained_grid(wp_list[i], wp_list[i-1], pos, self.range)
                 if draw_next:
                     if CollisionSettings.use_fermat:
-                        cv2.circle(im, wp2_grid, vehicle_width, color, PlotSettings.wp_on_grid_thickness)
+                        cv2.circle(im, wp2_grid, vehicle_width, color, circle_r)
                     cv2.line(im, wp1_grid, wp2_grid, color, vehicle_width)
                 if constrained == 1:
                     draw_next = False

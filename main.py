@@ -116,15 +116,8 @@ class MainWidget(QtGui.QWidget):
         self.collision_margin_box.valueChanged.connect(self.update_collision_margin)
 
         # binary plot
-        self.binary_plot_button = QtGui.QPushButton('Set Prob mode')
+        self.binary_plot_button = QtGui.QPushButton('Send Initial WPs')
         self.binary_plot_button.clicked.connect(self.binary_button_click)
-        # if Settings.raw_plot:
-        #     self.binary_plot_on = False
-        # else:
-        #     self.binary_plot_on = GridSettings.binary_grid
-        self.binary_plot_on = GridSettings.binary_grid
-        if not self.binary_plot_on:
-            self.binary_plot_button.text = "Set Binary mode"
 
         # Clear grid button
         self.clear_grid_button = QtGui.QPushButton('Clear Grid!')
@@ -432,40 +425,6 @@ class MainWidget(QtGui.QWidget):
 
 
     def binary_button_click(self):
-        if self.binary_plot_on:
-            self.binary_plot_button.text = "Set Prob mode"
-        else:
-            self.binary_plot_button.text = "Set Binary mode"
-        self.binary_plot_on = not self.binary_plot_on
-
-    def wp_straight_ahead_clicked(self):
-        if Settings.collision_avoidance == True:
-            if self.grid.range_scale == 1:
-                self.grid.range_scale = 30
-            self.pos_lock.acquire()
-            if self.last_pos_msg is None:
-                return
-            wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
-                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
-                             self.last_pos_msg.east, self.last_pos_msg.yaw)
-            wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
-            wp0 = [wp0[0], wp0[1], 140, 0.5]
-            self.pos_lock.release()
-            wp1 = [wp1[0], wp1[1], 140, 0.5]
-            self.collision_avoidance.update_external_wps([wp0, wp1], 0)
-            self.udp_client.update_wps([wp0, wp1])
-            self.plot_updated = True
-
-    def randomize_occ_grid(self):
-        # if Settings.update_type == 1:
-        #     # self.grid.randomize()
-        #     # self.plot_updated = True
-        #     self.grid_worker.randomize()
-        # if Settings.collision_avoidance == True:
-        #     # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
-        #     self.wp_straight_ahead_clicked()
-        # else:
-        #     self.plot_updated = True
         if Settings.collision_avoidance:
             wp = np.load('collision_avoidance/smooth_wgs84.npz')['smooth']
             # wp_list = np.ndarray.tolist(wp)
@@ -482,20 +441,50 @@ class MainWidget(QtGui.QWidget):
             # wp_list.pop(0)
 
             wp_list = [[6821592.4229, 457959.8588, 3],
-[6821574.0057, 457960.6302, 3],
-[6821542.018, 457939.8021, 3],
-[6821573.5211, 457922.831, 3],
-[6821570.6131, 458066.3137, 3],
-[6821582.245, 457967.9586, 3],
-[6821593.8769, 457920.1311, 3],
-[6821621.5027, 457966.0301, 3],
-[6821545.8953, 458010.772, 3]]
+                       [6821574.0057, 457960.6302, 3],
+                       [6821542.018, 457939.8021, 3],
+                       [6821573.5211, 457922.831, 3],
+                       [6821570.6131, 458066.3137, 3],
+                       [6821582.245, 457967.9586, 3],
+                       [6821593.8769, 457920.1311, 3],
+                       [6821621.5027, 457966.0301, 3],
+                       [6821545.8953, 458010.772, 3]]
 
             wp0 = vehicle2NED(0, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
             wp_list.insert(0, [wp0[0], wp0[1], 2.0])
             self.collision_avoidance.update_external_wps(wp_list, 0)
             self.collision_avoidance.save_paths(wp_list)
             self.udp_client.update_wps(wp_list)
+            self.plot_updated = True
+
+    def wp_straight_ahead_clicked(self):
+        if Settings.collision_avoidance == True:
+            if self.grid.range_scale == 1:
+                self.grid.range_scale = 30
+            self.pos_lock.acquire()
+            if self.last_pos_msg is None:
+                self.last_pos_msg = MoosPosMsg(6821592.4229, 457959.8588, 0, 2)
+                self.collision_avoidance.update_pos(self.last_pos_msg)
+            wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
+                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                             self.last_pos_msg.east, self.last_pos_msg.yaw)
+            wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
+            wp0 = [wp0[0], wp0[1], 140, 0.5]
+            self.pos_lock.release()
+            wp1 = [wp1[0], wp1[1], 140, 0.5]
+            self.collision_avoidance.update_external_wps([wp0, wp1], 0)
+            self.udp_client.update_wps([wp0, wp1])
+            self.plot_updated = True
+
+    def randomize_occ_grid(self):
+        if Settings.update_type == 1:
+            # self.grid.randomize()
+            # self.plot_updated = True
+            self.grid_worker.randomize()
+        if Settings.collision_avoidance == True:
+            # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
+            self.wp_straight_ahead_clicked()
+        else:
             self.plot_updated = True
 
     def update_collision_margin(self):
@@ -564,8 +553,10 @@ class GridWorker(QtCore.QRunnable):
                 pos = self.pos
             if random:
                 self.grid.randomize()
+                self.grid.calc_obstacles()
             elif clear_grid:
                 self.grid.clear_grid()
+                self.grid.calc_obstacles()
             else:
                 t1 = time()
                 if self.last_pos is None:

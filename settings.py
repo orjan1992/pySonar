@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 from pyproj import Proj
 
 class Settings:
-    enable_autopilot = True
+    enable_autopilot = False
     auto_settings = True
     # 0 == udp, 1 == MOOS
     input_source = 0
@@ -56,6 +56,8 @@ class CollisionSettings:
 
     first_wp_dist = 4 # meters
 
+    colinear_angle = 2*np.pi/180.0
+
     tracking_speed = 0.5
     dummy_wp_factor = (2, 0)
     use_fermat = True
@@ -66,7 +68,7 @@ class CollisionSettings:
             use_fermat = True
             send_new_wps = True
         else:
-            use_fermat = False
+            use_fermat = True
             send_new_wps = False
 
 class LosSettings:
@@ -82,7 +84,7 @@ class LosSettings:
     safe_turning_speed = 0.25
     braking_distance = 5
 
-    start_heading_diff = 1*np.pi/180.0
+    start_heading_diff = 5*np.pi/180.0
     log_paths = True
 
     if Settings.auto_settings:
@@ -170,7 +172,7 @@ class GridSettings:
 
     mu = 1
     randomize_size = 8
-    randomize_max = 0.7
+    randomize_max = 0.3
 
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
@@ -203,6 +205,7 @@ class PlotSettings:
         wp_on_grid_color = (0, 153, 0)
         wp_on_grid_thickness = 4
         wp_on_grid_radius = 20
+        vehicle_width_drawing_factor = 0.5
 
 class Map:
     map_proj = Proj(proj='utm', zone='31N', ellps='WGS84')

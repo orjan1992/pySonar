@@ -52,8 +52,8 @@ class MyVoronoi(Voronoi):
             p2x = int(self.vertices[self.ridge_vertices[i][1]][0])
             p2y = int(self.vertices[self.ridge_vertices[i][1]][1])
 
-            if (0 < p1x > GridSettings.width) and (0 < p2x > GridSettings.width) or\
-                    (0 < p1y > GridSettings.width) and (0 < p2y > GridSettings.width):
+            if not ((0 < p1x < GridSettings.width) or (0 < p2x < GridSettings.width) or
+                    (0 < p1y < GridSettings.width) or (0 < p2y < GridSettings.width)):
                 # Whole line is outside grid => no collision
                 if self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] == 0:
                     self.connection_matrix[self.ridge_vertices[i][0], self.ridge_vertices[i][1]] =\
@@ -62,8 +62,11 @@ class MyVoronoi(Voronoi):
                          self.vertices[self.ridge_vertices[i][0]][0]) ** 2 +
                         (self.vertices[self.ridge_vertices[i][1]][1] -
                          self.vertices[self.ridge_vertices[i][0]][1]) ** 2)
-
-            lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
+                continue
+            try:
+                lin = cv2.line(np.zeros(np.shape(bin_map), dtype=np.uint8), (p1x, p1y), (p2x, p2y), (1, 0, 0), line_width)
+            except:
+                a = 1
 
             if not np.any(np.logical_and(bin_map, lin)):
                 # No collision

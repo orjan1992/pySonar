@@ -34,6 +34,7 @@ class MoosPosMsg(Sensor):
     z = 0.0
     lat = 0.0
     long = 0.0
+    alt = 0.0
 
     p = 0.0
     q = 0.0
@@ -42,12 +43,13 @@ class MoosPosMsg(Sensor):
     v = 0.0
     w = 0.0
 
-    def __init__(self, north=0, east=0, yaw=0, z=0, *kwargs):
+    def __init__(self, north=0, east=0, yaw=0, z=0, alt=0, *kwargs):
         super().__init__(*kwargs)
         self.north = north
         self.east = east
         self.yaw = yaw
         self.z = z
+        self.alt = alt
 
     def __sub__(self, other):
         lat_diff = self.lat - other.lat
@@ -67,6 +69,8 @@ class MoosPosMsg(Sensor):
     def __str__(self):
         return 'lat: {:5f},\tlong: {:5f}\t, yaw: {:5f}'.format(self.lat, self.long, self.yaw*180/pi)
 
+    def to_tuple(self):
+        return self.north, self.east, self.alt, self.yaw
 
 if __name__ == '__main__':
     from math import pi

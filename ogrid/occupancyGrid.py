@@ -564,6 +564,7 @@ class OccupancyGrid(RawGrid):
                 self.grid[y1 * self.cell_factor:y2 * self.cell_factor,
                 x1 * self.cell_factor:x2 * self.cell_factor] = np.kron(
                     occ_grid[y1:y2, x1:x2], self.occ2raw_matrix)
+        logger.info('Grid Randomized')
 
 
 if __name__=="__main__":
