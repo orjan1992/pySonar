@@ -397,30 +397,22 @@ class OccupancyGrid(RawGrid):
         convex_contour_list = []
         for c in contours:
             convex_contour_list.append(cv2.convexHull(c, returnPoints=True))
-        self.contour_lock.acquire()
-        self.contours = convex_contour_list
-        self.contour_lock.release()
         self.bin_map = np.zeros((self.i_max, self.j_max), dtype=np.uint8)
 
-        cv2.drawContours(self.bin_map, self.contours, -1, (1, 1, 1), -1)
+        cv2.drawContours(self.bin_map, convex_contour_list, -1, (1, 1, 1), -1)
         # self.contour_as_line_list.clear()
         # for contour in contours:
         #     self.contour_as_line_list.append(cv2.fitLine(contour[0]))
 
         im = cv2.applyColorMap(((self.grid + 6) * 255.0 / 12.0).clip(0, 255).astype(np.uint8), cv2.COLORMAP_JET)
-        im = cv2.drawContours(im, self.contours, -1, (0, 0, 255), 5)
+        im = cv2.drawContours(im, convex_contour_list, -1, (0, 0, 255), 5)
         im[:, 800, :] = np.array([0, 0, 255])
         im[800, :, :] = np.array([0, 0, 255])
         im[801, :, :] = np.array([0, 0, 255])
-        self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-
-    def get_obstacles(self):
-        """
-        calculates obstacles
-        :return: image, contours
-        """
-
-        return self.im, self.contours
+        with self.im_lock:
+            self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            with self.contour_lock:
+                self.contours = convex_contour_list
 
     # def trans_and_rot(self, diff):
     #     dx = diff.dx * RawGrid.MAX_BINS / self.range_scale + self.dx_remainder

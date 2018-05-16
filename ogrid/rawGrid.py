@@ -77,6 +77,7 @@ class RawGrid(object):
             except:
                 raise RuntimeError('NO raw map file')
         self.lock = threading.Lock()
+        self.im_lock = threading.Lock()
 
 
 
@@ -228,16 +229,17 @@ class RawGrid(object):
         _, contours, _ = cv2.findContours(im3, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)
         im = cv2.applyColorMap(self.grid.astype(np.uint8), cv2.COLORMAP_HOT)
         im = cv2.drawContours(im, contours, -1, (255, 0, 0), 1)
-        self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-        self.contours = contours
+        with self.im_lock:
+            self.im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+            self.contours = contours
 
     def get_obstacles(self):
         """
         calculates obstacles
         :return: image, contours
         """
-
-        return self.im, self.contours
+        with self.im_lock:
+            return self.im, self.contours
 
     # def rot(self, dyaw):
     #     dyaw += self.rot_remainder

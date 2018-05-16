@@ -415,7 +415,7 @@ class CollisionAvoidance:
             # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
             savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': np.array(paths), 'pos': np.array(self.pos)})
 
-    def draw_wps_on_grid(self, im, pos):
+    def draw_wps_on_grid(self, im2, pos):
 
         wp_list, wp_counter = self.data_storage.get_wps()
 
@@ -430,28 +430,23 @@ class CollisionAvoidance:
             # constrained = ned2constrained_grid(wp_list[wp_counter], pos, pos, self.range)[1]
             # if constrained:
             if CollisionSettings.use_fermat:
-                cv2.circle(im, wp1_grid, vehicle_width, color, circle_r)
-            c_counter = 0
+                cv2.circle(im2, wp1_grid, vehicle_width, color, circle_r)
             i = wp_counter + 1
             draw_next = True
             while i < len(wp_list):
-                wp2_grid, constrained = ned2constrained_grid(wp_list[i], wp_list[i-1], pos, self.range)
-                if draw_next:
-                    if CollisionSettings.use_fermat:
-                        cv2.circle(im, wp2_grid, vehicle_width, color, circle_r)
-                    cv2.line(im, wp1_grid, wp2_grid, color, vehicle_width)
-                if constrained == 1:
-                    draw_next = False
-                else:
-                    draw_next = True
-
+                wp2_grid, constrained = NED2grid_with_constraints(wp_list[i], pos, self.range)
+                if draw_next or not constrained:
+                    # if CollisionSettings.use_fermat:
+                    #     cv2.circle(im2, wp2_grid, vehicle_width, color, circle_r)
+                    cv2.line(im2, wp1_grid, wp2_grid, color, vehicle_width)
+                draw_next = not constrained
                 wp1_grid = wp2_grid
                 i += 1
         # Draw pos
-        cv2.circle(im, (800, 800), 10, (0, 0, 255), 3)
-        cv2.line(im, (800, 810), (800, 790), (0, 0, 255), 3)
-        cv2.line(im, (810, 800), (790, 800), (0, 0, 255), 3)
-        return im
+        cv2.circle(im2, (800, 800), 10, (0, 0, 255), 3)
+        cv2.line(im2, (800, 810), (800, 790), (0, 0, 255), 3)
+        cv2.line(im2, (810, 800), (790, 800), (0, 0, 255), 3)
+        return im2
 
 
 class CollisionStatus(Enum):

@@ -348,16 +348,19 @@ class MainWidget(QtGui.QWidget):
                     self.img_item.setImage(self.grid.get_p(), levels=(0.0, 1.0), autoLevels=False)
             elif Settings.plot_type == 2:
                 if Settings.update_type == 1:
-                    im, contours = self.grid.get_obstacles()
+                    self.img_item.setImage(np.zeros((1601, 1601, 3)))
+                    image, contours = self.grid.get_obstacles()
+                    self.img_item.setImage(image)
+                    a=1
                 else:
                     im, contours = self.grid.adaptive_threshold(self.threshold_box.value())
                 if Settings.collision_avoidance:
                     self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                     if Settings.show_wp_on_grid:
                         if self.last_pos_msg is None:
-                            im = self.collision_avoidance.draw_wps_on_grid(im, (0,0,0))
+                            im = self.collision_avoidance.draw_wps_on_grid(image, (0,0,0))
                         else:
-                            im = self.collision_avoidance.draw_wps_on_grid(im, (self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw))
+                            im = self.collision_avoidance.draw_wps_on_grid(image, (self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw))
 
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.north,
@@ -461,16 +464,16 @@ class MainWidget(QtGui.QWidget):
         if Settings.collision_avoidance == True:
             if self.grid.range_scale == 1:
                 self.grid.range_scale = 30
-            self.pos_lock.acquire()
-            if self.last_pos_msg is None:
-                self.last_pos_msg = MoosPosMsg(6821592.4229, 457959.8588, 0, 2)
-                self.collision_avoidance.update_pos(self.last_pos_msg)
-            wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
-                              self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
-                             self.last_pos_msg.east, self.last_pos_msg.yaw)
-            wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
-            wp0 = [wp0[0], wp0[1], 140, 0.5]
-            self.pos_lock.release()
+            with self.pos_lock:
+                if self.last_pos_msg is None:
+                    self.last_pos_msg = MoosPosMsg(6821592.4229, 457959.8588, 0, 2)
+                    self.collision_avoidance.update_pos(self.last_pos_msg)
+                wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
+                                  self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                                 self.last_pos_msg.east, self.last_pos_msg.yaw)
+                wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
+                wp0 = [wp0[0], wp0[1], 140, 0.5]
+
             wp1 = [wp1[0], wp1[1], 140, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
             self.udp_client.update_wps([wp0, wp1])
@@ -481,11 +484,11 @@ class MainWidget(QtGui.QWidget):
             # self.grid.randomize()
             # self.plot_updated = True
             self.grid_worker.randomize()
-        if Settings.collision_avoidance == True:
-            # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
-            self.wp_straight_ahead_clicked()
-        else:
-            self.plot_updated = True
+        # if Settings.collision_avoidance == True:
+        #     # self.collision_avoidance.update_obstacles(self.grid.get_obstacles()[1], self.grid.range_scale)
+        #     self.wp_straight_ahead_clicked()
+        # else:
+        self.plot_updated = True
 
     def update_collision_margin(self):
         CollisionSettings.obstacle_margin = self.collision_margin_box.value()

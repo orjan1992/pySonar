@@ -128,6 +128,11 @@ def constrainNED2range(WP, old_WP, N_veh, E_veh, yaw, range):
     else:
         return WP, False
 
+def NED2grid_with_constraints(WP, pos, range):
+    x_veh, y_veh = NED2vehicle(WP[0], WP[1], pos[0], pos[1], pos[2])
+    g = vehicle2grid(x_veh, y_veh, range)
+    return g, not (abs(x_veh) <= range) and (abs(y_veh) <= range)
+
 def ned2constrained_grid(wp1, wp0, pos, range):
     # 0= not constrained, 1 constrained normal way, 2 constrained inverse
     status = 0
