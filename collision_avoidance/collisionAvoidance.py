@@ -82,12 +82,54 @@ class CollisionAvoidance:
         else:
             return CollisionStatus.NOT_ENOUGH_INFO
 
+    # def remove_obsolete_wp(self, wp_list):
+        # # Remove colinear wps
+        # i = 0
+        # counter = 0
+        # while i < len(wp_list) - 2:
+        #     if angle_diff(wp_list[i:i+3]) < CollisionSettings.colinear_angle:
+        #         wp_list.remove(wp_list[i + 1])
+        #         counter += 1
+        #     else:
+        #         i += 1
+        #
+        # # remove obsolete wps
+        # line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
+        #
+        # i = 0
+        # # TODO: better than reverse?
+        # while i < len(wp_list) - 2:
+        #     lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
+        #                    (255, 255, 255), line_width)
+        #     if np.any(np.logical_and(self.bin_map, lin)):
+        #         i += 1
+        #     else:
+        #         wp_list.remove(wp_list[i+1])
+        #         counter += 1
+        # wp_list.reverse()
+        # # not_complete = True
+        # # while not_complete:
+        # #     not_complete = False
+        # #     i = 0
+        # #     while i < len(wp_list) - 2:
+        # #         lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
+        # #                        (255, 255, 255), line_width)
+        # #         if np.any(np.logical_and(self.bin_map, lin)):
+        # #             i += 1
+        # #         else:
+        # #             wp_list.remove(wp_list[i+1])
+        # #             i += 1
+        # #             counter += 1
+        # #             not_complete = True
+        # logger.debug('{} redundant wps removed'.format(counter))
+        # return wp_list
+
     def remove_obsolete_wp(self, wp_list):
         # Remove colinear wps
         i = 0
         counter = 0
         while i < len(wp_list) - 2:
-            if angle_diff(wp_list[i:i+3]) < CollisionSettings.colinear_angle:
+            if angle_diff(wp_list[i:i + 3]) < CollisionSettings.colinear_angle:
                 wp_list.remove(wp_list[i + 1])
                 counter += 1
             else:
@@ -97,32 +139,31 @@ class CollisionAvoidance:
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
 
         i = 0
-        # TODO: better than reverse?
-        wp_list.reverse()
         while i < len(wp_list) - 2:
-            lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
+            lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i + 2],
                            (255, 255, 255), line_width)
             if np.any(np.logical_and(self.bin_map, lin)):
                 i += 1
             else:
-                wp_list.remove(wp_list[i+1])
-                counter += 1
-        wp_list.reverse()
-        # not_complete = True
-        # while not_complete:
-        #     not_complete = False
-        #     i = 0
-        #     while i < len(wp_list) - 2:
-        #         lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
-        #                        (255, 255, 255), line_width)
-        #         if np.any(np.logical_and(self.bin_map, lin)):
-        #             i += 1
-        #         else:
-        #             wp_list.remove(wp_list[i+1])
-        #             i += 1
-        #             counter += 1
-        #             not_complete = True
-        logger.debug('{} redundant wps removed'.format(counter))
+                # No collision caused. check other
+                try:
+                    lin2 = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i + 1], wp_list[i + 3],
+                                    (255, 255, 255), line_width)
+                    if np.any(np.logical_and(self.bin_map, lin)):
+                        wp_list.remove(wp_list[i + 1])
+                        counter += 1
+                    else:
+                        length1 = path_length([wp_list[i], wp_list[i + 2], wp_list[i + 3]])
+                        length2 = path_length([wp_list[i], wp_list[i + 1], wp_list[i + 3]])
+                        if length1 > length2:
+                            wp_list.remove(wp_list[i + 2])
+                            counter += 1
+                        else:
+                            wp_list.remove(wp_list[i + 1])
+                            counter += 1
+                except IndexError:
+                    wp_list.remove(wp_list[i + 1])
+                    counter += 1
         return wp_list
 
     def check_collision_margins(self, wp_list):
@@ -200,10 +241,10 @@ class CollisionAvoidance:
             x_max = max(constrained_wp_grid[0], GridSettings.height)+1
             y_min = min(constrained_wp_grid[1], 0)-1
             y_max = max(constrained_wp_grid[1], GridSettings.width)+1
-            x2 = x_min + (x_max-x_min)/2
-            y2 = y_min + (y_max-y_min)/2
+            # x2 = x_min + (x_max-x_min)/2
+            # y2 = y_min + (y_max-y_min)/2
             points.extend([(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)])
-            points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
+            # points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
 
             use_constraint_wp = False
 
@@ -280,12 +321,6 @@ class CollisionAvoidance:
                     wps = old_wps.copy()
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
-
-                stri = 'dijkstra = [801, 801;'
-                for wp in self.voronoi_wp_list[:-1]:
-                    stri += '{}, {};'.format(wp[0], wp[1])
-                stri += '{}, {}];'.format(self.voronoi_wp_list[-1][0], self.voronoi_wp_list[-1][1])
-                print(stri)
 
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
                 if CollisionSettings.use_fermat:

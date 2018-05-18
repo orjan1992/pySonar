@@ -236,6 +236,12 @@ def wrapToPiHalf(angle):
             angle = np.pi - angle
     return angle
 
+def path_length(wp_list):
+    length = 0
+    for wp1, wp2 in zip(wp_list[:-1], wp_list[1:]):
+        length += ((wp2[0]-wp1[0])**2 + (wp2[1]-wp1[1])**2)**0.5
+    return length
+
 if __name__ == '__main__':
     N_veh = 0
     E_veh = 0
