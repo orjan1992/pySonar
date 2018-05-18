@@ -48,9 +48,9 @@ function [fig, leg_text, leg] = plot_obs_on_map(file, color, fig, new_pos)
     leg(2) = fill(e, n, 'b');
     leg_text = {'Obstacles', 'ROV', 'Sonar Field of View'};
     
-    XTickLabel = get(gca,'XTick');
-    set(gca,'XTickLabel',num2str(XTickLabel'))
-    YTickLabel = get(gca,'YTick');
-    set(gca,'YTickLabel',num2str(YTickLabel'))
+%     XTickLabel = get(gca,'XTick');
+%     set(gca,'XTickLabel',num2str(XTickLabel'))
+%     YTickLabel = get(gca,'YTick');
+%     set(gca,'YTickLabel',num2str(YTickLabel'))
     
     grid on

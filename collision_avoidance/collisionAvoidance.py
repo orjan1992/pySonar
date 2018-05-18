@@ -9,6 +9,7 @@ import cv2
 import threading
 from time import time, strftime
 from scipy.io import savemat
+from copy import deepcopy
 import messages.AutoPilotMsg as ap
 
 if Settings.input_source == 0:
@@ -20,7 +21,6 @@ logger = logging.getLogger('Collision_avoidance')
 # logger.addHandler(console)
 
 class CollisionAvoidance:
-    # TODO: Should be redesigned to keep waypoint list WP = [north, east, alt/depth?], v_surge speed
     save_counter = 0
     path_ok = True
 
@@ -97,6 +97,8 @@ class CollisionAvoidance:
         line_width = np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
 
         i = 0
+        # TODO: better than reverse?
+        wp_list.reverse()
         while i < len(wp_list) - 2:
             lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i], wp_list[i+2],
                            (255, 255, 255), line_width)
@@ -105,7 +107,7 @@ class CollisionAvoidance:
             else:
                 wp_list.remove(wp_list[i+1])
                 counter += 1
-
+        wp_list.reverse()
         # not_complete = True
         # while not_complete:
         #     not_complete = False
@@ -198,7 +200,10 @@ class CollisionAvoidance:
             x_max = max(constrained_wp_grid[0], GridSettings.height)+1
             y_min = min(constrained_wp_grid[1], 0)-1
             y_max = max(constrained_wp_grid[1], GridSettings.width)+1
+            x2 = x_min + (x_max-x_min)/2
+            y2 = y_min + (y_max-y_min)/2
             points.extend([(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)])
+            points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
 
             use_constraint_wp = False
 
@@ -206,10 +211,10 @@ class CollisionAvoidance:
             vp = MyVoronoi(points)
             start_wp, start_region = vp.add_wp((801, 801))
             end_wp, end_region = vp.add_wp(constrained_wp_grid)
-            # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
 
             # Check if first wp in vehicle direction is ok
             if CollisionSettings.use_fermat:
+             # TODO: Smarter calc of wp, has to be function of range and speed, also path angle?
                 fixed_wp = vehicle2grid(CollisionSettings.first_wp_dist, 0, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), (801, 801), fixed_wp, (255, 255, 255),
                                np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int))
@@ -235,12 +240,17 @@ class CollisionAvoidance:
                     if wps is None or len(wps) == 0:
                         if use_constraint_wp:
                             wps = vp.dijkstra(constraint_wp, end_wp, None)
+                            stri = 'wps = ['
+                            for wp in wps[:-1]:
+                                stri += '{};'.format(wp)
+                            stri += '{}];'.format(wps[-1])
+                            print(stri)
                         else:
                             wps = vp.dijkstra(start_wp, end_wp, None)
 
-                        orig_list = wps.copy()
+                        orig_list = deepcopy(wps)
                     else:
-                        old_wps = wps.copy()
+                        old_wps = deepcopy(wps)
                         wps = wps[:collision_index]
                         if len(wps) > 1 and 0 < collision_index < len(wps):
                             wps.extend(vp.dijkstra(old_wps[collision_index-1], end_wp, old_wps[collision_index]))
@@ -270,6 +280,13 @@ class CollisionAvoidance:
                     wps = old_wps.copy()
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
+
+                stri = 'dijkstra = [801, 801;'
+                for wp in self.voronoi_wp_list[:-1]:
+                    stri += '{}, {};'.format(wp[0], wp[1])
+                stri += '{}, {}];'.format(self.voronoi_wp_list[-1][0], self.voronoi_wp_list[-1][1])
+                print(stri)
+
                 self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
                 if CollisionSettings.use_fermat:
                     self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
@@ -515,3 +532,27 @@ class CollisionData:
         self.wp_lock.release()
         return tmp
 
+if __name__ == '__main__':
+    from scipy.io import loadmat
+    from messages.moosPosMsg import MoosPosMsg
+
+    data = loadmat('collision.mat')
+    range_scale = data['range_scale'][0][0]
+    north = data['pos'][0][0]
+    east = data['pos'][0][1]
+    yaw = data['pos'][0][2]
+    obs = data['obstacles'][0]
+
+    co = CollisionAvoidance()
+    # co.range = range_scale
+    # co.obstacles = obs
+    # co.north, co.east, co.yaw = north, east, yaw
+    # co.waypoint_list = data['old_wps']
+    # co.waypoint_counter = 0
+    co.update_pos(MoosPosMsg(north, east, yaw))
+    co.update_external_wps(data['old_wps'], 0)
+    co.update_obstacles(obs, range_scale)
+    # co.check_collision_margins(data['old_wps'])
+    # tmp = co.calc_new_wp()
+    tmp = co.main_loop(True)
+    print(tmp)
