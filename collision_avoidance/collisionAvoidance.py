@@ -124,12 +124,13 @@ class CollisionAvoidance:
         # logger.debug('{} redundant wps removed'.format(counter))
         # return wp_list
 
-    def remove_obsolete_wp(self, wp_list):
+    def remove_obsolete_wp(self, waypoints, skip=[]):
+        wp_list = deepcopy(waypoints)
         # Remove colinear wps
         i = 0
         counter = 0
         while i < len(wp_list) - 2:
-            if angle_diff(wp_list[i:i + 3]) < CollisionSettings.colinear_angle:
+            if angle_diff(wp_list[i:i + 3]) < CollisionSettings.colinear_angle and not (i in skip):
                 wp_list.remove(wp_list[i + 1])
                 counter += 1
             else:
@@ -150,20 +151,34 @@ class CollisionAvoidance:
                     lin2 = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), wp_list[i + 1], wp_list[i + 3],
                                     (255, 255, 255), line_width)
                     if np.any(np.logical_and(self.bin_map, lin)):
-                        wp_list.remove(wp_list[i + 1])
+                        if i+1 in skip:
+                            i += 1
+                        else:
+                            wp_list.remove(wp_list[i + 1])
                         counter += 1
                     else:
                         length1 = path_length([wp_list[i], wp_list[i + 2], wp_list[i + 3]])
                         length2 = path_length([wp_list[i], wp_list[i + 1], wp_list[i + 3]])
                         if length1 > length2:
-                            wp_list.remove(wp_list[i + 2])
-                            counter += 1
+                            if i+2 in skip:
+                                i += 1
+                            else:
+                                wp_list.remove(wp_list[i + 2])
+                                counter += 1
                         else:
-                            wp_list.remove(wp_list[i + 1])
-                            counter += 1
+                            if i+1 in skip:
+                                i+=1
+                            else:
+                                wp_list.remove(wp_list[i + 1])
+                                counter += 1
                 except IndexError:
-                    wp_list.remove(wp_list[i + 1])
-                    counter += 1
+                    if i+1 in skip:
+                        i+=1
+                    else:
+                        wp_list.remove(wp_list[i + 1])
+                        counter += 1
+        if counter == 0:
+            raise ValueError('No wps removed')
         return wp_list
 
     def check_collision_margins(self, wp_list):
@@ -272,6 +287,7 @@ class CollisionAvoidance:
             wps = None
             skip_smoothing = False
             while collision_danger and counter < 5:
+                skip = []
                 self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
                 self.voronoi_wp_list = []
                 # Find shortest route
@@ -322,27 +338,70 @@ class CollisionAvoidance:
                 for wp in wps:
                     self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
 
-                self.voronoi_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list)
+                short_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
                 if CollisionSettings.use_fermat:
-                    self.voronoi_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
-                for wp in self.voronoi_wp_list:
+                    short_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
+                for wp in short_wp_list:
                     N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
                     self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][2]])  # , self.waypoint_list[self.waypoint_counter][3]])
 
                 # Smooth waypoints
                 if not skip_smoothing:
                     if CollisionSettings.use_fermat:
-                        self.new_wp_list = fermat(self.new_wp_list)
+                        self.new_wp_list, wp_conversion= fermat(self.new_wp_list)
                     else:
                         non_smooth_path = self.new_wp_list.copy()
                         self.new_wp_list = cubic_path(self.new_wp_list)
 
                 collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
                 # Check if smooth path is collision free
+                if collision_danger:
+                    try:
+                        skip.append(in_interval(wp_conversion, collision_index))
+                        short_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
+                        if CollisionSettings.use_fermat:
+                            short_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
+                        for wp in short_wp_list:
+                            N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
+                            self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
+                                2]])  # , self.waypoint_list[self.waypoint_counter][3]])
 
+                        # Smooth waypoints
+                        if not skip_smoothing:
+                            if CollisionSettings.use_fermat:
+                                self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
+                            else:
+                                non_smooth_path = self.new_wp_list.copy()
+                                self.new_wp_list = cubic_path(self.new_wp_list)
+
+                        collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
+                        while not collision_danger:
+
+                            skip.append(in_interval(wp_conversion, collision_index))
+                            short_wp_list = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
+                            if CollisionSettings.use_fermat:
+                                short_wp_list.insert(0, (int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1])))
+                            for wp in short_wp_list:
+                                N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
+                                self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
+                                    2]])  # , self.waypoint_list[self.waypoint_counter][3]])
+
+                            # Smooth waypoints
+                            if not skip_smoothing:
+                                if CollisionSettings.use_fermat:
+                                    self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
+                                else:
+                                    non_smooth_path = self.new_wp_list.copy()
+                                    self.new_wp_list = cubic_path(self.new_wp_list)
+
+                            collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
+                    except ValueError:
+                        pass
                 counter += 1
             if collision_danger:
                 logger.debug('Smooth path violates collision margins')
+                # Trying to relax removal of wps
+
                 self.path_ok = False
                 self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
                                          CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN, orig_list)
@@ -350,7 +409,7 @@ class CollisionAvoidance:
                 #     self.data_storage.update_wps(self.new_wp_list, 0, smooth_path)
                 # else:
                 #     self.data_storage.update_wps(self.new_wp_list, 0)
-
+                self.voronoi_wp_list = short_wp_list
                 return CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN
 
             # Add waypoints outside grid
@@ -381,6 +440,7 @@ class CollisionAvoidance:
             #     if Settings.save_obstacles:
             #         np.savez('pySonarLog/obs_{}'.format(strftime("%Y%m%d-%H%M%S")), im=im)
             # print(wrapTo2Pi(np.arctan2(self.new_wp_list[1][1]-self.new_wp_list[0][1], self.new_wp_list[1][0] - self.new_wp_list[0][0]))*180/np.pi, self.new_wp_list)
+            self.voronoi_wp_list = short_wp_list
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
 

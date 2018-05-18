@@ -61,6 +61,7 @@ def fermat(wp_list):
         step = np.round(delta_chi_mag / CollisionSettings.fermat_step_factor).astype(int)
 
         # Find intermediate waypoints
+        wp_conversion = [0]
         try:
             for theta in np.linspace(0, theta_end, step, endpoint=False):
                 x = p_0[0] + kappa * (theta ** 0.5) * np.cos(rho * theta + chi_0)
@@ -74,9 +75,11 @@ def fermat(wp_list):
         except ValueError as e:
             logger.error('step={}\tdelta_chi_mag={}'.format(delta_chi_mag / CollisionSettings.fermat_step_factor, delta_chi_mag))
         tmp_list.reverse()
+        wp_conversion.append(len(new_list)-1)
         new_list.extend(tmp_list)
     new_list.append(wp_list[-1])
-    return new_list
+    wp_conversion.append(len(new_list)-1)
+    return new_list, wp_conversion
 
 def cubic_path(wp_list):
     if len(wp_list) <= 1:

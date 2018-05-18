@@ -242,6 +242,12 @@ def path_length(wp_list):
         length += ((wp2[0]-wp1[0])**2 + (wp2[1]-wp1[1])**2)**0.5
     return length
 
+def in_interval(intervals, integer):
+    for i,j in zip(intervals[:-1], intervals[1:]):
+        if i <= integer < j:
+            return intervals.index(i)
+    return -1
+
 if __name__ == '__main__':
     N_veh = 0
     E_veh = 0
