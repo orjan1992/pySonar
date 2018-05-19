@@ -23,6 +23,7 @@ logger = logging.getLogger('Collision_avoidance')
 class CollisionAvoidance:
     save_counter = 0
     path_ok = True
+    path_ok_counter = 0
 
     def __init__(self, msg_client=None, voronoi_plot_item=None):
         self.north = self.east = self.yaw = 0.0
@@ -75,9 +76,24 @@ class CollisionAvoidance:
                     logger.info('Smooth path violates margin. Time: {}'.format(time()-t0))
                 elif stat == CollisionStatus.NEW_ROUTE_OK:
                     logger.info('New route ok. Time: {}'.format(time()-t0))
+                self.path_ok_counter = 0
+
             else:
                 # logger.info('No collision danger')
                 stat = CollisionStatus.NO_DANGER
+                if self.waypoint_list is not None and self.obstacles is not None:
+                    self.path_ok_counter += 1
+
+                    if self.path_ok_counter > 10:
+                        logger.info('Recalculating route to check for shorter path')
+                        stat = self.calc_new_wp()
+                        if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
+                            logger.info('Collision danger: could not calculate feasible path. Time: {}'.format(time() - t0))
+                        elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+                            logger.info('Smooth path violates margin. Time: {}'.format(time() - t0))
+                        elif stat == CollisionStatus.NEW_ROUTE_OK:
+                            logger.info('New route ok. Time: {}'.format(time() - t0))
+                        self.path_ok_counter = 0
             return stat
         else:
             return CollisionStatus.NOT_ENOUGH_INFO
@@ -223,20 +239,26 @@ class CollisionAvoidance:
             # Find waypoints in grid
             last_wp = None
             constrained_wp_index = self.waypoint_counter
-            for i in range(self.waypoint_counter, np.shape(self.waypoint_list)[0]):
+            i = self.waypoint_counter
+            while i < np.shape(self.waypoint_list)[0]:
                 NE, constrained = constrainNED2range(self.waypoint_list[i], self.waypoint_list[i - 1],
                                                      self.north, self.east, self.yaw, self.range)
                 if constrained:
                     constrained_wp_index = i
                     last_wp = NE
+                    exit = True
                     for j in range(i, np.shape(self.waypoint_list)[0]):
                         NE, constrained = constrainNED2range(self.waypoint_list[j], self.waypoint_list[j - 1],
                                                              self.north, self.east, self.yaw, self.range)
                         if not constrained:
-                            constrained_wp_index = j
-                            i = j
+                            i = j-1
+                            constrained_wp_index = i
                             last_wp = NE
+                            exit = False
                             break
+                    if exit:
+                        break
+                i +=1
             if last_wp is None:
                 last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
                 constrained_wp_index = np.shape(self.waypoint_list)[0] - 1
@@ -300,7 +322,7 @@ class CollisionAvoidance:
                         old_wps = deepcopy(wps)
                         try:
                             ind = self.voronoi_wp_list.index(short_wp_list[in_interval(wp_conversion, collision_index)])
-                        except ValueError:
+                        except ValueError as e:
                             a=1
                         wps = wps[:collision_index]
                         if len(wps) > 1 and 0 < collision_index < len(wps):
@@ -560,14 +582,14 @@ class CollisionAvoidance:
             # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
             savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': paths, 'pos': np.array(self.pos), 'path_time': self.path_time})
 
-    def draw_wps_on_grid(self, im2, pos):
+    def draw_wps_on_grid(self, im2, pos, ok):
 
         wp_list, wp_counter = self.data_storage.get_wps()
 
         if len(wp_list) > 0:
             vehicle_width = np.round(PlotSettings.vehicle_width_drawing_factor* CollisionSettings.vehicle_margin * 801 / self.range).astype(int)
             circle_r = np.round(vehicle_width*.5*1.2).astype(int)
-            if self.path_ok:
+            if ok:
                 color = PlotSettings.wp_on_grid_color
             else:
                 color = (255, 0, 0)

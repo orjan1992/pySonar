@@ -358,10 +358,14 @@ class MainWidget(QtGui.QWidget):
                 if Settings.collision_avoidance:
                     self.collision_avoidance.update_obstacles(contours, self.grid.range_scale)
                     if Settings.show_wp_on_grid:
-                        if self.last_pos_msg is None:
-                            im = self.collision_avoidance.draw_wps_on_grid(image, (0,0,0))
+                        if self.collision_stat is CollisionStatus.NO_DANGER or self.collision_stat is CollisionStatus.NEW_ROUTE_OK:
+                            ok = True
                         else:
-                            im = self.collision_avoidance.draw_wps_on_grid(image, (self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw))
+                            ok = False
+                        if self.last_pos_msg is None:
+                            im = self.collision_avoidance.draw_wps_on_grid(image, (0,0,0), ok)
+                        else:
+                            im = self.collision_avoidance.draw_wps_on_grid(image, (self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw), ok)
 
                 if Settings.show_map:
                     self.map_widget.update_obstacles(contours, self.grid.range_scale, self.last_pos_msg.north,
@@ -507,6 +511,8 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
     @QtCore.pyqtSlot()
     def run(self):
         status = self.collision_avoidance.main_loop(self.reliable)
+        if status is None:
+            status = CollisionStatus.NOT_ENOUGH_INFO
         self.signals.finished.emit(status)
 
     def set_reliable(self, reliable):
