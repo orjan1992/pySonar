@@ -229,7 +229,14 @@ class CollisionAvoidance:
                 if constrained:
                     constrained_wp_index = i
                     last_wp = NE
-                    break
+                    for j in range(i, np.shape(self.waypoint_list)[0]):
+                        NE, constrained = constrainNED2range(self.waypoint_list[j], self.waypoint_list[j - 1],
+                                                             self.north, self.east, self.yaw, self.range)
+                        if not constrained:
+                            constrained_wp_index = j
+                            i = j
+                            last_wp = NE
+                            break
             if last_wp is None:
                 last_wp = (self.waypoint_list[-1][0], self.waypoint_list[-1][1])
                 constrained_wp_index = np.shape(self.waypoint_list)[0] - 1
@@ -270,15 +277,36 @@ class CollisionAvoidance:
 
             vp.gen_obs_free_connections(self.range, self.bin_map)
 
-            skip_smoothing = False
-            skip = []
 
-            self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
-            self.voronoi_wp_list = []
-            # Find shortest route
-            if use_constraint_wp:
+            wps = None
+            collision_index = 0
+            skip_smoothing = False
+            collision_danger = True
+            counter = 0
+            short_wp_list = []
+            wp_conversion = []
+            while collision_danger and counter < 5:
+                if counter > 0:
+                    print('smooth path violates constraints, trying again: {}'.format(counter))
+
+                # Find shortest route
                 try:
-                    wps = vp.dijkstra(constraint_wp, end_wp, None)
+                    if wps is None or len(wps) == 0:
+                        if use_constraint_wp:
+                                wps = vp.dijkstra(constraint_wp, end_wp, None)
+                        else:
+                            wps = vp.dijkstra(start_wp, end_wp, None)
+                    else:
+                        old_wps = deepcopy(wps)
+                        try:
+                            ind = self.voronoi_wp_list.index(short_wp_list[in_interval(wp_conversion, collision_index)])
+                        except ValueError:
+                            a=1
+                        wps = wps[:collision_index]
+                        if len(wps) > 1 and 0 < collision_index < len(wps):
+                            wps.extend(vp.dijkstra(old_wps[collision_index - 1], end_wp, old_wps[collision_index]))
+                        else:
+                            wps = vp.dijkstra(start_wp, end_wp, None)
                 except RuntimeError:
                     self.path_ok = False
                     if Settings.show_voronoi_plot:
@@ -288,87 +316,45 @@ class CollisionAvoidance:
                     self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
                                              CollisionStatus.NO_FEASIBLE_ROUTE, [])
                     return CollisionStatus.NO_FEASIBLE_ROUTE
-                stri = 'wps = ['
-                for wp in wps[:-1]:
-                    stri += '{};'.format(wp)
-                stri += '{}];'.format(wps[-1])
-                print(stri)
-            else:
-                wps = vp.dijkstra(start_wp, end_wp, None)
-            orig_list = deepcopy(wps)
+                skip = []
 
-            for wp in wps:
-                self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
+                self.new_wp_list = []  # self.waypoint_list[:self.waypoint_counter]
+                self.voronoi_wp_list = []
+                orig_list = deepcopy(wps)
 
-            short_wp_list, remove, _ = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
-            for wp in short_wp_list:
-                N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
-                self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
-                    2]])  # , self.waypoint_list[self.waypoint_counter][3]])
+                for wp in wps:
+                    self.voronoi_wp_list.append((int(vp.vertices[wp][0]), int(vp.vertices[wp][1])))
 
-            # Smooth waypoints
-            if not skip_smoothing:
-                if CollisionSettings.use_fermat:
-                    if use_constraint_wp:
-                        wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]),
-                                      self.range, self.north, self.east, self.yaw)
-                        self.new_wp_list.insert(0, [wp[0], wp[1],
-                                                    self.waypoint_list[self.waypoint_counter][2]])
+                short_wp_list, remove, _ = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
+                for wp in short_wp_list:
+                    N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
+                    self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
+                        2]])  # , self.waypoint_list[self.waypoint_counter][3]])
+
+                # Smooth waypoints
+                if not skip_smoothing:
+                    if CollisionSettings.use_fermat:
+                        if use_constraint_wp:
+                            wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]),
+                                          self.range, self.north, self.east, self.yaw)
+                            self.new_wp_list.insert(0, [wp[0], wp[1],
+                                                        self.waypoint_list[self.waypoint_counter][2]])
+                        # try:
+                        #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+                        # except IndexError:
+                        #     pass
+                        self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
+                    else:
+                        non_smooth_path = self.new_wp_list.copy()
+                        self.new_wp_list = cubic_path(self.new_wp_list)
+
+                collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
+                # Check if smooth path is collision free
+                if collision_danger:
                     try:
-                        self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
-                    except IndexError:
-                        pass
-                    self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
-                else:
-                    non_smooth_path = self.new_wp_list.copy()
-                    self.new_wp_list = cubic_path(self.new_wp_list)
-
-            collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
-            # Check if smooth path is collision free
-            if collision_danger:
-                try:
-                    ind = self.voronoi_wp_list.index(short_wp_list[in_interval(wp_conversion, collision_index)])
-                    s = self.voronoi_wp_list[ind + 1]
-                    skip.append(s)
-                    short_wp_list, remove, no_more = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
-                    self.new_wp_list = []
-                    for wp in short_wp_list:
-                        N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
-                        self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
-                            2]])  # , self.waypoint_list[self.waypoint_counter][3]])
-
-                    # Smooth waypoints
-                    if not skip_smoothing:
-                        if CollisionSettings.use_fermat:
-                            if use_constraint_wp:
-                                wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]),
-                                              self.range, self.north, self.east, self.yaw)
-                                self.new_wp_list.insert(0, [wp[0], wp[1],
-                                                            self.waypoint_list[self.waypoint_counter][2]])
-                            try:
-                                self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
-                            except IndexError:
-                                pass
-                            self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
-                            if use_constraint_wp:
-                                wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]), self.range, self.north, self.east, self.yaw)
-                                self.new_wp_list.insert(0, [wp[0], wp[1], self.waypoint_list[self.waypoint_counter][2]])
-                        else:
-                            non_smooth_path = self.new_wp_list.copy()
-                            self.new_wp_list = cubic_path(self.new_wp_list)
-
-                    collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
-                    while collision_danger and not no_more:
                         ind = self.voronoi_wp_list.index(short_wp_list[in_interval(wp_conversion, collision_index)])
-                        try:
-                            s = self.voronoi_wp_list[ind + 1]
-                        except IndexError:
-                            break
-
-                        if s in skip:
-                            break
-                        else:
-                            skip.append(s)
+                        s = self.voronoi_wp_list[ind + 1]
+                        skip.append(s)
                         short_wp_list, remove, no_more = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
                         self.new_wp_list = []
                         for wp in short_wp_list:
@@ -384,28 +370,61 @@ class CollisionAvoidance:
                                                   self.range, self.north, self.east, self.yaw)
                                     self.new_wp_list.insert(0, [wp[0], wp[1],
                                                                 self.waypoint_list[self.waypoint_counter][2]])
-                                try:
-                                    self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
-                                except IndexError:
-                                    pass
+                                # try:
+                                #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+                                # except IndexError:
+                                #     pass
                                 self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
+                                if use_constraint_wp:
+                                    wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]), self.range, self.north, self.east, self.yaw)
+                                    self.new_wp_list.insert(0, [wp[0], wp[1], self.waypoint_list[self.waypoint_counter][2]])
                             else:
                                 non_smooth_path = self.new_wp_list.copy()
                                 self.new_wp_list = cubic_path(self.new_wp_list)
 
                         collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
-                except ValueError:
-                    pass
-                except IndexError:
-                    pass
-                    # self.path_ok = False
-                    # if Settings.show_voronoi_plot:
-                    #     im = self.calc_voronoi_img(vp, None, start_wp, end_wp, end_region, start_region)
-                    #     self.voronoi_plot_item.setImage(im)
-                    #
-                    # self.save_collision_info(vp, start_wp, start_region, end_wp, end_region,
-                    #                          CollisionStatus.NO_FEASIBLE_ROUTE, [])
-                    # return CollisionStatus.NO_FEASIBLE_ROUTE
+                        while collision_danger and not no_more:
+                            ind = self.voronoi_wp_list.index(short_wp_list[in_interval(wp_conversion, collision_index)])
+                            try:
+                                s = self.voronoi_wp_list[ind + 1]
+                            except IndexError:
+                                break
+
+                            if s in skip:
+                                break
+                            else:
+                                skip.append(s)
+                            short_wp_list, remove, no_more = self.remove_obsolete_wp(self.voronoi_wp_list, skip)
+                            self.new_wp_list = []
+                            for wp in short_wp_list:
+                                N, E = grid2NED(wp[0], wp[1], self.range, self.north, self.east, self.yaw)
+                                self.new_wp_list.append([N, E, self.waypoint_list[self.waypoint_counter][
+                                    2]])  # , self.waypoint_list[self.waypoint_counter][3]])
+
+                            # Smooth waypoints
+                            if not skip_smoothing:
+                                if CollisionSettings.use_fermat:
+                                    if use_constraint_wp:
+                                        wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]),
+                                                      self.range, self.north, self.east, self.yaw)
+                                        self.new_wp_list.insert(0, [wp[0], wp[1],
+                                                                    self.waypoint_list[self.waypoint_counter][2]])
+                                    # try:
+                                    #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+                                    # except IndexError:
+                                    #     pass
+                                    self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
+                                else:
+                                    non_smooth_path = self.new_wp_list.copy()
+                                    self.new_wp_list = cubic_path(self.new_wp_list)
+
+                            collision_danger, collision_index = self.check_collision_margins(self.new_wp_list)
+                    except ValueError:
+                        pass
+                    except IndexError:
+                        pass
+
+                counter += 1
 
             if collision_danger:
                 logger.debug('Smooth path violates collision margins')
@@ -423,10 +442,10 @@ class CollisionAvoidance:
 
             # Add waypoints outside grid
             #
-            # try:
-            #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
-            # except IndexError:
-            #     pass
+            try:
+                self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
+            except IndexError:
+                pass
 
             self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK, orig_list)
 
