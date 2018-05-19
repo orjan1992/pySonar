@@ -19,6 +19,7 @@ import map
 from messages.udpMsg import *
 from scipy.io import savemat
 from time import strftime, time
+from collision_avoidance.path_smoothing import fermat
 import messages.AutoPilotMsg as ap
 from collision_avoidance.los_controller import LosController
 
@@ -431,7 +432,6 @@ class MainWidget(QtGui.QWidget):
 
     def binary_button_click(self):
         if Settings.collision_avoidance:
-            wp = np.load('collision_avoidance/smooth_wgs84.npz')['smooth']
             # wp_list = np.ndarray.tolist(wp)
             # wp_list = [[6821587.4301, 457961.291, 4],
             #     [6821573.0927, 457944.6148, 4],
@@ -445,16 +445,17 @@ class MainWidget(QtGui.QWidget):
             # wp_list.pop(0)
             # wp_list.pop(0)
 
-            wp_list = [[6821592.4229, 457959.8588, 3],
-                       [6821574.0057, 457960.6302, 3],
-                       [6821542.018, 457939.8021, 3],
-                       [6821573.5211, 457922.831, 3],
-                       [6821570.6131, 458066.3137, 3],
-                       [6821582.245, 457967.9586, 3],
-                       [6821593.8769, 457920.1311, 3],
-                       [6821621.5027, 457966.0301, 3],
-                       [6821545.8953, 458010.772, 3]]
-
+            wp_list = [[6821586.2629, 457958.6125, 3],
+                        [6821537.7894, 457945.0739, 3],
+                        [6821515.8313, 457961.5843, 3],
+                        [6821517.4885, 458030.5979, 3],
+                        [6821493.0446, 458043.8062, 3],
+                        [6821474.401, 457986.0197, 3],
+                        [6821477.3011, 457927.9031, 3]]
+            wp_list = fermat(wp_list)[0]
+            if self.last_pos_msg is None:
+                self.last_pos_msg = MoosPosMsg(wp_list[0][0],wp_list[0][1], np.pi)
+                self.collision_avoidance.update_pos(self.last_pos_msg)
             wp0 = vehicle2NED(0, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
             wp_list.insert(0, [wp0[0], wp0[1], 2.0])
             self.collision_avoidance.update_external_wps(wp_list, 0)

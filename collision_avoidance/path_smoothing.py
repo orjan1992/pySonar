@@ -9,6 +9,7 @@ THETA_MAX = ((7 ** 0.5) / 2 - 5 / 4) ** 0.5
 def fermat(wp_list):
     new_list = [wp_list[0]]
     wp_array = np.array(wp_list)
+    wp_conversion = [0]
     for wp1, wp2, wp3 in zip(wp_array, wp_array[1:], wp_array[2:]):
         # Segment lengths
         l_in = np.linalg.norm(wp2[:2] - wp1[:2])
@@ -61,7 +62,6 @@ def fermat(wp_list):
         step = np.round(delta_chi_mag / CollisionSettings.fermat_step_factor).astype(int)
 
         # Find intermediate waypoints
-        wp_conversion = [0]
         try:
             for theta in np.linspace(0, theta_end, step, endpoint=False):
                 x = p_0[0] + kappa * (theta ** 0.5) * np.cos(rho * theta + chi_0)

@@ -16,7 +16,13 @@ function [fig, leg_text, leg] = plot_obs_on_map(file, color, fig, new_pos)
     end
     if ~exist('obs', 'var')
         obs = obstacles;
+        plot_paths = true;
+    else
+        plot_paths = false;
     end
+    
+    range_scale = double(range_scale);
+    
     hold on;
     s = size(obs);
     if iscell(obs)
@@ -34,6 +40,11 @@ function [fig, leg_text, leg] = plot_obs_on_map(file, color, fig, new_pos)
             leg(1) = fill(e, n, color);
         end
     end
+    
+    if plot_paths
+        l(4) = plot(old_wps(:, 2), old_wps(:, 1), '--m');
+        l(5) = plot(new_wps(:, 2), new_wps(:, 1), '-m');
+    end
 %     boxx = [-1, -1, 1, 1, -1]*range_scale;
 %     boxy = [-1, 1, 1, -1, -1]*range_scale;
     t = [0:pi/50:pi 0];
@@ -49,7 +60,11 @@ function [fig, leg_text, leg] = plot_obs_on_map(file, color, fig, new_pos)
     rovy = [-1 0 1 1 -1];
     [n, e] = vehicle2ned(rovx, rovy, pos(1), pos(2), pos(3));
     leg(2) = fill(e, n, 'b');
-    leg_text = {'Obstacles', 'ROV', 'Sonar Field of View'};
+    if plot_paths
+        leg_text = {'Obstacles', 'ROV', 'Sonar Field of View', 'Old paths', 'New Paths'};
+    else
+        leg_text = {'Obstacles', 'ROV', 'Sonar Field of View'};
+    end
     
 %     XTickLabel = get(gca,'XTick');
 %     set(gca,'XTickLabel',num2str(XTickLabel'))
