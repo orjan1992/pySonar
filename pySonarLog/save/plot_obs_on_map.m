@@ -14,6 +14,9 @@ function [fig, leg_text, leg] = plot_obs_on_map(file, color, fig, new_pos)
     if exist('new_pos', 'var')
         pos(1:2) = new_pos;
     end
+    if ~exist('obs', 'var')
+        obs = obstacles;
+    end
     hold on;
     s = size(obs);
     if iscell(obs)

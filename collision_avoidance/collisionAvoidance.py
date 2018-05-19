@@ -618,7 +618,7 @@ if __name__ == '__main__':
     from scipy.io import loadmat
     from messages.moosPosMsg import MoosPosMsg
 
-    data = loadmat('collision.mat')
+    data = loadmat('collision2.mat')
     range_scale = data['range_scale'][0][0]
     north = data['pos'][0][0]
     east = data['pos'][0][1]

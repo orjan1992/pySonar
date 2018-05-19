@@ -405,8 +405,8 @@ class MainWidget(QtGui.QWidget):
         elif status is CollisionStatus.NEW_ROUTE_OK:
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
-        if Settings.save_obstacles and status is not CollisionStatus.NO_DANGER:
-            self.grid_worker.save_obs()
+        # if Settings.save_obstacles and status is not CollisionStatus.NO_DANGER:
+        #     self.grid_worker.save_obs()
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
 
     @QtCore.pyqtSlot(bool, name='grid_worker_finished')
