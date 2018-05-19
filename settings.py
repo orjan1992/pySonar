@@ -4,7 +4,7 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 from pyproj import Proj
 
 class Settings:
-    enable_autopilot = False
+    enable_autopilot = True
     auto_settings = True
     # 0 == udp, 1 == MOOS
     input_source = 0
@@ -73,8 +73,8 @@ class CollisionSettings:
 
 class LosSettings:
     enable_los = True
-    cruise_speed = 0.5
-    look_ahead_time = 16
+    cruise_speed = 0.4
+    look_ahead_time = 20
     roa = 2
     # look_ahead_distance =
     send_new_heading_limit = 0.5*np.pi/180.0
@@ -177,7 +177,8 @@ class GridSettings:
 class FeatureExtraction:
     kernel = np.ones((11, 11), dtype=np.uint8)
     iterations = 1
-    min_area = 9  # pixels/m
+    # min_area = 9  # pixels/m
+    min_area = 4  # pixels/m
 
 class ConnectionSettings:
         sonar_port = 4002

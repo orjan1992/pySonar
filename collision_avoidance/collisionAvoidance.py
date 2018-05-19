@@ -81,10 +81,10 @@ class CollisionAvoidance:
             else:
                 # logger.info('No collision danger')
                 stat = CollisionStatus.NO_DANGER
-                if self.waypoint_list is not None and self.obstacles is not None:
+                if self.waypoint_list is not None and self.obstacles is not None and len(self.waypoint_list) > 0:
                     self.path_ok_counter += 1
 
-                    if self.path_ok_counter > 10:
+                    if self.path_ok_counter > 100:
                         logger.info('Recalculating route to check for shorter path')
                         stat = self.calc_new_wp()
                         if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
