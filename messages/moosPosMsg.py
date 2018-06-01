@@ -32,8 +32,6 @@ class MoosPosMsg(Sensor):
     pitch = 0.0
     depth = 0.0
     z = 0.0
-    lat = 0.0
-    long = 0.0
     alt = 0.0
 
     p = 0.0
@@ -52,11 +50,11 @@ class MoosPosMsg(Sensor):
         self.alt = alt
 
     def __sub__(self, other):
-        lat_diff = self.lat - other.lat
-        # print('(self {}) - (other {}) = {}'.format(self.lat, other.lat, lat_diff))
-        long_diff = self.long - other.long
-        alpha = atan2(long_diff, lat_diff)
-        dist = sqrt(lat_diff**2 + long_diff**2)
+        north_diff = self.north - other.north
+        # print('(self {}) - (other {}) = {}'.format(self.north, other.north, north_diff))
+        east_diff = self.east - other.east
+        alpha = atan2(east_diff, north_diff)
+        dist = sqrt(north_diff**2 + east_diff**2)
         dyaw = self.yaw - other.yaw
 
         dx = cos(alpha - self.yaw)*dist
@@ -64,24 +62,25 @@ class MoosPosMsg(Sensor):
         return MoosPosMsgDiff(dx, dy, dyaw)
 
     # def __eq__(self, other):
-    #     return (self.lat == other.lat and self.long == other.long and self.yaw == other.yaw)
+    #     return (self.north == other.north and self.east == other.east and self.yaw == other.yaw)
 
     def __str__(self):
-        return 'lat: {:5f},\tlong: {:5f}\t, yaw: {:5f}'.format(self.lat, self.long, self.yaw*180/pi)
+        return 'north: {:5f},\teast: {:5f}\t, yaw: {:5f}'.format(self.north, self.east, self.yaw*180/pi)
 
     def to_tuple(self):
         return self.north, self.east, self.alt, self.yaw
 
+
 if __name__ == '__main__':
     from math import pi
     new_msg = MoosPosMsg()
-    new_msg.lat = -2
-    new_msg.long = -2
+    new_msg.north = -2
+    new_msg.east = -2
     new_msg.yaw = 0
 
     old_msg = MoosPosMsg()
-    old_msg.lat = 0
-    old_msg.long = 0
+    old_msg.north = 0
+    old_msg.east = 0
     old_msg.yaw = pi
 
     res = new_msg - old_msg

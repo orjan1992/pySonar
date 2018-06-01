@@ -1,4 +1,4 @@
-from settings import CollisionSettings, LosSettings
+from settings import CollisionSettings, LosSettings, Settings
 import threading
 import messages.AutoPilotMsg as ap
 import logging
@@ -96,7 +96,10 @@ class LosController:
     def set_speed(self, speed):
         if speed != self.surge_speed:
             self.surge_speed = speed
-            self.msg_client.send_autopilot_msg(ap.CruiseSpeed(speed))
+            if Settings.input_source == 0:
+                self.msg_client.send_autopilot_msg(ap.CruiseSpeed(speed))
+            else:
+                self.msg_client.send_msg('vel_com', speed)
             logger.info('Surge speed adjusted to {:.2f} m/s'.format(speed))
 
     def loop(self):
@@ -132,10 +135,16 @@ class LosController:
             th = self.msg_client.stop_autopilot()
             th.join()
             # self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.STATION_KEEPING)
-            self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][0], ap.Dofs.NORTH, True))
-            self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][1], ap.Dofs.EAST, True))
-            self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
-            self.msg_client.send_autopilot_msg(ap.Setpoint(start_chi, ap.Dofs.YAW, True))
+            if Settings.input_source == 0:
+                self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][0], ap.Dofs.NORTH, True))
+                self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][1], ap.Dofs.EAST, True))
+                self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
+                self.msg_client.send_autopilot_msg(ap.Setpoint(start_chi, ap.Dofs.YAW, True))
+            else:
+                self.msg_client.send_msg('north_com', wp_list[0][0])
+                self.msg_client.send_msg('east_com', wp_list[0][1])
+                self.msg_client.send_msg('depth_com', wp_list[0][2])
+                self.msg_client.send_msg('yaw_com', start_chi)
             logger.info('To far from inital setpoint. Moving to: '
                         '[N={:.6f}, E={:.6f}, D={:.2f}, YAW={:.2f} deg]'.format(wp_list[0][0], wp_list[0][1],
                                                                   wp_list[0][2], start_chi*180.0/np.pi))
@@ -145,7 +154,8 @@ class LosController:
                             abs(start_chi - pos_msg.yaw) > LosSettings.start_heading_diff):
                 pos_msg = self.get_pos()
 
-        self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
+        if Settings.input_source == 0:
+            self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
         self.set_speed(self.normal_surge_speed)
         if LosSettings.log_paths:
             chi_log.append(chi)
@@ -155,8 +165,12 @@ class LosController:
             e_log.append(e)
         turn_speed, slow_down_dist = self.turn_vel(0)
         # logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
-        self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
-        self.msg_client.send_autopilot_msg(ap.Setpoint(chi, ap.Dofs.YAW, True))
+        if Settings.input_source == 0:
+            self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
+            self.msg_client.send_autopilot_msg(ap.Setpoint(chi, ap.Dofs.YAW, True))
+        else:
+            self.msg_client.send_msg('depth_com', wp_list[0][2])
+            self.msg_client.send_msg('yaw_com', wrapTo2Pi(chi))
 
         while self.start_event.wait() and not self.stopped_event.isSet() and self.wp_counter < len(self.wp_list):
             pos_msg = self.get_pos()
@@ -178,7 +192,10 @@ class LosController:
                         self.roa = segment_lengths[wp_counter] / 2
                     else:
                         self.roa = LosSettings.roa
-                    self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
+                    if Settings.input_source == 0:
+                        self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
+                    else:
+                        self.msg_client.send_msg('depth_com', wp_list[wp_counter + 1][2])
                     chi, delta, e = self.get_los_values(wp_list[wp_counter], wp_list[wp_counter + 1], pos_msg)
                 except IndexError:
                     logger.info('Final Waypoint reached!')
@@ -197,7 +214,10 @@ class LosController:
 
             # Send new setpoints
             if abs(chi - self.last_chi) > LosSettings.send_new_heading_limit:
-                self.msg_client.send_autopilot_msg(ap.Setpoint(wrapTo2Pi(chi), ap.Dofs.YAW, True))
+                if Settings.input_source == 0:
+                    self.msg_client.send_autopilot_msg(ap.Setpoint(wrapTo2Pi(chi), ap.Dofs.YAW, True))
+                else:
+                    self.msg_client.send_msg('yaw_com', str(wrapTo2Pi(chi)))
                 self.last_chi = chi
             if LosSettings.log_paths:
                 chi_log.append(chi)
@@ -218,7 +238,7 @@ class LosController:
         else:
             logger.info('WP loop finished: Restarting loop')
         if LosSettings.log_paths:
-            savemat('pySonarLog/Los_log_{}'.format(datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
+            savemat('{}Los_log_{}'.format(Settings.log_folder, datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
                 'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list,
                 'delta': np.array(delta_log), 'cross_track': np.array(e_log)})
 

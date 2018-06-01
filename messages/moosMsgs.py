@@ -4,20 +4,32 @@ import logging
 from struct import unpack, calcsize
 from math import pi
 from ast import literal_eval
+import threading
 
 from messages.moosSonarMsg import MoosSonarMsg
 from messages.moosPosMsg import MoosPosMsg
 from coordinate_transformations import wrapTo2Pi
 from settings import *
 import cv2
+from collision_avoidance.los_controller import LosController
 from PyQt5.QtCore import QObject, pyqtSignal
 
+def threaded(fn):
+    def wrapper(*args, **kwargs):
+        thread = threading.Thread(target=fn, args=args, kwargs=kwargs)
+        thread.start()
+        return thread
+    return wrapper
 
 class MoosMsgs(QObject):
     cur_pos_msg = None
     RAD2GRAD = 3200.0/pi
-    signal_new_wp = pyqtSignal(object, name='new_wp')
     signal_new_sonar_msg = pyqtSignal(object, name='new_sonar_msg')
+    cur_pos_msg = None
+    cur_desired_pos_msg = None
+    in_control = False
+    wp_update_in_progress = threading.Lock()
+    e, s = 0, 0
 
     def __init__(self, sonar_msg_callback=None, waypoints_callback=None):
         """
@@ -42,14 +54,31 @@ class MoosMsgs(QObject):
         self.waypoint_list = None
         self.waypoint_counter = None
 
+        if LosSettings.enable_los and Settings.enable_autopilot:
+            self.los_stop_event = threading.Event()
+            self.los_start_event = threading.Event()
+            self.los_restart_event = threading.Event()
+            self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event, self.los_restart_event)
+            self.los_thread = threading.Thread()  # threading.Thread(target=self.los_controller.loop, daemon=True)
+
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
 
     def close(self):
         self.comms.close(True)
+        self.send_msg('vel_com', 0)
 
     def send_msg(self, var, val):
-        self.comms.notify(var, val, pm.time())
+        # heading command = yaw_com
+        # 'north_com'
+        # 'east_com',
+        # 'depth_com'
+        # 'yaw_com',
+        # vel_com
+        if isinstance(val, str) or isinstance(val, float):
+            self.comms.notify(var, val, pm.time())
+        else:
+            self.comms.notify(var, str(val), pm.time())
 
     def bins_queue(self, msg):
         try:
@@ -85,13 +114,13 @@ class MoosMsgs(QObject):
         self.logger_pose.debug('Message recieved. Type{}'.format(type(msg)))
         if msg.key() == 'currentNEDPos_x':
             self.logger_pose.debug('NEDPos x received')
-            self.cur_pos_msg.lat = msg.double()
+            self.cur_pos_msg.north = msg.double()
         if msg.key() == 'currentNEDPos_y':
             self.logger_pose.debug('NEDPos y received')
-            self.cur_pos_msg.long = msg.double()
+            self.cur_pos_msg.east = msg.double()
         if msg.key() == 'currentNEDPos_rz':
             self.logger_pose.debug('NEDPos rz received')
-            self.cur_pos_msg.psi = msg.double()
+            self.cur_pos_msg.yaw = msg.double()
         return True
 
     def waypoints_queue(self, msg):
@@ -130,4 +159,42 @@ class MoosMsgs(QObject):
         if Settings.collision_avoidance:
             self.comms.register('waypoints', 0)
             self.comms.register('waypoint_counter', 0)
+        return True
+
+    @threaded
+    def update_wps(self, wp_list):
+        if Settings.enable_autopilot:
+            if len(wp_list) < 2:
+                return
+            with self.wp_update_in_progress:
+                if LosSettings.enable_los:
+                    if self.los_thread.isAlive():
+                        self.los_restart_event.set()
+                        self.los_stop_event.set()
+                        self.los_thread.join()
+                        self.los_stop_event.clear()
+                        self.los_restart_event.clear()
+                    self.los_controller.update_wps(wp_list)
+                    self.los_controller.update_pos(self.cur_pos_msg)
+                    self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+                    self.los_thread.start()
+                    self.los_start_event.set()
+                    return
+
+    @threaded
+    def stop_and_turn(self, theta):
+        if Settings.enable_autopilot:
+            self.logger.info('Stop and turn {:.2f} deg'.format(theta * 180.0 / np.pi))
+            if LosSettings.enable_los:
+                if self.los_thread.isAlive():
+                    self.los_stop_event.set()
+                    self.los_thread.join()
+                    self.los_stop_event.clear()
+            else:
+                self.stop_autopilot()
+            self.send_msg('yaw_com', theta + self.cur_pos_msg.yaw)
+
+    @threaded
+    def stop_autopilot(self):
+        self.send_msg('vel_com', 0)
         return True

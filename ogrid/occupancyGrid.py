@@ -444,14 +444,17 @@ class OccupancyGrid(RawGrid):
     #     return np.nonzero(new_data >= threshold)[0]
 
     def get_hit_inds(self, msg, threshold):
-        threshold = min(max(threshold * msg.ad_span / 255.0 + msg.ad_low, 0), 255)
-        # by normal threshold
-        # new_data = self.interpolate_bins(msg)
-        mean = np.mean(msg.data)
-        max_val = np.max(msg.data)
-        threshold = max(max_val - (max_val - mean) / 8, threshold)
-        # print(threshold)
-        return np.round(np.nonzero(msg.data >= threshold)[0] * self.MAX_BINS / msg.dbytes).astype(int)
+        if Settings.input_source == 0:
+            threshold = min(max(threshold * msg.ad_span / 255.0 + msg.ad_low, 0), 255)
+            # by normal threshold
+            # new_data = self.interpolate_bins(msg)
+            mean = np.mean(msg.data)
+            max_val = np.max(msg.data)
+            threshold = max(max_val - (max_val - mean) / 8, threshold)
+            # print(threshold)
+            return np.round(np.nonzero(msg.data >= threshold)[0] * self.MAX_BINS / msg.dbytes).astype(int)
+        else:
+            return np.round(np.nonzero(np.array(msg.data) >= threshold)[0] * self.MAX_BINS / msg.dbytes).astype(int)
 
     # def get_hit_inds(self, msg, threshold):
     #     threshold = min(max(threshold*msg.ad_span/255.0 + msg.ad_low, 0), 255)

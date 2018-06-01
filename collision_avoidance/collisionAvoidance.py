@@ -497,7 +497,7 @@ class CollisionAvoidance:
 
     def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status, orig_list):
         if Settings.save_collision_info:
-            savemat('C:/Users/Ørjan/Desktop/logs/collision_info{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={
+            savemat('{}collision_info{}'.format(Settings.log_folder, strftime("%Y%m%d-%H%M%S")), mdict={
                 'old_wps': self.waypoint_list, 'new_wps': self.new_wp_list, 'voronoi_indices': self.voronoi_wp_list,
                 'voronoi_start_wp': start_wp, 'voronoi_start_region': start_region, 'voronoi_end_wp': end_wp,
                 'voronoi_end_region': end_region, 'voronoi_points': vp.points, 'voronoi_vertices': vp.vertices,
@@ -580,7 +580,7 @@ class CollisionAvoidance:
                 self.path_time.append(strftime("%Y%m%d-%H%M%S"))
             # np.savez('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
             # savemat('pySonarLog/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), paths=np.array(self.paths), pos=np.array(self.pos))
-            savemat('C:/Users/Ørjan/Desktop/logs/paths_{}'.format(strftime("%Y%m%d-%H%M%S")), mdict={'paths': paths, 'pos': np.array(self.pos), 'path_time': self.path_time})
+            savemat('{}paths_{}'.format(Settings.log_folder, strftime("%Y%m%d-%H%M%S")), mdict={'paths': paths, 'pos': np.array(self.pos), 'path_time': self.path_time})
 
     def draw_wps_on_grid(self, im2, pos, ok):
 

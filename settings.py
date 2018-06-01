@@ -7,7 +7,7 @@ class Settings:
     enable_autopilot = True
     auto_settings = True
     # 0 == udp, 1 == MOOS
-    input_source = 0
+    input_source = 1
     pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2
@@ -15,10 +15,17 @@ class Settings:
     update_type = 1
     pos_update_speed = 100  # ms
 
+    if input_source == 0:
+        log_folder = 'C:/Users/Ørjan/Desktop/logs/'
+    else:
+        log_folder = '/home/orjangr/Repos/pySonar/pySonarLog/sim_log/'
 
     hist_window = False
     collision_avoidance = True
-    show_map = False
+    if input_source == 0:
+        show_map = False
+    else:
+        show_map = True
     show_wp_on_grid = True
     show_voronoi_plot = False
     show_pos = True
@@ -58,7 +65,10 @@ class CollisionSettings:
 
     colinear_angle = 2*np.pi/180.0
 
-    tracking_speed = 0.5
+    if Settings.input_source == 0:
+        tracking_speed = 0.5
+    else:
+        tracking_speed = 0.8
     dummy_wp_factor = (2, 0)
     use_fermat = True
     cubic_smoothing_discrete_step = 0.1
@@ -140,7 +150,10 @@ class MapSettings:
     obstacle_brush = QBrush(obstacle_color)
 
 class GridSettings:
-    threshold = 170
+    if Settings.input_source == 0:
+        threshold = 170
+    else:
+        threshold = 40
     half_grid = False
     p_inital = 0.5
     p_binary_threshold = 0.6

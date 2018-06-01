@@ -246,7 +246,6 @@ class MainWidget(QtGui.QWidget):
                     self.collision_avoidance = CollisionAvoidance(self.moos_msg_client, self.voronoi_plot_item)
                 else:
                     self.collision_avoidance = CollisionAvoidance(self.moos_msg_client)
-                self.moos_msg_client.signal_new_wp.connect(self.wp_received)
             else:
                 if Settings.show_voronoi_plot:
                     self.collision_avoidance = CollisionAvoidance(self.udp_client, self.voronoi_plot_item)
@@ -307,8 +306,12 @@ class MainWidget(QtGui.QWidget):
                 self.east.setText('{:.2f}'.format(msg.east))
                 self.heading.setText('{:.1f}'.format(msg.yaw*180.0/np.pi))
                 if LosSettings.enable_los and Settings.enable_autopilot:
-                    e, s = self.udp_client.los_controller.get_errors()
-                    self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
+                    if Settings.input_source == 0:
+                        e, s = self.udp_client.los_controller.get_errors()
+                        self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
+                    else:
+                        e, s = self.moos_msg_client.los_controller.get_errors()
+                        self.collision_avoidance.update_external_wps(wp_counter=self.moos_msg_client.los_controller.get_wp_counter())
                     self.along_track.setText('{:.2f}'.format(s))
                     self.cross_track.setText('{:.2f}'.format(e))
             # if self.last_pos_msg is None:
@@ -401,8 +404,8 @@ class MainWidget(QtGui.QWidget):
             right = np.mean(self.grid.grid[:, 801:])
             if Settings.input_source == 0:
                 self.udp_client.stop_and_turn(np.sign(left-right) * 15* np.pi / 180.0)
-            elif Settings.show_map:
-                self.map_widget.invalidate_wps()
+            else:
+                self.moos_msg_client.stop_and_turn(np.sign(left - right) * 15 * np.pi / 180.0)
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
@@ -469,7 +472,10 @@ class MainWidget(QtGui.QWidget):
             wp_list.insert(0, [wp0[0], wp0[1], 2.0])
             self.collision_avoidance.update_external_wps(wp_list, 0)
             self.collision_avoidance.save_paths(wp_list)
-            self.udp_client.update_wps(wp_list)
+            if Settings.input_source == 0:
+                self.udp_client.update_wps(wp_list)
+            else:
+                self.moos_msg_client.update_wps(wp_list)
             self.plot_updated = True
 
     def wp_straight_ahead_clicked(self):
@@ -488,7 +494,10 @@ class MainWidget(QtGui.QWidget):
 
             wp1 = [wp1[0], wp1[1], 140, 0.5]
             self.collision_avoidance.update_external_wps([wp0, wp1], 0)
-            self.udp_client.update_wps([wp0, wp1])
+            if Settings.input_source == 0:
+                self.udp_client.update_wps([wp0, wp1])
+            else:
+                self.moos_msg_client.update_wps([wp0, wp1])
             self.plot_updated = True
 
     def randomize_occ_grid(self):
@@ -515,10 +524,13 @@ class CollisionAvoidanceWorker(QtCore.QRunnable):
 
     @QtCore.pyqtSlot()
     def run(self):
-        status = self.collision_avoidance.main_loop(self.reliable)
-        if status is None:
-            status = CollisionStatus.NOT_ENOUGH_INFO
-        self.signals.finished.emit(status)
+        try:
+            status = self.collision_avoidance.main_loop(self.reliable)
+            if status is None:
+                status = CollisionStatus.NOT_ENOUGH_INFO
+            self.signals.finished.emit(status)
+        except Exception as e:
+            logger.error('Collision worker', e)
 
     def set_reliable(self, reliable):
         self.reliable = reliable
@@ -579,11 +591,14 @@ class GridWorker(QtCore.QRunnable):
                 if self.last_pos is None:
                     if pos.north != 0 and pos.east != 0:
                         self.last_pos = pos
+                    # print('pos is none')
                 else:
+                    # print([pos.yaw, self.last_pos.yaw])
                     diff = pos - self.last_pos
                     # self.dx += diff.dx
                     # logger.debug(str(diff))
-                    self.last_pos = pos
+                    self.last_pos = deepcopy(pos)
+                    # print(pos)
                     self.grid.trans_and_rot(diff)
                 if Settings.plot_type == 0:
                     for msg in msg_list:
@@ -628,7 +643,7 @@ class GridWorker(QtCore.QRunnable):
         else:
             c = self.grid.contours
         if pos.north != 0 and pos.east != 0:
-            savemat('C:/Users/Ørjan/Desktop/logs/obstacles{}'.format(strftime("%Y%m%d-%H%M%S")),
+            savemat('{}obstacles{}'.format(Settings.log_folder, strftime("%Y%m%d-%H%M%S")),
                     mdict={'grid': self.grid.grid.astype(np.float16), 'obs': c,
                            'pos': np.array([pos.north, pos.east, pos.yaw]), 'range_scale': self.grid.range_scale})
 
@@ -668,3 +683,5 @@ if __name__ == '__main__':
         np.savez('pySonarLog/scan_lines_{}'.format(strftime("%Y%m%d-%H%M%S")), scan_lines=np.array(window.login_widget.scan_lines))
     if Settings.input_source == 0:
         window.login_widget.udp_client.close()
+    else:
+        window.login_widget.moos_msg_client.close()
