@@ -6,8 +6,15 @@ if ~exist('first', 'var')
     first = false;
 end
 [filepath,fname,~] = fileparts(name);
-pngpath = [filepath, '\png\'];
-pngname = [pngpath, fname];
+if contains(filepath, '\')
+    % Windows
+    folder_char = '\';
+else
+    folder_char = '/';
+end
+
+pngpath = char(strcat(filepath, folder_char, 'png', folder_char));
+pngname = char(strcat(pngpath, fname));
 if first
     ax = gca;
     outerpos = ax.OuterPosition;

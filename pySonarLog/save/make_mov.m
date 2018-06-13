@@ -1,7 +1,10 @@
 clear, close all
 speed = 7;
-save_figs = false;
+save_figs = true;
 columns = 2;
+
+folder_char = "/"; % Linux
+% folder_char = "\"; % windows
 
 % f = "05_15_collision avoidance_test\15_30_no_smoothing";
 % limits = [4.579312341240512e+05 4.580370455463799e+05 6.821491079279837e+06 6.821596890702165e+06];
@@ -13,10 +16,10 @@ columns = 2;
 % limits_fig = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
-f = "05_15_collision avoidance_test\15_39_best";
-limits = [4.579181689817930e+05 4.580551459175702e+05 6.821486453806412e+06 6.821623430742187e+06];
-limits_fig = [4.579280826496579e+05 4.580715513792954e+05 6.821473206046199e+06 6.821616674775839e+06];
-ed50 = false;
+% f = "05_15_collision avoidance_test\15_39_best";
+% limits = [4.579181689817930e+05 4.580551459175702e+05 6.821486453806412e+06 6.821623430742187e+06];
+% limits_fig = [4.579280826496579e+05 4.580715513792954e+05 6.821473206046199e+06 6.821616674775839e+06];
+% ed50 = false;
 
 % f = "05_15_collision avoidance_test\08_49_rundtur_rundt_k_veldig_bra";
 % limits = [4.580005517000641e+05 4.581564010136597e+05 6.821699089349379e+06 6.821854938662973e+06];
@@ -33,11 +36,11 @@ ed50 = false;
 % limits = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
-% f = "05_19 Collision Test\13_27 dårlig los";
+% f = "05_19 Collision Test\13_27 dï¿½rlig los";
 % limits = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
-% f = "05_19 Collision Test\13_32 dårlig lps";
+% f = "05_19 Collision Test\13_32 dï¿½rlig lps";
 % limits = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
@@ -45,10 +48,20 @@ ed50 = false;
 % limits = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
+f = "06_13_sim_trap_situation";
+limits = [-48.941005524189904,86.802224906218840,-67.393094788290500,39.668904696338345];
+limits_fig = [-48.941005524189904,86.802224906218840,-67.393094788290500,39.668904696338345];
+sim = true;
+
+
+if ~exist('sim', 'var')
+    sim = false;
+end
+
 %% Start
 if ~save_figs
-%     v = VideoWriter(char(f + ".avi"));
-    v = VideoWriter(char(f), 'MPEG-4');
+    v = VideoWriter(char(f), 'avi');
+%     v = VideoWriter(char(f), 'MPEG-4');
     v.FrameRate = 30;
     v.Quality = 100;
     open(v);
@@ -86,7 +99,7 @@ pos_mat = [];
 path_counter = 1;
 for i = 1:length(listing)
     if startsWith(listing(i).name, 'paths')
-        load(char(listing(i).folder + "\" + listing(i).name));
+        load(char(listing(i).folder + folder_char + listing(i).name));
         pos_mat = [pos_mat; pos];
         s = size(paths);
         if iscell(paths)
@@ -120,7 +133,7 @@ for i = 1:length(f_time)
     delete([all_obj l1]);
     l1 = [];
     if startsWith(listing(f_ind(i)).name, 'collision')
-        load(strcat(listing(f_ind(i)).folder, '\', listing(f_ind(i)).name));
+        load(strcat(listing(f_ind(i)).folder, folder_char, listing(f_ind(i)).name));
         last_path = old_wps;
         new_path = new_wps;
     else
@@ -132,13 +145,17 @@ for i = 1:length(f_time)
             l1(end+1) =plot(new_path(:, 2), new_path(:, 1), 'm');
         end
     end
-    [fig, leg_text, leg, all_obj] = plot_obs_on_map(strcat(listing(f_ind(i)).folder, '\', listing(f_ind(i)).name), 'r', fig);
+    [fig, leg_text, leg, all_obj] = plot_obs_on_map(strcat(listing(f_ind(i)).folder, folder_char, listing(f_ind(i)).name), 'r', fig);
     uistack(all_obj, 'bottom');
     if first
-        if ed50
-            [fig, leg_text2, leg2] = plot_map_ed50(fig);
+        if sim
+            [fig, leg2, leg_text2] = plotMapSim(fig);
         else
-            [fig, leg_text2, leg2] = plot_map(fig);
+            if ed50
+                [fig, leg_text2, leg2] = plot_map_ed50(fig);
+            else
+                [fig, leg_text2, leg2] = plot_map(fig);
+            end
         end
         l(1) = plot(pos_mat(:, 2), pos_mat(:, 1), 'b');
         l_t = {'Actual Path'};
@@ -166,7 +183,7 @@ for i = 1:length(f_time)
     drawnow;
     if save_figs
         n = split(listing(f_ind(i)).name, '.');
-        save_fig(fig, strcat(listing(f_ind(i)).folder, '\figs\', n{1}), first)
+        save_fig(fig, strcat(listing(f_ind(i)).folder, folder_char, 'figs', folder_char, n{1}), first)
     else
         f = getframe();
 

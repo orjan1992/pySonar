@@ -81,19 +81,19 @@ class CollisionAvoidance:
             else:
                 # logger.info('No collision danger')
                 stat = CollisionStatus.NO_DANGER
-                if self.waypoint_list is not None and self.obstacles is not None and len(self.waypoint_list) > 0:
-                    self.path_ok_counter += 1
-
-                    if self.path_ok_counter > 100:
-                        logger.info('Recalculating route to check for shorter path')
-                        stat = self.calc_new_wp()
-                        if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
-                            logger.info('Collision danger: could not calculate feasible path. Time: {}'.format(time() - t0))
-                        elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
-                            logger.info('Smooth path violates margin. Time: {}'.format(time() - t0))
-                        elif stat == CollisionStatus.NEW_ROUTE_OK:
-                            logger.info('New route ok. Time: {}'.format(time() - t0))
-                        self.path_ok_counter = 0
+                # if self.waypoint_list is not None and self.obstacles is not None and len(self.waypoint_list) > 0:
+                #     self.path_ok_counter += 1
+                #
+                #     if self.path_ok_counter > 100:
+                #         logger.info('Recalculating route to check for shorter path')
+                #         stat = self.calc_new_wp()
+                #         if stat == CollisionStatus.NO_FEASIBLE_ROUTE:
+                #             logger.info('Collision danger: could not calculate feasible path. Time: {}'.format(time() - t0))
+                #         elif stat == CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
+                #             logger.info('Smooth path violates margin. Time: {}'.format(time() - t0))
+                #         elif stat == CollisionStatus.NEW_ROUTE_OK:
+                #             logger.info('New route ok. Time: {}'.format(time() - t0))
+                #         self.path_ok_counter = 0
             return stat
         else:
             return CollisionStatus.NOT_ENOUGH_INFO
@@ -473,7 +473,7 @@ class CollisionAvoidance:
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
-                    self.msg_client.send_msg('new_waypoints', str(self.new_wp_list))
+                    self.msg_client.update_wps(self.new_wp_list)
                 else:
                     self.path_ok = True
                     if CollisionSettings.use_fermat:

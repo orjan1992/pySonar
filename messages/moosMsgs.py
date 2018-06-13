@@ -65,6 +65,9 @@ class MoosMsgs(QObject):
         self.comms.run(host, port, name)
 
     def close(self):
+        if LosSettings.enable_los:
+            self.los_stop_event.set()
+            self.los_thread.join()
         self.comms.close(True)
         self.send_msg('vel_com', 0)
 
@@ -121,6 +124,16 @@ class MoosMsgs(QObject):
         if msg.key() == 'currentNEDPos_rz':
             self.logger_pose.debug('NEDPos rz received')
             self.cur_pos_msg.yaw = msg.double()
+        if msg.key() == 'currentVEHVel_r':
+            self.logger_pose.debug('currentVEHVel_r received')
+            self.cur_pos_msg.r = msg.double()
+        if msg.key() == 'currentVEHVel_u':
+            self.logger_pose.debug('currentVEHVel_u received')
+            self.cur_pos_msg.u = msg.double()
+        if msg.key() == 'currentVEHVel_v':
+            self.logger_pose.debug('currentVEHVel_v received')
+            self.cur_pos_msg.v = msg.double()
+        self.los_start_event.set()
         return True
 
     def waypoints_queue(self, msg):
@@ -141,6 +154,9 @@ class MoosMsgs(QObject):
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentNEDPos_rz')
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentNEDPos_x')
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentNEDPos_y')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_r')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_u')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_v')
         self.comms.add_active_queue('bins_queue', self.bins_queue)
         self.comms.add_message_route_to_active_queue('bins_queue', 'bins')
         if Settings.collision_avoidance:
@@ -154,6 +170,9 @@ class MoosMsgs(QObject):
         self.comms.register('currentNEDPos_rz', 0)
         self.comms.register('currentNEDPos_x', 0)
         self.comms.register('currentNEDPos_y', 0)
+        self.comms.register('currentVEHVel_r', 0)
+        self.comms.register('currentVEHVel_u', 0)
+        self.comms.register('currentVEHVel_v', 0)
         self.comms.register('bins', 0)
 
         if Settings.collision_avoidance:
@@ -163,23 +182,21 @@ class MoosMsgs(QObject):
 
     @threaded
     def update_wps(self, wp_list):
-        if Settings.enable_autopilot:
-            if len(wp_list) < 2:
-                return
-            with self.wp_update_in_progress:
-                if LosSettings.enable_los:
-                    if self.los_thread.isAlive():
-                        self.los_restart_event.set()
-                        self.los_stop_event.set()
-                        self.los_thread.join()
-                        self.los_stop_event.clear()
-                        self.los_restart_event.clear()
-                    self.los_controller.update_wps(wp_list)
-                    self.los_controller.update_pos(self.cur_pos_msg)
-                    self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
-                    self.los_thread.start()
-                    self.los_start_event.set()
-                    return
+        if len(wp_list) < 2:
+            return
+        with self.wp_update_in_progress:
+            if self.los_thread.isAlive():
+                self.los_restart_event.set()
+                self.los_stop_event.set()
+                self.los_thread.join()
+                self.los_stop_event.clear()
+                self.los_restart_event.clear()
+            self.los_controller.update_wps(wp_list)
+            self.los_controller.update_pos(self.cur_pos_msg)
+            self.los_thread = threading.Thread(target=self.los_controller.loop, daemon=True)
+            self.los_thread.start()
+            self.los_start_event.set()
+            return
 
     @threaded
     def stop_and_turn(self, theta):
@@ -196,5 +213,22 @@ class MoosMsgs(QObject):
 
     @threaded
     def stop_autopilot(self):
-        self.send_msg('vel_com', 0)
+        self.send_msg('vel_com', 0.0)
+        counter = 0
+        n_set = 1
+        max = 20
+        surge = np.ones(max)
+        surge[0] = self.cur_pos_msg.u
+        acc = 1
+        while abs(np.sum(surge) / n_set) > 0.02:
+            # print(np.sum(v_surge)/n_set, acc)
+            self.los_start_event.clear()
+            self.los_start_event.wait(0.1)
+            counter += 1
+            if counter == max:
+                counter = 0
+            surge[counter] = self.cur_pos_msg.u
+            acc = abs((surge[counter] - surge[counter - 1]) / 0.1)
+            if n_set < max:
+                n_set += 1
         return True

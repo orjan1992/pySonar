@@ -103,6 +103,7 @@ class LosController:
             logger.info('Surge speed adjusted to {:.2f} m/s'.format(speed))
 
     def loop(self):
+        logger.info('New path received')
         if len(self.wp_list) < 2 or self.pos_msg is None:
             logger.info('To few waypoints. Returning to Stationkeeping.')
             self.msg_client.stop_autopilot()
@@ -114,6 +115,10 @@ class LosController:
             timestamp = []
             delta_log = []
             e_log = []
+            wp_change = []
+            roa_log = []
+            slow_down_dist_log = []
+            slown_down_vel_log = []
 
         self.surge_speed = 0
         # Initial check
@@ -124,7 +129,7 @@ class LosController:
         if (segment_length(wp_list[0], (pos_msg.north, pos_msg.east)) > LosSettings.roa or
                 abs(start_chi - pos_msg.yaw) > LosSettings.start_heading_diff) and \
                 not (segment_lengths[0] - delta > 0 and abs(e) < LosSettings.roa):
-            logger.info('Not on path, s: {:.2f}, e: {:.2f}'.format(segment_lengths[0] - delta, e))
+            logger.info('Not on path, s: {:.2f}, e: {:.2f}, d_psi: {:.2f}'.format(segment_lengths[0] - delta, e, (start_chi - pos_msg.yaw)*180.0/np.pi))
             # Wait for low speed before stationkeeping
             # logger.info('Speed to high to start LOS-guidance')
             # self.set_speed(0)
@@ -145,9 +150,12 @@ class LosController:
                 self.msg_client.send_msg('east_com', wp_list[0][1])
                 self.msg_client.send_msg('depth_com', wp_list[0][2])
                 self.msg_client.send_msg('yaw_com', start_chi)
-            logger.info('To far from inital setpoint. Moving to: '
-                        '[N={:.6f}, E={:.6f}, D={:.2f}, YAW={:.2f} deg]'.format(wp_list[0][0], wp_list[0][1],
-                                                                  wp_list[0][2], start_chi*180.0/np.pi))
+            # logger.info('To far from inital setpoint. Moving to: '
+            #             '[N={:.6f}, E={:.6f}, D={:.2f}, YAW={:.2f} deg]'.format(wp_list[0][0], wp_list[0][1],
+            #                                                       wp_list[0][2], start_chi*180.0/np.pi))
+            logger.info('To far from inital setpoint. Yaw_hat:{:.2f}, north_hat: {:.2f}, east_hat: {:.2f}'.format(
+                (start_chi - pos_msg.yaw)*180.0/np.pi, wp_list[0][0]-pos_msg.north, wp_list[0][1]-pos_msg.east
+            ))
 
             while self.start_event.wait() and not self.stopped_event.isSet() and \
                     (segment_length(wp_list[0], (pos_msg.north, pos_msg.east)) > 1 or
@@ -156,14 +164,16 @@ class LosController:
 
         if Settings.input_source == 0:
             self.msg_client.switch_ap_mode(ap.GuidanceModeOptions.CRUISE_MODE)
-        self.set_speed(self.normal_surge_speed)
-        if LosSettings.log_paths:
-            chi_log.append(chi)
-            surge_log.append(self.surge_speed)
-            timestamp.append(datetime.now().strftime("%H:%M:%S"))
-            delta_log .append(delta)
-            e_log.append(e)
+        # self.set_speed(self.normal_surge_speed)
         turn_speed, slow_down_dist = self.turn_vel(0)
+        if segment_lengths[wp_counter] < LosSettings.roa:
+            self.roa = segment_lengths[wp_counter] / 2
+        else:
+            self.roa = LosSettings.roa
+        if LosSettings.log_paths:
+            roa_log.append(self.roa)
+            slow_down_dist_log.append(slow_down_dist)
+            slown_down_vel_log.append(turn_speed)
         # logger.info('Setting cruise speed: {} m/s'.format(self.surge_speed))
         if Settings.input_source == 0:
             self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[0][2], ap.Dofs.DEPTH, True))
@@ -171,8 +181,19 @@ class LosController:
         else:
             self.msg_client.send_msg('depth_com', wp_list[0][2])
             self.msg_client.send_msg('yaw_com', wrapTo2Pi(chi))
-
-        while self.start_event.wait() and not self.stopped_event.isSet() and self.wp_counter < len(self.wp_list):
+        if 0 > slow_down_dist >= delta:
+            self.set_speed(turn_speed)
+        else:
+            self.set_speed(self.normal_surge_speed)
+        if LosSettings.log_paths:
+            chi_log.append(chi)
+            surge_log.append(self.surge_speed)
+            timestamp.append(datetime.now().strftime("%H:%M:%S"))
+            delta_log .append(delta)
+            e_log.append(e)
+            wp_change.append(datetime.now().strftime("%H:%M:%S"))
+        logger.info('Path Started')
+        while not self.stopped_event.isSet() and self.start_event.wait() and self.wp_counter < len(self.wp_list):
             pos_msg = self.get_pos()
 
             # Get new setpoint
@@ -185,13 +206,18 @@ class LosController:
             # Check if ROA
             if delta < self.roa:
                 wp_counter += 1
-
+                if LosSettings.log_paths:
+                    wp_change.append(datetime.now().strftime("%H:%M:%S"))
                 try:
                     turn_speed, slow_down_dist = self.turn_vel(wp_counter)
                     if segment_lengths[wp_counter] < LosSettings.roa:
                         self.roa = segment_lengths[wp_counter] / 2
                     else:
                         self.roa = LosSettings.roa
+                    if LosSettings.log_paths:
+                        roa_log.append(self.roa)
+                        slow_down_dist_log.append(slow_down_dist)
+                        slown_down_vel_log.append(turn_speed)
                     if Settings.input_source == 0:
                         self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
                     else:
@@ -207,17 +233,18 @@ class LosController:
                                                                                                     self.roa))
 
             # Check if slow down
-            if slow_down_dist >= 0 and delta <= slow_down_dist:
+            if 0 > slow_down_dist >= delta:
                 self.set_speed(turn_speed)
             else:
                 self.set_speed(self.normal_surge_speed)
 
             # Send new setpoints
             if abs(chi - self.last_chi) > LosSettings.send_new_heading_limit:
+                logger.info('Chi: {:2f}'.format(wrapTo2Pi(chi)*180.0/np.pi))
                 if Settings.input_source == 0:
                     self.msg_client.send_autopilot_msg(ap.Setpoint(wrapTo2Pi(chi), ap.Dofs.YAW, True))
                 else:
-                    self.msg_client.send_msg('yaw_com', str(wrapTo2Pi(chi)))
+                    self.msg_client.send_msg('yaw_com', wrapTo2Pi(chi))
                 self.last_chi = chi
             if LosSettings.log_paths:
                 chi_log.append(chi)
@@ -240,7 +267,9 @@ class LosController:
         if LosSettings.log_paths:
             savemat('{}Los_log_{}'.format(Settings.log_folder, datetime.now().strftime("%Y%m%d-%H%M%S")), mdict={
                 'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list,
-                'delta': np.array(delta_log), 'cross_track': np.array(e_log)})
+                'delta': np.array(delta_log), 'cross_track': np.array(e_log),
+                'slow_down_dist': np.array(slow_down_dist_log), 'roa': np.array(roa_log),
+                'slow_down_vel': np.array(slown_down_vel_log), 'wp_change': wp_change})
 
 
     def update_pos(self, msg):

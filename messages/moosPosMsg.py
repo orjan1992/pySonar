@@ -68,7 +68,7 @@ class MoosPosMsg(Sensor):
         return 'north: {:5f},\teast: {:5f}\t, yaw: {:5f}'.format(self.north, self.east, self.yaw*180/pi)
 
     def to_tuple(self):
-        return self.north, self.east, self.alt, self.yaw
+        return self.north, self.east, self.alt, self.yaw, self.u, self.v, self.r
 
 
 if __name__ == '__main__':

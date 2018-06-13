@@ -65,10 +65,6 @@ class CollisionSettings:
 
     colinear_angle = 2*np.pi/180.0
 
-    if Settings.input_source == 0:
-        tracking_speed = 0.5
-    else:
-        tracking_speed = 0.8
     dummy_wp_factor = (2, 0)
     use_fermat = True
     cubic_smoothing_discrete_step = 0.1
@@ -87,7 +83,7 @@ class LosSettings:
     look_ahead_time = 20
     roa = 2
     # look_ahead_distance =
-    send_new_heading_limit = 0.5*np.pi/180.0
+    send_new_heading_limit = 0.1*np.pi/180.0  # 0.5*np.pi/180.0
 
     max_heading_change = 5*np.pi/180.0  # Rad/m
     max_acc = 0.12

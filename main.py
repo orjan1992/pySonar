@@ -413,6 +413,8 @@ class MainWidget(QtGui.QWidget):
         elif status is CollisionStatus.NEW_ROUTE_OK:
             if Settings.show_wp_on_grid:
                 self.plot_updated = True
+            if Settings.show_map:
+                self.map_widget.update_avoidance_waypoints(self.collision_avoidance.new_wp_list)
         # if Settings.save_obstacles and status is not CollisionStatus.NO_DANGER:
         #     self.grid_worker.save_obs()
         self.collision_avoidance_timer.start(Settings.collision_avoidance_interval)
@@ -455,15 +457,46 @@ class MainWidget(QtGui.QWidget):
             # tilbake til cage
             # wp_list = [[6821542.3467, 457982.3875, 3], [6821547.7327, 457964.8864, 3], [6821562.6476, 457933.8468, 3], [6821587.5058, 457940.451, 3], [6821589.163, 457953.6593, 3]]
             # fra cage
-            wp_list = [[6821570.5194, 457957.6218, 3],
-                        [6821543.5897, 457960.9239, 3],
-                        [6821522.4602, 457977.7645, 3],
-                        [6821533.2321, 458012.7666, 3],
-                        [6821529.5033, 458036.2114, 3],
-                        [6821500.0878, 458035.2208, 3],
-                        [6821494.2875, 458018.7104, 3],
-                        [6821515.8313, 457980.7364, 3],
-                        [6821591.2346, 457974.4625, 3]]
+            # wp_list = [[6821570.5194, 457957.6218, 3],
+            #             [6821543.5897, 457960.9239, 3],
+            #             [6821522.4602, 457977.7645, 3],
+            #             [6821533.2321, 458012.7666, 3],
+            #             [6821529.5033, 458036.2114, 3],
+            #             [6821500.0878, 458035.2208, 3],
+            #             [6821494.2875, 458018.7104, 3],
+            #             [6821515.8313, 457980.7364, 3],
+            #             [6821591.2346, 457974.4625, 3]]
+
+            # Collision course
+            wp_list = [  # [-18.6391, -35.7085, 3],
+                    [-8.0101, -12.9843, 3],
+                    [10.6824, -5.2874, 3],
+                    [26.9924, 5.5249, 3],
+                    [26.8092, 34.6631, 3],
+                    [42.7527, 41.8102, 3]]
+
+            # Round course
+            # wp_list = [[-18.6391, -35.7085, 3],
+            #            [8.6131, -28.2849, 3],
+            #             [19.6799, -25.0458, 3],
+            #             [25.6182, -19.1076, 3],
+            #             [21.8393, -16.1384, 3],
+            #             [15.0912, -13.979, 3],
+            #             [12.1221, 0.056907, 3],
+            #             [7.5334, 7.0749, 3],
+            #             [-0.83417, 4.6456, 3],
+            #             [-7.3123, -6.9611, 3],
+            #             [-19.9986, -8.0408, 3],
+            #             [-28.3662, 13.553, 3],
+            #             [-29.7158, 35.6866, 3],
+            #             [-24.3174, 40.8151, 3],
+            #             [-12.9807, 41.6249, 3],
+            #             [4.2944, 37.846, 3],
+            #             [5.374, 27.319, 3],
+            #             [6.4537, 10.3139, 3],
+            #             [14.0116, 0.056907, 3],
+            #             [14.8213, -14.7888, 3],
+            #             [17.7905, -28.2849, 3]]
             wp_list = fermat(wp_list)[0]
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(wp_list[0][0],wp_list[0][1], np.pi)
@@ -476,6 +509,8 @@ class MainWidget(QtGui.QWidget):
                 self.udp_client.update_wps(wp_list)
             else:
                 self.moos_msg_client.update_wps(wp_list)
+                if Settings.show_map:
+                    self.map_widget.update_waypoints(wp_list, 0)
             self.plot_updated = True
 
     def wp_straight_ahead_clicked(self):
@@ -486,18 +521,28 @@ class MainWidget(QtGui.QWidget):
                 if self.last_pos_msg is None:
                     self.last_pos_msg = MoosPosMsg(6821592.4229, 457959.8588, 0, 2)
                     self.collision_avoidance.update_pos(self.last_pos_msg)
-                wp1 = vehicle2NED(self.grid.range_scale*CollisionSettings.dummy_wp_factor[0],
-                                  self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                wp1 = vehicle2NED(self.grid.range_scale*.05*CollisionSettings.dummy_wp_factor[0],
+                                  self.grid.range_scale*.05 * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
                                  self.last_pos_msg.east, self.last_pos_msg.yaw)
+                wp2 = vehicle2NED(self.grid.range_scale*.2 * CollisionSettings.dummy_wp_factor[0],
+                                  self.grid.range_scale*.2 * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                                  self.last_pos_msg.east, self.last_pos_msg.yaw)
+                wp3 = vehicle2NED(self.grid.range_scale * CollisionSettings.dummy_wp_factor[0],
+                                  self.grid.range_scale * CollisionSettings.dummy_wp_factor[1], self.last_pos_msg.north,
+                                  self.last_pos_msg.east, self.last_pos_msg.yaw)
                 wp0 = vehicle2NED(1, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
                 wp0 = [wp0[0], wp0[1], 140, 0.5]
 
             wp1 = [wp1[0], wp1[1], 140, 0.5]
-            self.collision_avoidance.update_external_wps([wp0, wp1], 0)
+            wp2 = [wp2[0], wp2[1], 140, 0.5]
+            wp3 = [wp3[0], wp3[1], 140, 0.5]
+            self.collision_avoidance.update_external_wps([wp0, wp1, wp2, wp3], 0)
             if Settings.input_source == 0:
                 self.udp_client.update_wps([wp0, wp1])
             else:
-                self.moos_msg_client.update_wps([wp0, wp1])
+                self.moos_msg_client.update_wps([wp0, wp1, wp2, wp3])
+                if Settings.show_map:
+                    self.map_widget.update_waypoints([wp0, wp1, wp2, wp3], 0)
             self.plot_updated = True
 
     def randomize_occ_grid(self):
