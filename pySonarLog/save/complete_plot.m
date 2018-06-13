@@ -10,24 +10,43 @@ save_figs = true;
 % ed50 = false;
 
 % f = "05_15_collision avoidance_test\08_49_rundtur_rundt_k_veldig_bra";
+% limits = [4.579268622579122e+05 4.580712316252046e+05 6.821494547608327e+06 6.821608413125433e+06];
+% % diff = [216.4842, 91.1046];
+% diff = [220.1061   91.5310];
+% % limits = [4.579894395242393e+05 4.581981087395944e+05 6.821670191097749e+06 6.821836430365582e+06];
+% % zoom_lim = [4.580254752487370e+05 4.581047304054406e+05 6.821759297541760e+06 6.821822437278015e+06];
+% ed50 = false;
+% f = "05_15_collision avoidance_test\08_49_rundtur_rundt_k_veldig_bra";
 % limits = [4.580253437163720e+05 4.581670163741691e+05 6.821714061669944e+06 6.821826927187094e+06];
 % % limits = [4.579894395242393e+05 4.581981087395944e+05 6.821670191097749e+06 6.821836430365582e+06];
 % % zoom_lim = [4.580254752487370e+05 4.581047304054406e+05 6.821759297541760e+06 6.821822437278015e+06];
 % ed50 = true;
 
-f = "06_13_sim/14_21_obj_det";
-limits = [-48.941005524189904,86.802224906218840,-67.393094788290500,39.668904696338345];
-% limits = [4.579894395242393e+05 4.581981087395944e+05 6.821670191097749e+06 6.821836430365582e+06];
-% zoom_lim = [4.580254752487370e+05 4.581047304054406e+05 6.821759297541760e+06 6.821822437278015e+06];
+f = "06_13_sim\14_21_obj_det";
+limits = [-48.227803287309860 38.172867687468724 -25.105000255043210 43.040045078290230];
+end_ind = 1800;
+oppacity = 0.2;
 sim = true;
 
-folder_char = "/"; % Linux
-% folder_char = "\"; % windows
+% folder_char = "/"; % Linux
+folder_char = "\"; % windows
 
+
+% f = "05_15_collision avoidance_test\08_49_rundtur_new_pos";
+% % limits = [4.578659906505865e+05 4.580887096161933e+05 6.821456367706740e+06 6.821632028310260e+06];
+% limits = [4.579052453425336e+05 4.581009944333989e+05 6.821454067461536e+06 6.821608456663849e+06];
+% zoom_lim = [4.579345073509259e+05 4.579957681600910e+05 6.821539475134597e+06 6.821587792127634e+06];
+% ed50 = false;
+% diff = [0, 0];
 if ~exist('sim', 'var')
     sim = false;
 end
-
+if ~exist('diff', 'var')
+    diff = [0, 0];
+end
+if ~exist('oppacity', 'var')
+    oppacity = 0.1;
+end
 %% sort
 listing = dir(char(f));
 for i = 1:length(listing)
@@ -99,7 +118,7 @@ for i = 1:length(f_time)
 %         end
     end
     [fig, leg_text, leg, all_obj] = plot_obs_on_map(strcat(listing(f_ind(i)).folder, ...
-        folder_char, listing(f_ind(i)).name), 'r', fig, false, 0.1);
+        folder_char, listing(f_ind(i)).name), 'r', fig, false, oppacity);
     
 %     drawnow;
 end
@@ -112,7 +131,12 @@ else
         [fig, leg_text2, leg2] = plot_map(fig);
     end
 end
-l(1) = plot(pos_mat(:, 2), pos_mat(:, 1), 'b');
+pos_mat(:, 1:2) = pos_mat(:, 1:2) -diff;
+if exist('end_ind', 'var')
+    l(1) = plot(pos_mat(1:end_ind, 2), pos_mat(1:end_ind, 1), 'b');
+else
+    l(1) = plot(pos_mat(:, 2), pos_mat(:, 1), 'b');
+end
 % pos_mat(end+1, :) = [NaN, NaN, NaN, NaN];
 % l(1) = patch(pos_mat(:, 2), pos_mat(:, 1), pos_mat(:, 4), 'EdgeColor', 'interp', 'LineWidth', 3);
 uistack(l(1), 'bottom');
@@ -125,11 +149,17 @@ axis equal;
 
 axis(limits);
 XTickLabel = get(gca,'XTick');
+XTickLabel = XTickLabel(1):10:XTickLabel(end);
+set(gca,'XTick', XTickLabel);
 set(gca,'XTickLabel',num2str(XTickLabel'))
-xtickangle(45)
+% xtickangle(45)
 YTickLabel = get(gca,'YTick');
+YTickLabel = YTickLabel(1):10:YTickLabel(end);
+set(gca,'YTick', YTickLabel);
 set(gca,'YTickLabel',num2str(YTickLabel'))
-ytickangle(45);
+% ytickangle(45);
+
+
 if save_figs
     save_fig(fig, char(f), true);
     if exist('zoom_lim', 'var')

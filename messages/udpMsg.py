@@ -9,6 +9,7 @@ from enum import Enum
 
 from messages.sensor import Sensor
 from settings import Map
+from time import strftime
 logger = logging.getLogger('SonarMsg')
 
 
@@ -185,7 +186,7 @@ class UdpPosMsg(Sensor):
                                                                                    self.alt, self.north, self.east)
 
     def to_tuple(self):
-        return self.north, self.east, self.alt, self.yaw
+        return self.north, self.east, self.alt, self.yaw, strftime("%Y%m%d-%H%M%S")
 
 class UdpPosMsgDiff:
     def __init__(self, dx, dy, dyaw):

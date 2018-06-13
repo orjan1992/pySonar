@@ -4,7 +4,11 @@ from PyQt5.QtGui import QColor, QBrush, QPen
 from pyproj import Proj
 
 class Settings:
-    enable_autopilot = True
+    save_obstacles = False
+    save_paths = False
+    save_collision_info = True
+
+    enable_autopilot = False
     auto_settings = True
     # 0 == udp, 1 == MOOS
     input_source = 1
@@ -30,12 +34,8 @@ class Settings:
     show_voronoi_plot = False
     show_pos = True
     collision_avoidance_interval = 200  # ms
-
-    save_obstacles = True
     save_scan_lines = False
 
-    save_paths = True
-    save_collision_info = True
 
     button_height = 30
     button_width = 200

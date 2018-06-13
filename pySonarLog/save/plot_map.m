@@ -1,4 +1,4 @@
-function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, disp_installation_line, ...
+function [fig, leg_text, leg] = plot_map(fig, w, disp_anchor_line, disp_cables, disp_installation_line, ...
                         disp_installation_point, disp_obstruction_point, disp_restricted_areas, ...
                         disp_pipelines, disp_protection, disp_safety_zone, disp_wells)
     path = 'D:\SkyStorage\OneDrive - NTNU\Code\pySonar\pySonarLog\save\Snorre B WGS84';
@@ -15,7 +15,7 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         disp_installation_point = true;
     end
     if ~exist('disp_obstruction_point', 'var')
-        disp_obstruction_point = true;
+        disp_obstruction_point = false;
     end
     if ~exist('disp_restricted_areas', 'var')
         disp_restricted_areas = false;
@@ -30,7 +30,10 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         disp_safety_zone = false;
     end
     if ~exist('disp_wells', 'var')
-        disp_wells = true;
+        disp_wells = false;
+    end
+    if ~exist('w', 'var')
+        w = 1;
     end
     listing = dir(path);
     n = 1;
@@ -170,15 +173,52 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         first = true;
         for k=[1 3:length(s.Installation_line.ncst)]
             if first
-                Installation_line = plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', colorOrder(5, :), 'LineWidth', 2); 
+                Installation_line = plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', colorOrder(5, :), 'LineWidth', w); 
                 leg(leg_counter) = Installation_line;
                 leg_text{leg_counter} = 'Installation Line';
                 leg_counter = leg_counter + 1; 
                 first = false;
             else
-                plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', get(Installation_line, 'Color'), 'LineWidth', 2); 
+                plot(s.Installation_line.ncst{k}(:, 1),s.Installation_line.ncst{k}(:, 2), 'Color', get(Installation_line, 'Color'), 'LineWidth', w); 
             end
         end
+%         mod{1} = [6821811.8469, 458049.0655; 6821815.7441, 458047.856; 6821825.4202, 458055.5834; 6821828.8471, 458062.0341; 6821825.4874, 458062.9748; 6821818.4319, 458059.9511; 6821810.2342, 458053.9707];
+%         % Toolstand
+%         mod{2} = [6821793.8339, 458059.7163; 6821793.4347, 458058.3986; 6821791.9829, 458059.135; 6821792.5636, 458060.3751];        
+%         % Other
+%         mod{3} = [6821744.4469, 458049.5985; 6821742.8293, 458053.5526; 6821739.055, 458053.3728; 6821739.6841, 458049.329; 6821743.5482, 458048.5202];
+%         mod{4} = [6821730.4281, 458033.2433; 6821731.5065, 458035.4899; 6821728.9903, 458036.8379; 6821728.4511, 458033.7825; 6821730.2484, 458032.9737];
+%         mod{5} = [6821769.8266, 458106.3445; 6821767.7131, 458109.1473; 6821765.2779, 458107.1256; 6821766.8401, 458104.6905];
+%         mod{6} = [6821745.569, 458054.6486; 6821749.3031, 458057.8954; 6821744.5863, 458062.6086; 6821740.6557, 458061.4565];
+%         mod{7} = [6821805.3145, 458065.2271; 6821805.3145, 458068.1597; 6821803.7423, 458068.3692; 6821803.1527, 458064.9129];
+%         mod{8} = [6821848.9445, 458055.9054; 6821848.3549, 458060.3044; 6821845.2104, 458060.3044; 6821845.2104, 458055.4865];
+%         mod{9} = [6821841.0832, 458017.6763; 6821841.4763, 458015.372; 6821844.0312, 458015.1626; 6821843.8346, 458018.5142;];
+%         mod{10} = [6821726.3089, 458068.6834; 6821726.3089, 458071.5113; 6821724.3436, 458075.9103; 6821721.7887, 458075.7008; 6821722.9679, 458072.7682; 6821721.9852, 458068.9976];
+%         for i = 1:length(mod)
+%             mod{i} = [mod{i}; mod{i}(1, :)];
+%             g = plot(mod{i}(:, 2)-91.7, mod{i}(:, 1)-216.7, 'Color', [199, 234, 70]/255, 'LineWidth', w);
+%         end
+%         mod{1} = [6821594.2506, 457957.745; 6821598.1745, 457958.6944; 6821597.6513, 457963.1703; 6821592.4195, 457961.5427];
+%         mod{2} = [6821607.0687, 457963.5772; 6821611.5157, 457969.4093; 6821610.4694, 457973.4783; 6821604.4527, 457968.4599];
+%         mod{3} = [6821582.2174, 457997.7565; 6821583.0022, 457999.791; 6821580.9095, 458000.0622; 6821580.3863, 457997.4852];
+%         mod{4} = [6821528.9803, 457962.5882; 6821530.6453, 457964.3148; 6821523.1526, 457971.4802; 6821521.8206, 457970.4442; 6821528.6472, 457962.7608];
+%         mod{5} = [6821553.4563, 457988.3145; 6821554.2888, 457990.8181; 6821549.9597, 457991.4224; 6821549.7932, 457989.7821];
+        
+        mod{1} = [6821594.5765, 457957.4548; 6821591.4414, 457958.2675; 6821593.9736, 457962.5814; 6821597.7116, 457961.456];
+        mod{end+1} = [6821605.7905, 457962.6439; 6821602.2937, 457964.457; 6821603.6201, 457967.4579; 6821606.0317, 457966.3326];
+        mod{end+1} = [6821573.8365, 457965.5823; 6821572.2689, 457966.02; 6821572.7513, 457967.2079; 6821574.6806, 457966.7702];
+        mod{end+1} = [6821521.7454, 457958.205; 6821523.3129, 457958.4551; 6821521.7454, 457960.9559; 6821520.1778, 457960.2056];
+        mod{end+1} = [6821527.2921, 457963.8943; 6821529.7037, 457965.7074; 6821526.5686, 457968.0206; 6821523.6747, 457970.834; 6821522.4689, 457969.7712; 6821525.4834, 457967.1453; 6821526.0863, 457964.2694];
+        
+        c = get(Installation_line, 'Color');
+%         c = [199, 234, 70]/255;
+        for i = 1:length(mod)
+            mod{i} = [mod{i}; mod{i}(1, :)];
+            g = plot(mod{i}(:, 2), mod{i}(:, 1), 'Color', c, 'LineWidth', w);
+        end
+%         leg(leg_counter) = g;
+%         leg_text{leg_counter} = 'Hand drawn obstacles';
+%         leg_counter = leg_counter + 1; 
     end
 
     %% Installation_point
@@ -186,7 +226,11 @@ function [fig, leg_text, leg] = plot_map(fig, disp_anchor_line, disp_cables, dis
         first = true;
         for k=1:length(s.Installation_point.ncst) 
             if first
-                Installation_point = plot(s.Installation_point.ncst{k}(1), s.Installation_point.ncst{k}(2), '*', 'Color', colorOrder(4, :));
+                if disp_installation_line
+                    Installation_point = plot(s.Installation_point.ncst{k}(1), s.Installation_point.ncst{k}(2), '*', 'Color', get(Installation_line, 'Color'));
+                else
+                    Installation_point = plot(s.Installation_point.ncst{k}(1), s.Installation_point.ncst{k}(2), '*', 'Color', colorOrder(4, :));
+                end
                 leg(leg_counter) = Installation_point;
                 leg_text{leg_counter} = 'Installation Point';
                 leg_counter = leg_counter + 1; 

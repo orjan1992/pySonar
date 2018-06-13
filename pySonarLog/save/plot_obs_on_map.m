@@ -107,6 +107,4 @@ function [fig, leg_text, leg, all_obj] = plot_obs_on_map(file, color, fig, draw_
             
         end
     end
-    
-    
     grid on

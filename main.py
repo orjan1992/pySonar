@@ -457,7 +457,7 @@ class MainWidget(QtGui.QWidget):
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(wp_list[0][0],wp_list[0][1], np.pi)
                 self.collision_avoidance.update_pos(self.last_pos_msg)
-            wp0 = vehicle2NED(0, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
+            wp0 = vehicle2NED(0.5, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
             wp_list.insert(0, [wp0[0], wp0[1], 2.0])
             wp_list = fermat(wp_list)[0]
             self.collision_avoidance.update_external_wps(wp_list, 0)

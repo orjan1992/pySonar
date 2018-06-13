@@ -3,6 +3,7 @@ import struct
 from messages.udpMsg import CorruptMsgException, OtherMsgTypeException, UdpPosMsg
 from numpy import arctan2, sin, cos
 import logging
+from time import strftime
 logger = logging.getLogger('AutopilotMsg')
 
 class MsgType(Enum):
@@ -336,7 +337,7 @@ class RovState(Binary):
                                                                                    self.alt, self.north, self.east)
 
     def to_tuple(self):
-        return self.north, self.east, self.down, self.yaw, self.v_surge, self.v_sway, self.v_heave, self.v_yaw
+        return self.north, self.east, self.down, self.yaw, self.v_surge, self.v_sway, self.v_heave, self.v_yaw, strftime("%Y%m%d-%H%M%S")
 
 class RovStateDiff:
     def __init__(self, dx, dy, dyaw, d_surge, d_sway):

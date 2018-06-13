@@ -2,7 +2,7 @@ function gen_tex(f, columns, include)
     tmp = split(f, '\');
 
     f = f + "\figs";
-    tex_path = "fig/Experiment/" + tmp{end} + "/";
+    tex_path = "fig/simulations/" + tmp{end} + "/";
     %% sort
     listing = dir(char(f));
     for i = 1:length(listing)
@@ -31,8 +31,8 @@ function gen_tex(f, columns, include)
     end
 
     fid = fopen(f+"\fig.tex", 'w');
-    
-    width = "0.9";
+    app_fid = fopen(f+"\fig_app.tex", 'w');
+    width = "0.8";
     max_rows = 2;
     if columns == 2
         width = "0.45";
@@ -54,6 +54,7 @@ function gen_tex(f, columns, include)
                 '\n\t\t\\caption{}', ...
                 '\n\t\t\\label{%s}', ...
             '\n\t\\end{subfigure}\n'], width, tex_path + name, label + tmp{1});
+            fprintf(app_fid, '\\includegraphics[width=\\textwidth]{%s}\n\n', tex_path + name);
             if i < r*max_rows && i < length(f_time)
                 if columns ~= 1 && mod(mod(i, max_rows)+1, columns) == 0
                     fprintf(fid, '\t~\n');
@@ -66,5 +67,6 @@ function gen_tex(f, columns, include)
         fprintf(fid, '\t\\caption{%s%i}\n\t\\label{%s%i}\n\\end{figure}\n\n', replace(label, {':', '_'}, ' '), r, label, r);
     end
     fclose(fid);
+    fclose(app_fid);
 end
         

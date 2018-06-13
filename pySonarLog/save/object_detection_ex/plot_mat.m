@@ -3,6 +3,8 @@ save_figs = true;
 load('data.mat')
 orig = orig(1:801, :);
 thresh = thresh(1:801, :);
+binary_colormap = jet();
+binary_colormap = [binary_colormap(1, :); binary_colormap(end, :)];
 
 %% normal
 grid_fig = figure();
@@ -23,8 +25,9 @@ end
 %% Binary
 bin_fig = figure();
 imagesc([-30, 30], [30, 0], thresh);
-colormap(jet)
-colorbar()
+colormap(binary_colormap)
+cb = colorbar();
+set(cb,'YTick',[0 1]);
 axis equal
 grid on
 set(gca,'Ydir','Normal')
@@ -39,8 +42,9 @@ end
 %% Contour plot
 contour_orig_fig = figure();
 imagesc([-30, 30], [30, 0], thresh);
-colormap(jet)
-colorbar()
+colormap(binary_colormap)
+cb = colorbar();
+set(cb,'YTick',[0 1]);
 axis equal
 grid on
 set(gca,'Ydir','Normal')
@@ -63,8 +67,9 @@ end
 %% Contour filtered plot
 contour_filter_fig = figure();
 imagesc([-30, 30], [30,0], thresh);
-colormap(jet)
-colorbar()
+colormap(binary_colormap)
+cb = colorbar();
+set(cb,'YTick',[0 1]);
 axis equal
 grid on
 set(gca,'Ydir','Normal')
@@ -88,8 +93,9 @@ end
 %% Contour dilated plot
 contour_dilate_fig = figure();
 imagesc([-30, 30], [30,0], thresh);
-colormap(jet)
-colorbar()
+colormap(binary_colormap)
+cb = colorbar();
+set(cb,'YTick',[0 1]);
 axis equal
 grid on
 set(gca,'Ydir','Normal')

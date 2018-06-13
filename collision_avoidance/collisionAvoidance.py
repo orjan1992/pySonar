@@ -282,6 +282,10 @@ class CollisionAvoidance:
             y2 = y_min + (y_max-y_min)/2
             points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
 
+            x2 = x_min + (x_max-x_min)/2
+            y2 = y_min + (y_max-y_min)/2
+            points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
+
             use_constraint_wp = False
 
             # Initializing voronoi and adding wps
@@ -684,24 +688,31 @@ class CollisionData:
 if __name__ == '__main__':
     from scipy.io import loadmat
     from messages.moosPosMsg import MoosPosMsg
+    files = ['collision_info20180515-153924.mat', 'collision_info20180515-153957.mat', 'collision_info20180515-154000.mat',
+             'collision_info20180515-154019.mat', 'collision_info20180515-154021.mat', 'collision_info20180515-154023.mat',
+            'collision_info20180515-154024.mat', 'collision_info20180515-154035.mat', 'collision_info20180515-154041.mat',
+             'collision_info20180515-154042.mat', 'collision_info20180515-154051.mat', 'collision_info20180515-154108.mat',
+             'collision_info20180515-154112.mat', 'collision_info20180515-154125.mat']
+    folder = 'D:/SkyStorage/OneDrive - NTNU/Code/pySonar/pySonarLog/save/05_15_collision avoidance_test/15_39_best/'
+    for i in range(len(files)):
+        print(i)
+        data = loadmat(folder + files[i])
+        range_scale = data['range_scale'][0][0]
+        north = data['pos'][0][0]
+        east = data['pos'][0][1]
+        yaw = data['pos'][0][2]
+        obs = data['obstacles'][0]
 
-    data = loadmat('collision2.mat')
-    range_scale = data['range_scale'][0][0]
-    north = data['pos'][0][0]
-    east = data['pos'][0][1]
-    yaw = data['pos'][0][2]
-    obs = data['obstacles'][0]
-
-    co = CollisionAvoidance()
-    # co.range = range_scale
-    # co.obstacles = obs
-    # co.north, co.east, co.yaw = north, east, yaw
-    # co.waypoint_list = data['old_wps']
-    # co.waypoint_counter = 0
-    co.update_pos(MoosPosMsg(north, east, yaw))
-    co.update_external_wps(data['old_wps'], 0)
-    co.update_obstacles(obs, range_scale)
-    # co.check_collision_margins(data['old_wps'])
-    # tmp = co.calc_new_wp()
-    tmp = co.main_loop(True)
+        co = CollisionAvoidance()
+        # co.range = range_scale
+        # co.obstacles = obs
+        # co.north, co.east, co.yaw = north, east, yaw
+        # co.waypoint_list = data['old_wps']
+        # co.waypoint_counter = 0
+        co.update_pos(MoosPosMsg(north, east, yaw))
+        co.update_external_wps(data['old_wps'], 0)
+        co.update_obstacles(obs, range_scale)
+        # co.check_collision_margins(data['old_wps'])
+        # tmp = co.calc_new_wp()
+        tmp = co.main_loop(True)
     print(tmp)

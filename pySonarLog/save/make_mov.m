@@ -1,10 +1,10 @@
 clear, close all
 speed = 7;
 save_figs = true;
-columns = 2;
+columns = 1;
 
-folder_char = "/"; % Linux
-% folder_char = "\"; % windows
+% folder_char = "/"; % Linux
+folder_char = "\"; % windows
 
 % f = "05_15_collision avoidance_test\15_30_no_smoothing";
 % limits = [4.579312341240512e+05 4.580370455463799e+05 6.821491079279837e+06 6.821596890702165e+06];
@@ -48,11 +48,22 @@ folder_char = "/"; % Linux
 % limits = [4.579158540214643e+05 4.580717033350599e+05 6.821454878717383e+06 6.821610728030980e+06];
 % ed50 = false;
 
-f = "06_13_sim_trap_situation";
-limits = [-48.941005524189904,86.802224906218840,-67.393094788290500,39.668904696338345];
-limits_fig = [-48.941005524189904,86.802224906218840,-67.393094788290500,39.668904696338345];
-sim = true;
+% f = "06_13_sim\13_20_sim_trap_situation";
+% f = "06_13_sim\13_48_sim_obj_detection_test";
+% f = "06_13_sim\14_09_obj_det";
+% f = "06_13_sim\14_21_obj_det"; % Ok Fjern slutt
+% f = "06_13_sim\14_52_col_avoidance_surr";
+% f = "06_13_sim\15_00_col_avoidance_new_trap";
+% f = "06_13_sim\15_56_god_test"; % Ok få nye ruter
+% f = "06_13_sim\16_04_high_obs_density_problems";
+% f = "06_13_sim\16_11_coll_ok"; % Sync issues? manual adjustment of margins
+% limits = [-40.821777474560236 64.036636840311730 -46.148215055791674 36.554631073196060];
+% limits_fig = [-40.821777474560236 64.036636840311730 -46.148215055791674 36.554631073196060];
+% sim = true;
 
+f = "06_13_sim\16_17_coll_almost_good";
+limits_fig = [-41.182786950953520 45.217884023825015 -26.119248821718493 42.025796511614920];
+sim = true;
 
 if ~exist('sim', 'var')
     sim = false;
@@ -60,8 +71,8 @@ end
 
 %% Start
 if ~save_figs
-    v = VideoWriter(char(f), 'avi');
-%     v = VideoWriter(char(f), 'MPEG-4');
+%     v = VideoWriter(char(f), 'avi');
+    v = VideoWriter(char(f), 'MPEG-4');
     v.FrameRate = 30;
     v.Quality = 100;
     open(v);
@@ -159,7 +170,7 @@ for i = 1:length(f_time)
         end
         l(1) = plot(pos_mat(:, 2), pos_mat(:, 1), 'b');
         l_t = {'Actual Path'};
-        if length(leg_text) ~= 5
+        if length(leg_text) < 5
             l(2) = plot(0, 0, '--m');
             l(3) = plot(0, 0, '-m');
             l_t = [l_t, {'Old Path', 'New Path'}];
@@ -179,7 +190,10 @@ for i = 1:length(f_time)
         set(gca,'YTickLabel',num2str(YTickLabel'))
         ytickangle(45);
     end
-        
+%     if size(pos, 2) > 4
+%         alt 
+%         
+%     alt_text_box = annotation('textbox',[.2 .5 .3 .3],'String',sprintf('%.2f', alt));    
     drawnow;
     if save_figs
         n = split(listing(f_ind(i)).name, '.');

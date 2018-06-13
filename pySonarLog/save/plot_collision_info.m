@@ -76,6 +76,9 @@ function [f, leg_text, leg] = plot_collision_info(fname, lwidth, show_unvalid)
         plot(voronoi_vertices(orig_list, 1), voronoi_vertices(orig_list, 2), 'm-o', 'LineWidth', 1.5);
     end
     if ~isempty(new_wps)
+        if iscell(new_wps)
+            new_wps = cell2mat(new_wps);
+        end
         new_wps_grid = ned2grid(new_wps, pos, range_scale);
         l(2) = plot(new_wps_grid(:, 1), new_wps_grid(:, 2), '-og', 'LineWidth', lwidth);
     end
@@ -97,6 +100,8 @@ function [f, leg_text, leg] = plot_collision_info(fname, lwidth, show_unvalid)
 %     ax_height = outerpos(4) - ti(2) - ti(4);
 %     ax.Position = [left bottom ax_width ax_height];
     set(gca, 'YDir','reverse')
+    axis equal; 
+    axis([-6.482587482333658e+02 2.606634295180842e+03 -5.141812470715848e+02 2.052984395234135e+03]);
     %     save(f, strcat('png\',fname, '.png'));
 
 
