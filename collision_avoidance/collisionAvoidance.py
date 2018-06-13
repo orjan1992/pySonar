@@ -278,6 +278,9 @@ class CollisionAvoidance:
             y_min = min(constrained_wp_grid[1], 0)-1
             y_max = max(constrained_wp_grid[1], GridSettings.width)+1
             points.extend([(x_min, y_min), (x_max, y_min), (x_max, y_max), (x_min, y_max)])
+            x2 = x_min + (x_max-x_min)/2
+            y2 = y_min + (y_max-y_min)/2
+            points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
 
             use_constraint_wp = False
 

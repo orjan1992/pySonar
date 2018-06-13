@@ -72,10 +72,10 @@ class CollisionSettings:
     if Settings.auto_settings:
         if Settings.enable_autopilot:
             use_fermat = True
-            send_new_wps = True
+            # send_new_wps = True
         else:
             use_fermat = True
-            send_new_wps = False
+            # send_new_wps = False
 
 class LosSettings:
     enable_los = True

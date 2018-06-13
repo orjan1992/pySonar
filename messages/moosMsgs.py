@@ -63,6 +63,7 @@ class MoosMsgs(QObject):
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
+        self.send_msg('alt_com', 1.5)
 
     def close(self):
         if LosSettings.enable_los:

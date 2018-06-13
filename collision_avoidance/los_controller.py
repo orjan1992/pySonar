@@ -66,7 +66,7 @@ class LosController:
             chi_r = np.arctan(-e / (self.surge_speed*LosSettings.look_ahead_time))
         # print(chi_r*180.0/np.pi)
         chi = chi_r + alpha
-        return wrapTo2Pi(chi), delta, e
+        return wrapToPi(chi), delta, e
 
     def turn_vel(self, i):
         if self.wp_grad[i] == 0 and len(self.wp_list) > i + 2:
@@ -119,12 +119,14 @@ class LosController:
             roa_log = []
             slow_down_dist_log = []
             slown_down_vel_log = []
+            pos_log = []
 
         self.surge_speed = 0
         # Initial check
         pos_msg, wp_list, wp_counter, wp_grad, segment_lengths = self.get_info()
         chi, delta, e = self.get_los_values(wp_list[0], wp_list[1], pos_msg)
-        start_chi = wrapTo2Pi(get_angle(wp_list[0], wp_list[1]))
+        start_chi = wrapToPi(get_angle(wp_list[0], wp_list[1]))
+        logger.info('Start Chi: {:.2f}'.format(start_chi*180.0/np.pi))
         # TODO: CHeck if on initial path
         if (segment_length(wp_list[0], (pos_msg.north, pos_msg.east)) > LosSettings.roa or
                 abs(start_chi - pos_msg.yaw) > LosSettings.start_heading_diff) and \
@@ -180,7 +182,7 @@ class LosController:
             self.msg_client.send_autopilot_msg(ap.Setpoint(chi, ap.Dofs.YAW, True))
         else:
             self.msg_client.send_msg('depth_com', wp_list[0][2])
-            self.msg_client.send_msg('yaw_com', wrapTo2Pi(chi))
+            self.msg_client.send_msg('yaw_com', wrapToPi(chi))
         if 0 > slow_down_dist >= delta:
             self.set_speed(turn_speed)
         else:
@@ -192,6 +194,7 @@ class LosController:
             delta_log .append(delta)
             e_log.append(e)
             wp_change.append(datetime.now().strftime("%H:%M:%S"))
+            pos_log.append(pos_msg.to_tuple())
         logger.info('Path Started')
         while not self.stopped_event.isSet() and self.start_event.wait() and self.wp_counter < len(self.wp_list):
             pos_msg = self.get_pos()
@@ -240,11 +243,11 @@ class LosController:
 
             # Send new setpoints
             if abs(chi - self.last_chi) > LosSettings.send_new_heading_limit:
-                logger.info('Chi: {:2f}'.format(wrapTo2Pi(chi)*180.0/np.pi))
+                # logger.info('Chi: {:2f}'.format(wrapToPi(chi)*180.0/np.pi))
                 if Settings.input_source == 0:
-                    self.msg_client.send_autopilot_msg(ap.Setpoint(wrapTo2Pi(chi), ap.Dofs.YAW, True))
+                    self.msg_client.send_autopilot_msg(ap.Setpoint(wrapToPi(chi), ap.Dofs.YAW, True))
                 else:
-                    self.msg_client.send_msg('yaw_com', wrapTo2Pi(chi))
+                    self.msg_client.send_msg('yaw_com', wrapToPi(chi))
                 self.last_chi = chi
             if LosSettings.log_paths:
                 chi_log.append(chi)
@@ -252,6 +255,7 @@ class LosController:
                 timestamp.append(datetime.now().strftime("%H:%M:%S"))
                 delta_log .append(delta)
                 e_log.append(e)
+                pos_log.append(pos_msg.to_tuple())
             with self.lock:
                 self.wp_counter = wp_counter
                 self.e = e
@@ -269,7 +273,7 @@ class LosController:
                 'chi': np.array(chi_log), 'surge': np.array(surge_log), 'time': timestamp, 'path': wp_list,
                 'delta': np.array(delta_log), 'cross_track': np.array(e_log),
                 'slow_down_dist': np.array(slow_down_dist_log), 'roa': np.array(roa_log),
-                'slow_down_vel': np.array(slown_down_vel_log), 'wp_change': wp_change})
+                'slow_down_vel': np.array(slown_down_vel_log), 'wp_change': wp_change, 'pos': np.array(pos_log)})
 
 
     def update_pos(self, msg):

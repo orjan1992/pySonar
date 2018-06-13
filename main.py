@@ -311,7 +311,8 @@ class MainWidget(QtGui.QWidget):
                         self.collision_avoidance.update_external_wps(wp_counter=self.udp_client.los_controller.get_wp_counter())
                     else:
                         e, s = self.moos_msg_client.los_controller.get_errors()
-                        self.collision_avoidance.update_external_wps(wp_counter=self.moos_msg_client.los_controller.get_wp_counter())
+                        if Settings.collision_avoidance:
+                            self.collision_avoidance.update_external_wps(wp_counter=self.moos_msg_client.los_controller.get_wp_counter())
                     self.along_track.setText('{:.2f}'.format(s))
                     self.cross_track.setText('{:.2f}'.format(e))
             # if self.last_pos_msg is None:
@@ -402,10 +403,11 @@ class MainWidget(QtGui.QWidget):
         if status is CollisionStatus.NO_FEASIBLE_ROUTE or status is CollisionStatus.SMOOTH_PATH_VIOLATES_MARGIN:
             left = np.mean(self.grid.grid[:, :800])
             right = np.mean(self.grid.grid[:, 801:])
-            if Settings.input_source == 0:
-                self.udp_client.stop_and_turn(np.sign(left-right) * 15* np.pi / 180.0)
-            else:
-                self.moos_msg_client.stop_and_turn(np.sign(left - right) * 15 * np.pi / 180.0)
+            if CollisionSettings.send_new_wps:
+                if Settings.input_source == 0:
+                    self.udp_client.stop_and_turn(np.sign(left-right) * 15* np.pi / 180.0)
+                else:
+                    self.moos_msg_client.stop_and_turn(np.sign(left - right) * 15 * np.pi / 180.0)
             if Settings.show_map:
                 self.map_widget.invalidate_wps()
             self.collision_avoidance_timer.start(0)
@@ -441,68 +443,23 @@ class MainWidget(QtGui.QWidget):
 
     def binary_button_click(self):
         if Settings.collision_avoidance:
-            # wp_list = np.ndarray.tolist(wp)
-            # wp_list = [[6821587.4301, 457961.291, 4],
-            #     [6821573.0927, 457944.6148, 4],
-            #     [6821563.7182, 457947.2479, 4],
-            #     [6821563.1668, 457959.5356, 4],
-            #     [6821574.1955, 457981.478, 4],
-            #     [6821553.2409, 457994.6434, 4],
-            #     [6821521.2575, 457996.8376, 4],
-            #     [6821493.1341, 457993.7657, 4],
-            #     [6821482.1053, 458013.5139, 4]]
-            # wp_list.pop(0)
-            # wp_list.pop(0)
-
-            # tilbake til cage
-            # wp_list = [[6821542.3467, 457982.3875, 3], [6821547.7327, 457964.8864, 3], [6821562.6476, 457933.8468, 3], [6821587.5058, 457940.451, 3], [6821589.163, 457953.6593, 3]]
-            # fra cage
-            # wp_list = [[6821570.5194, 457957.6218, 3],
-            #             [6821543.5897, 457960.9239, 3],
-            #             [6821522.4602, 457977.7645, 3],
-            #             [6821533.2321, 458012.7666, 3],
-            #             [6821529.5033, 458036.2114, 3],
-            #             [6821500.0878, 458035.2208, 3],
-            #             [6821494.2875, 458018.7104, 3],
-            #             [6821515.8313, 457980.7364, 3],
-            #             [6821591.2346, 457974.4625, 3]]
-
-            # Collision course
-            wp_list = [  # [-18.6391, -35.7085, 3],
-                    [-8.0101, -12.9843, 3],
-                    [10.6824, -5.2874, 3],
-                    [26.9924, 5.5249, 3],
-                    [26.8092, 34.6631, 3],
-                    [42.7527, 41.8102, 3]]
-
-            # Round course
-            # wp_list = [[-18.6391, -35.7085, 3],
-            #            [8.6131, -28.2849, 3],
-            #             [19.6799, -25.0458, 3],
-            #             [25.6182, -19.1076, 3],
-            #             [21.8393, -16.1384, 3],
-            #             [15.0912, -13.979, 3],
-            #             [12.1221, 0.056907, 3],
-            #             [7.5334, 7.0749, 3],
-            #             [-0.83417, 4.6456, 3],
-            #             [-7.3123, -6.9611, 3],
-            #             [-19.9986, -8.0408, 3],
-            #             [-28.3662, 13.553, 3],
-            #             [-29.7158, 35.6866, 3],
-            #             [-24.3174, 40.8151, 3],
-            #             [-12.9807, 41.6249, 3],
-            #             [4.2944, 37.846, 3],
-            #             [5.374, 27.319, 3],
-            #             [6.4537, 10.3139, 3],
-            #             [14.0116, 0.056907, 3],
-            #             [14.8213, -14.7888, 3],
-            #             [17.7905, -28.2849, 3]]
-            wp_list = fermat(wp_list)[0]
+            # # Round course
+            # wp_list = [[5.5667, -25.4974, 3],
+            #             [8.5557, -15.7151, 3],
+            #             [13.1751, -3.7589, 3],
+            #             [7.7405, 7.382, 3],
+            #             [-0.41141, 18.523, 3],
+            #             [-14.2697, 16.3492, 3],
+            #             [-21.6064, -0.76989, 3],
+            #             [-17.5305, -13.5412, 3]]
+            # col course
+            wp_list = [[-1.2691, -34.9511, 3]]
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(wp_list[0][0],wp_list[0][1], np.pi)
                 self.collision_avoidance.update_pos(self.last_pos_msg)
             wp0 = vehicle2NED(0, 0, self.last_pos_msg.north, self.last_pos_msg.east, self.last_pos_msg.yaw)
             wp_list.insert(0, [wp0[0], wp0[1], 2.0])
+            wp_list = fermat(wp_list)[0]
             self.collision_avoidance.update_external_wps(wp_list, 0)
             self.collision_avoidance.save_paths(wp_list)
             if Settings.input_source == 0:

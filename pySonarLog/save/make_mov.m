@@ -205,7 +205,9 @@ for i = 1:length(f_time)
     path_counter = path_counter + 1;
 end
 if save_figs
-    gen_tex(f, columns);
+    if folder_char == "\"
+        gen_tex(f, columns);
+    end
 else
     close(v);
 end
