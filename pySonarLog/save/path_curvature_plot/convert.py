@@ -32,8 +32,21 @@ def path_length(wp_list):
 
 if __name__=='__main__':
     import matplotlib.pyplot as plt
-    path = [[0, 0, 0], [5, 0, 0], [8, 6, 0], [1, 5, 0]]
-    smooth = fermat(path)[0]
+    smooth = [[-10.737200, -24.953899, 2.000000],
+            [0.455160, -25.327004, 3.000000],
+            [3.598197, -25.074099, 3.000000],
+            [4.830880, -24.467722, 3.000000],
+            [5.803850, -23.497914, 3.000000],
+            [7.061200, -20.606250, 3.000000],
+            [10.398905, -10.944411, 3.000000],
+            [10.941408, -9.540271, 3.000000],
+            [12.281942, -3.796950, 3.000000],
+            [10.457800, 1.811550, 3.000000],
+            [4.080606, 12.383880, 3.000000],
+            [3.664545, 12.952500, 3.000000],
+            [-0.936980, 17.250777, 3.000000],
+            [-7.230483, 17.453366, 3.000000]]
+    # smooth = fermat(path)[0]
     wp_list, curvature, dist = path_grad(smooth)
 
     turn_velocity = []
@@ -53,6 +66,7 @@ if __name__=='__main__':
     t = [0]
     a = [0]
     j = [0]
+    vel_ref = [0]
     i = 1
     c = 0
     max_jerk = LosSettings.max_acc/4
@@ -64,11 +78,14 @@ if __name__=='__main__':
         if p[i-1] > turn_dist[c]:
             if p[i-1] < cum_dist[c]:
                 vel, acc, jerk = mod.update(turn_velocity[c])
+                vel_ref.append(turn_velocity[c])
             else:
                 vel, acc, jerk = mod.update(LosSettings.cruise_speed)
+                vel_ref.append(LosSettings.cruise_speed)
                 c += 1
         else:
             vel, acc, jerk = mod.update(LosSettings.cruise_speed)
+            vel_ref.append(LosSettings.cruise_speed)
         a.append(acc)
         v.append(vel)
         p.append(p[i-1] + v[-1]*dt + 0.5*a[-1]*dt**2)
@@ -95,4 +112,4 @@ if __name__=='__main__':
     # plt.plot(t, p)
     plt.show()
     from scipy.io import savemat
-    savemat('data.mat', {'p': p, 'v':v, 'a':a, 'smooth':smooth, 'dist':dist, 'cum_dist':cum_dist, 't':t, 'curvature':curvature})
+    savemat('data_sim.mat', {'p': p, 'v':v, 'a':a, 'smooth':smooth, 'dist':dist, 'cum_dist':cum_dist, 't':t, 'curvature':curvature, 'vel_ref':vel_ref})

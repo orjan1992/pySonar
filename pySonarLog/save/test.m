@@ -1,5 +1,14 @@
-fig = fig();
-fig = plot_obs_on_map('D:\SkyStorage\OneDrive - NTNU\Code\pySonar\pySonarLog\save\05_15_collision avoidance_test\08_49_rundtur_rundt_k_veldig_bra\obstacles20180515-090152.mat');
-plot_map_ed50(fig)
-axis([4.580245081291553e+05 4.581062449341996e+05 6.821696224594763e+06 6.821777961399807e+06]);
-set (gcf, 'WindowButtonDownFcn', @mouseDown);
+% fig = fig();
+% fig = plot_obs_on_map('D:\SkyStorage\OneDrive - NTNU\Code\pySonar\pySonarLog\save\05_15_collision avoidance_test\08_49_rundtur_rundt_k_veldig_bra\obstacles20180515-090152.mat');
+% plot_map_ed50(fig)
+% axis([4.580245081291553e+05 4.581062449341996e+05 6.821696224594763e+06 6.821777961399807e+06]);
+% set (gcf, 'WindowButtonDownFcn', @mouseDown);
+
+path = [-10.7371997833252 -24.9538993835449 2;0.455159757471060 -25.3270036341139 3;3.59819745501512 -25.0740988881045 3;4.83088013470108 -24.4677221099507 3;5.80385024798574 -23.4979136007404 3;7.06120000000000 -20.6062500000000 3;10.3989045140568 -10.9444107739174 3;10.9414081697946 -9.54027123009529 3;12.2819422112227 -3.79695014145423 3;10.4578000000000 1.81155000000000 3;4.08060597061039 12.3838804649990 3;3.66454500000000 12.9525000000000 3;-0.936980242283759 17.2507774895172 3;-7.23048339492897 17.4533657416682 3];
+fprintf('[');
+for i = 1:size(path, 1)-1
+    fprintf('[%f, %f, %f], \n', path(i, 1), path(i, 2),path(i, 3));
+end
+i = i + 1;
+fprintf('[%f, %f, %f]]', path(i, 1), path(i, 2),path(i, 3));
+    

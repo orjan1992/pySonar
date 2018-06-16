@@ -99,3 +99,23 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+*.mat
+*.npz
+*.dbf
+*.shp
+*.sidx
+*.shx
+*.prj
+*.xml
+*.cpg
+*.sbn
+*.sbx
+*.eps
+*.csv
+*.txt
+*.avi
+*.png
+*.mp4
+*.pcap
+*.fig

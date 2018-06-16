@@ -1,8 +1,8 @@
 clear, close all
 date = [2018, 6, 13];
-file_path = '06_13_sim\14_21_obj_det';
+file_path = '06_13_sim\16_17_coll_almost_good';
 listing = dir(file_path);
-limits = [datetime(2018, 6, 13, 14, 17, 57), datetime(2018, 6, 13, 14, 20, 49)];
+limits = [datetime(2018, 6, 13, 14, 17, 57), datetime(2018, 6, 13, 16, 20, 49)];
 ne_lim = [-29.816457700555016 21.740505222351775 -12.3846 15.0926];
 folder_char = "/"; % Linux
 % folder_char = "\"; % windows
@@ -36,11 +36,11 @@ for i = 1:length(data)
     surge_set = [surge_set data(i).surge];
     los_time = [los_time; los_t{i}];
     pos = [pos; data(i).pos];
-    cross_track = [cross_track; data(i).cross_track];
-    slow_down_vel = [slow_down_vel; data(i).slow_down_vel];
-    surge_ref = [surge_ref; data(i).surge];
-    roa = [roa; data(i).roa];
-    delta = [delta; data(i).delta];
+    cross_track = [cross_track; data(i).cross_track'];
+    slow_down_vel = [slow_down_vel; data(i).slow_down_vel'];
+    surge_ref = [surge_ref; data(i).surge'];
+    roa = [roa; data(i).roa'];
+    delta = [delta; data(i).delta'];
     if ~isempty(data(i).wp_change)
         for j = 1:size(data(i).wp_change, 1)
             wp_change = [wp_change; datetime(strcat(t0,data(i).wp_change(j, :)), 'InputFormat','yyyyMMddHH:mm:ss')];
@@ -62,18 +62,21 @@ end
 
 north = pos(start_ind:end_ind, 1);
 east = pos(start_ind:end_ind, 2);
-path = data(i).path(1:14, :);
+% path = data(i).path(1:14, :);
 pos_t = los_time(start_ind:end_ind);
 wp_change = wp_change(wp_change >= limits(1));
 wp_change = wp_change(wp_change <= limits(2));
 
-% %% North east
-% [ne_plot, h, h_text] = plotMapSim(figure());
-% hold on
-% t = 0:0.0001:2*pi;
-% x = cos(t);
-% y = sin(t);
+%% North east
+[ne_plot, h, h_text] = plotMapSim(figure());
+hold on
+t = 0:0.0001:2*pi;
+x = cos(t);
+y = sin(t);
 % path_l = plot(path(:, 2), path(:, 1), '-*', 'LineWidth', w);
+for i = 1:length(data)
+    plot(data(i).path(:, 2), data(i).path(:, 1), '-*', 'LineWidth', w);
+end
 % try
 %     j = 1;
 % %     roa_l = plot(roa(j)*x+path(j, 2), roa(j)*y+path(j, 1), 'LineWidth', w);
@@ -82,26 +85,26 @@ wp_change = wp_change(wp_change <= limits(2));
 %         plot(roa(j-1)*x+path(j, 2),roa(j-1)*y+path(j, 1), 'Color', get(roa_l, 'Color'), 'LineWidth', w);
 %     end
 % end
-% plot(NaN, NaN);
-% pos_l = plot(east, north, 'LineWidth', w);
-% axis(ne_lim);
+plot(NaN, NaN);
+pos_l = plot(east, north, 'LineWidth', w);
+axis(ne_lim);
 % legend([h, pos_l, path_l,roa_l], {h_text, 'Position', 'Path', 'ROA'}, 'Location', 'south');
-% 
-% text_pos = [-26.9734117561012 -10.4996100924362 0;-27.1089263157812 0.455159757471064 0;-26.7372267243273 3.83578714590409 0;-26.2496447916180 6.25641828003491 0;-24.4482723642963 7.34818323876406 0;-20.6062500000000 5.99204639099963 0;-11.7759746920288 11.5868529685017 0;-9.30268153920632 12.8421256969063 0;-3.91574498689872 11.4503782931113 0;0.861191236444112 9.62623608188860 0;11.6711113923321 5.26855442505525 0;14.2592432998893 3.42695530911103 0;17.3695723349617 -0.699390551394785 0;17.4533657416682 -7.23048339492897 0];
-% for i = 1:size(path, 1)
-%     t_pos(i) = text(text_pos(i, 1), text_pos(i, 2), string(i));
+
+text_pos = [-26.9734117561012 -10.4996100924362 0;-27.1089263157812 0.455159757471064 0;-26.7372267243273 3.83578714590409 0;-26.2496447916180 6.25641828003491 0;-24.4482723642963 7.34818323876406 0;-20.6062500000000 5.99204639099963 0;-11.7759746920288 11.5868529685017 0;-9.30268153920632 12.8421256969063 0;-3.91574498689872 11.4503782931113 0;0.861191236444112 9.62623608188860 0;11.6711113923321 5.26855442505525 0;14.2592432998893 3.42695530911103 0;17.3695723349617 -0.699390551394785 0;17.4533657416682 -7.23048339492897 0];
+for i = 1:size(path, 1)
+    t_pos(i) = text(text_pos(i, 1), text_pos(i, 2), string(i));
+end
+
+% for i = 1:length(wp_change)
+%     ind = find(pos_t == wp_change(i));
+%     if ~isempty(ind)
+% %         ind = ind(round(length(ind)/2));
+% %         ind = ind(end);
+% %         text(east(ind(1)), north(ind(1)), string(i));
+% %         text(east(ind(end)), north(ind(end)), string(i));
+% %         t(i) = text(east(ind(round(length(ind)/2))), north(ind(round(length(ind)/2))), string(i));
+%     end
 % end
-% 
-% % for i = 1:length(wp_change)
-% %     ind = find(pos_t == wp_change(i));
-% %     if ~isempty(ind)
-% % %         ind = ind(round(length(ind)/2));
-% % %         ind = ind(end);
-% % %         text(east(ind(1)), north(ind(1)), string(i));
-% % %         text(east(ind(end)), north(ind(end)), string(i));
-% % %         t(i) = text(east(ind(round(length(ind)/2))), north(ind(round(length(ind)/2))), string(i));
-% %     end
-% % end
 % 
 % %% Heading
 % heading_plot = figure();
@@ -136,30 +139,30 @@ wp_change = wp_change(wp_change <= limits(2));
 % end
 % grid on
 % 
-% %% delta_plot
-% delta_plot = figure();
-% plot(los_time, cross_track, 'LineWidth', w);
-% xlim(limits);
-% xlabel('Time');
-% ylabel('Cross track error - [m]');
-% datetick('x','HH:MM:ss','keeplimits','keepticks')
+%% delta_plot
+delta_plot = figure();
+plot(los_time, cross_track, 'LineWidth', w);
+xlim(limits);
+xlabel('Time');
+ylabel('Cross track error - [m]');
+datetick('x','HH:MM:ss','keeplimits','keepticks')
 % for i = 1:length(wp_change)
 %     ind = find(los_time == wp_change(i));
 %     ind = ind(round(length(ind)/2));
 %     text(los_time(ind), cross_track(ind), string(i));
 % end
-% grid on;
+grid on;
 
-%% u
-fake_data = load(strcat(listing(1).folder, folder_char, 'data_sim.mat'));
-f_time = limits(1) + seconds(fake_data.t);
+% u
+% fake_data = load(strcat(listing(1).folder, folder_char, 'data_sim.mat'));
+% f_time = limits(1) + seconds(fake_data.t);
 
 u_plot = figure();
 hold on;
 plot(los_time, surge, 'LineWidth', w);
 stairs(los_time, surge_ref, 'LineWidth', w);
-plot(f_time, fake_data.v);
-stairs(f_time, fake_data.vel_ref);
+% plot(f_time, fake_data.v);
+% stairs(f_time, fake_data.vel_ref);
 xlim(limits);
 xlabel('Time');
 ylabel('Surge velocity - [m/s]');
