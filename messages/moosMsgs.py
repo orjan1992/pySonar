@@ -54,12 +54,12 @@ class MoosMsgs(QObject):
         self.waypoint_list = None
         self.waypoint_counter = None
 
-        if LosSettings.enable_los and Settings.enable_autopilot:
-            self.los_stop_event = threading.Event()
-            self.los_start_event = threading.Event()
-            self.los_restart_event = threading.Event()
-            self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event, self.los_restart_event)
-            self.los_thread = threading.Thread()  # threading.Thread(target=self.los_controller.loop, daemon=True)
+        # if LosSettings.enable_los and Settings.enable_autopilot:
+        self.los_stop_event = threading.Event()
+        self.los_start_event = threading.Event()
+        self.los_restart_event = threading.Event()
+        self.los_controller = LosController(self, 0.1, self.los_stop_event, self.los_start_event, self.los_restart_event)
+        self.los_thread = threading.Thread()  # threading.Thread(target=self.los_controller.loop, daemon=True)
 
     def run(self, host='localhost', port=9000, name='pySonar'):
         self.comms.run(host, port, name)
@@ -115,26 +115,35 @@ class MoosMsgs(QObject):
         return True
 
     def pose_queue(self, msg):
-        self.logger_pose.debug('Message recieved. Type{}'.format(type(msg)))
-        if msg.key() == 'currentNEDPos_x':
-            self.logger_pose.debug('NEDPos x received')
-            self.cur_pos_msg.north = msg.double()
-        if msg.key() == 'currentNEDPos_y':
-            self.logger_pose.debug('NEDPos y received')
-            self.cur_pos_msg.east = msg.double()
-        if msg.key() == 'currentNEDPos_rz':
-            self.logger_pose.debug('NEDPos rz received')
-            self.cur_pos_msg.yaw = msg.double()
-        if msg.key() == 'currentVEHVel_r':
-            self.logger_pose.debug('currentVEHVel_r received')
-            self.cur_pos_msg.r = msg.double()
-        if msg.key() == 'currentVEHVel_u':
-            self.logger_pose.debug('currentVEHVel_u received')
-            self.cur_pos_msg.u = msg.double()
-        if msg.key() == 'currentVEHVel_v':
-            self.logger_pose.debug('currentVEHVel_v received')
-            self.cur_pos_msg.v = msg.double()
-        self.los_start_event.set()
+        try:
+            self.logger_pose.debug('Message recieved. Type{}'.format(type(msg)))
+            if msg.key() == 'currentNEDPos_x':
+                self.logger_pose.debug('NEDPos x received')
+                self.cur_pos_msg.north = msg.double()
+            elif msg.key() == 'currentNEDPos_y':
+                self.logger_pose.debug('NEDPos y received')
+                self.cur_pos_msg.east = msg.double()
+            elif msg.key() == 'currentNEDPos_rz':
+                self.logger_pose.debug('NEDPos rz received')
+                self.cur_pos_msg.yaw = msg.double()
+            elif msg.key() == 'currentVEHVel_r':
+                self.logger_pose.debug('currentVEHVel_r received')
+                self.cur_pos_msg.r = msg.double()
+            elif msg.key() == 'currentVEHVel_u':
+                self.logger_pose.debug('currentVEHVel_u received')
+                self.cur_pos_msg.u = msg.double()
+            elif msg.key() == 'currentVEHVel_v':
+                self.logger_pose.debug('currentVEHVel_v received')
+                self.cur_pos_msg.v = msg.double()
+            elif msg.key() == 'psi_ref':
+                self.cur_pos_msg.psi_ref = msg.double()
+            elif msg.key() == 'u_ref':
+                self.cur_pos_msg.u_ref = msg.double()
+            elif msg.key() == 'z_ref':
+                self.cur_pos_msg.z_ref = msg.double()
+            self.los_start_event.set()
+        except Exception as e:
+            print(e)
         return True
 
     def waypoints_queue(self, msg):
@@ -158,6 +167,9 @@ class MoosMsgs(QObject):
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_r')
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_u')
         self.comms.add_message_route_to_active_queue('pose_queue', 'currentVEHVel_v')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'u_ref')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'z_ref')
+        self.comms.add_message_route_to_active_queue('pose_queue', 'psi_ref')
         self.comms.add_active_queue('bins_queue', self.bins_queue)
         self.comms.add_message_route_to_active_queue('bins_queue', 'bins')
         if Settings.collision_avoidance:
@@ -175,6 +187,10 @@ class MoosMsgs(QObject):
         self.comms.register('currentVEHVel_u', 0)
         self.comms.register('currentVEHVel_v', 0)
         self.comms.register('bins', 0)
+
+        self.comms.register('u_ref', 0)
+        self.comms.register('z_ref', 0)
+        self.comms.register('psi_ref', 0)
 
         if Settings.collision_avoidance:
             self.comms.register('waypoints', 0)

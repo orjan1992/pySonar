@@ -41,6 +41,10 @@ class MoosPosMsg(Sensor):
     v = 0.0
     w = 0.0
 
+    psi_ref = 0.0
+    u_ref = 0.0
+    z_ref = 0.0
+
     def __init__(self, north=0, east=0, yaw=0, z=0, alt=0, *kwargs):
         super().__init__(*kwargs)
         self.north = north
@@ -68,7 +72,7 @@ class MoosPosMsg(Sensor):
         return 'north: {:5f},\teast: {:5f}\t, yaw: {:5f}'.format(self.north, self.east, self.yaw*180/pi)
 
     def to_tuple(self):
-        return self.north, self.east, self.alt, self.yaw, self.u, self.v, self.r
+        return self.north, self.east, self.alt, self.yaw, self.u, self.v, self.r, self.psi_ref, self.u_ref, self.z_ref
 
 
 if __name__ == '__main__':

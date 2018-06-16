@@ -56,7 +56,7 @@ class CollisionSettings:
     wp_as_gen_point = False
     obstacle_margin = 2 # meter
     vehicle_margin = 2 # meter
-    send_new_wps = True
+    send_new_wps = False
 
     fermat_kappa_max = 0.5  # max curvature
     fermat_step_factor = 0.8

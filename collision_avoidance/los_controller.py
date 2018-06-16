@@ -69,11 +69,11 @@ class LosController:
         return wrapToPi(chi), delta, e
 
     def turn_vel(self, i):
-        if self.wp_grad[i] == 0 and len(self.wp_list) > i + 2:
-            logger.info('turn_vel: {:.2f}, turn dist: {:.2f}'.format(self.turn_velocity, -1))
-            self.surge_speed = self.normal_surge_speed
-            return self.normal_surge_speed, -1
-        elif len(self.wp_list) <= i + 2:
+        # if self.wp_grad[i] == 0 and len(self.wp_list) > i + 2:
+        #     logger.info('turn_vel: {:.2f}, turn dist: {:.2f}'.format(self.turn_velocity, -1))
+        #     self.surge_speed = self.normal_surge_speed
+        #     return self.normal_surge_speed, -1
+        if len(self.wp_list) <= i + 2:
             self.turn_velocity = 0
         else:
             self.turn_velocity = min(self.normal_surge_speed, LosSettings.safe_turning_speed / (8 * self.wp_grad[i]))
@@ -121,7 +121,7 @@ class LosController:
             slown_down_vel_log = []
             pos_log = []
 
-        self.surge_speed = 0
+        # self.surge_speed = 0
         # Initial check
         pos_msg, wp_list, wp_counter, wp_grad, segment_lengths = self.get_info()
         chi, delta, e = self.get_los_values(wp_list[0], wp_list[1], pos_msg)
@@ -183,7 +183,7 @@ class LosController:
         else:
             self.msg_client.send_msg('depth_com', wp_list[0][2])
             self.msg_client.send_msg('yaw_com', wrapToPi(chi))
-        if 0 > slow_down_dist >= delta:
+        if (slow_down_dist < 0) or (delta <= slow_down_dist):
             self.set_speed(turn_speed)
         else:
             self.set_speed(self.normal_surge_speed)
@@ -224,7 +224,7 @@ class LosController:
                     if Settings.input_source == 0:
                         self.msg_client.send_autopilot_msg(ap.Setpoint(wp_list[wp_counter + 1][2], ap.Dofs.DEPTH, True))
                     else:
-                        self.msg_client.send_msg('depth_com', wp_list[wp_counter + 1][2])
+                        self.msg_client.send_msg('alt_com', 2.0)
                     chi, delta, e = self.get_los_values(wp_list[wp_counter], wp_list[wp_counter + 1], pos_msg)
                 except IndexError:
                     logger.info('Final Waypoint reached!')
@@ -236,7 +236,7 @@ class LosController:
                                                                                                     self.roa))
 
             # Check if slow down
-            if 0 > slow_down_dist >= delta:
+            if (slow_down_dist < 0) or (delta <= slow_down_dist):
                 self.set_speed(turn_speed)
             else:
                 self.set_speed(self.normal_surge_speed)
