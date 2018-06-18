@@ -12,10 +12,10 @@ un_wrap = false;
 %     datetime([2018, 5, 15, 15, 14, 57]), ... %datetime([2018, 5, 15, 15, 14, 58]), ...
 %     datetime([2018, 5, 15, 15, 17, 15]), datetime([2018, 5, 15, 15, 17, 40]), ...
 %     datetime([2018, 5, 15, 15, 18, 3])];
-wp_shift = [datetime([2018, 5, 15, 15, 14, 40]), datetime([2018, 5, 15, 15, 14, 52]), ...
-    datetime([2018, 5, 15, 15, 14, 59]), datetime([2018, 5, 15, 15, 17, 16]), ...
-    datetime([2018, 5, 15, 15, 17, 42]), datetime([2018, 5, 15, 15, 18, 05])];
-
+% wp_shift = [datetime([2018, 5, 15, 15, 14, 40]), datetime([2018, 5, 15, 15, 14, 52]), ...
+%     datetime([2018, 5, 15, 15, 14, 59]), datetime([2018, 5, 15, 15, 17, 16]), ...
+%     datetime([2018, 5, 15, 15, 17, 42]), datetime([2018, 5, 15, 15, 18, 05])];
+shift_ind = [2671, 2676, 2678, 2679, 2817, 2834, 2872];
 
 w = 1.5;
 f_size = 15;
@@ -88,12 +88,16 @@ yaw = yaw*180/pi;
 yaw_ref = yaw_ref*180/pi;
 
 %% find shift inds
-for i = 1:length(wp_shift)
-    shift_ind(i) = find(ap_time == wp_shift(i));
-end
-shift_ind = shift_ind-1;
-for i = 1:length(wp_shift)
-    tmp = find(los_time == wp_shift(i));
+% for i = 1:length(wp_shift)
+%     shift_ind(i) = find(ap_time == wp_shift(i));
+% end
+% shift_ind = shift_ind-1;
+% for i = 1:length(wp_shift)
+%     tmp = find(los_time == wp_shift(i));
+%     shift_ind_los(i) = tmp(1);
+% end
+for i = 1:length(shift_ind)
+    tmp = find(los_time == ap_time(shift_ind(i)));
     shift_ind_los(i) = tmp(1);
 end
 %% s and e plot
@@ -178,7 +182,7 @@ hold on;
 stairs(los_time, chi, 'Linewidth', w);
 plot(ap_time, yaw, '--', 'Linewidth', w);
 plot(ap_time, yaw_ref, '-.', 'Linewidth', w);
-legend('Los output', 'Estimated', 'Reference signal', 'Location', 'north');
+legend('Setpoint', 'Estimated', 'Reference signal', 'Location', 'north');
 xlim(limits)
 ylim(y_limits);
 xlabel('Time');
@@ -204,10 +208,10 @@ plot(ap_time, surge_vel, '--', 'Linewidth', w);
 plot(ap_time, surge_vel_ref, '-.', 'Linewidth', w);
 ylim([0.05 0.55]);
 grid on;
-xlim([limits(1), datetime([2018, 5, 15, 15, 16, 0])]);
+xlim([limits(1), datetime([2018, 5, 15, 15, 15, 26])]);
 xlabel('Time');
 ylabel('Surge velocity - [m/s]');
-legend('Los output', 'Estimated', 'Reference signal', 'Location', 'southeast');
+legend('Setpoint', 'Estimated', 'Reference signal', 'Location', 'southeast');
 for i =1:length(wp_shift)
     text(wp_shift(i), surge_vel_ref(shift_ind(i)), string(i+1), 'FontSize', f_size);
 end

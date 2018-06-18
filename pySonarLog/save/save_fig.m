@@ -1,9 +1,12 @@
-function save_fig(fig, name, first)
+function save_fig(fig, name, first, save_png)
 %UNTITLED Summary of this function goes here
 %   Detailed explanation goes here
 figure(fig);
 if ~exist('first', 'var')
     first = false;
+end
+if ~exist('save_png', 'var')
+    save_png = false;
 end
 [filepath,fname,~] = fileparts(name);
 if contains(filepath, '\')
@@ -33,13 +36,16 @@ if first
     if ~exist(filepath, 'dir')
         mkdir(filepath);
     end
-    
-    if ~exist(pngpath, 'dir')
-        mkdir(pngpath);
+    if save_png
+        if ~exist(pngpath, 'dir')
+            mkdir(pngpath);
+        end
     end
 end
 
 print(fig,name,'-depsc')
-print(fig,pngname,'-dpng')
+if save_png
+    print(fig,pngname,'-dpng')
+end
 end
 

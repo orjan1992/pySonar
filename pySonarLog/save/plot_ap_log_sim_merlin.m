@@ -133,7 +133,7 @@ grid on
 % text(457965.5408, 6821567.115, "1", 'FontSize', f_size*.8, 'HorizontalAlignment', 'Right');
 % text(east(shift_ind(1)), north(shift_ind(1)), string(2), 'FontSize', f_size*.8, 'HorizontalAlignment', 'Left');
 for i =1:length(wp_shift)
-    text(east(shift_ind(i)), north(shift_ind(i)), string(i+1), 'FontSize', f_size*.8, 'HorizontalAlignment', 'Right');
+    t_pos(i) = text(east(shift_ind(i)), north(shift_ind(i)), string(i+1), 'FontSize', f_size*.8, 'HorizontalAlignment', 'Right');
 end
 % t = [6821567.9755, 457965.5408; 6821564.3615, 457966.5734; 6821561.4358, 457963.3035; 6821562.2963, 457969.1549; 6821538.2026, 458025.9472; 6821531.4908, 458034.5521; 6821522.7138, 458033.5195];
 % t = [6821566.3865, 457965.5398; 6821564.3532, 457965.9164; 6821562.4706, 457963.9584; 6821560.2114, 457967.046; 6821537.2429, 458025.1072; 6821531.1431, 458033.7674; 6821522.7841, 458035.7254]; 
@@ -169,11 +169,19 @@ ylabel('Yaw - [Deg]');
 grid on
 datetick('x','HH:MM:ss','keeplimits','keepticks')
 
-
-
-for i =1:length(wp_shift)
-    text(wp_shift(i), yaw_ref(shift_ind(i)), string(i+1), 'FontSize', f_size);
-end
+%% Cross track
+% wp_counter = 1;
+% coll_counter = 1;
+% path = data(coll_counter).path;
+% cross_track = zeros(length(ap_time), 1);
+% for i = 1:length(length(ap_time)
+%     cross_track(i) = -(
+% 
+% 
+% 
+% for i =1:length(wp_shift)
+%     text(wp_shift(i), yaw_ref(shift_ind(i)), string(i+1), 'FontSize', f_size);
+% end
 
 
 %% Surge
@@ -192,7 +200,7 @@ for i =1:length(wp_shift)
     text(wp_shift(i), surge_vel_ref(shift_ind(i)), string(i+1), 'FontSize', f_size);
 end
 datetick('x','HH:MM:ss','keeplimits','keepticks')
-save_fig(heading_plot, [file_path '\heading'], true);
-save_fig(surge_fig, [file_path '\surge'], true);
-save_fig(ne_plot, [file_path '\ne'], true);
+% save_fig(heading_plot, [file_path '\heading'], true);
+% save_fig(surge_fig, [file_path '\surge'], true);
+% save_fig(ne_plot, [file_path '\ne'], true);
 % save_fig(se_fig, [file_path '\cross_track'], true);

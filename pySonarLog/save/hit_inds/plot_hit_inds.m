@@ -60,14 +60,16 @@ lgd = legend('Data', 'Data over threshold', 'Threshold', 'Max gradient');
 lgd.Location = 'north';
 
 if save_figs
-    for i=1:length(fig)
-%         p = get(fig(i), 'OuterPosition');
-%         set(fig(i), 'OuterPosition', [p(1), p(2), p(3), p(4)*4/5]);
-        set(fig(i), 'PaperUnits', 'normalized')
-        set(fig(i), 'PaperPosition', [0 0 1 0.3])
-%         set(fig(i), 'PaperPositionMode', 'manual');
-%         set(fig(i), 'PaperPosition', [0 0 1]);
+%     for i=1:length(fig)
+% %         p = get(fig(i), 'OuterPosition');
+% %         set(fig(i), 'OuterPosition', [p(1), p(2), p(3), p(4)*4/5]);
+%         set(fig(i), 'PaperUnits', 'normalized')
+%         set(fig(i), 'PaperPosition', [0 0 1 0.3])
+% %         set(fig(i), 'PaperPositionMode', 'manual');
+% %         set(fig(i), 'PaperPosition', [0 0 1]);
         
-        print(fig(i), sprintf('hit_inds_%i', i), '-depsc');
+%         print(fig(i), sprintf('hit_inds_%i', i), '-depsc');
+    for i=1:length(fig)
+        save_fig(fig(i), sprintf('hit_inds_%i', i), true);
     end
 end

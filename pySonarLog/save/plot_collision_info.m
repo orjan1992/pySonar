@@ -38,9 +38,16 @@ function [f, leg_text, leg] = plot_collision_info(fname, lwidth, show_unvalid)
             s = size(obs);
             obs = reshape(obs, s(1), s(3));
         else
-            obs = obstacles(i, :, :, :);
-            s = size(obs);
-            obs = reshape(obs, s(2), s(4));  
+            s = size(obstacles);
+            if s(1) == 1
+                obs = obstacles(:, i, :, :);
+                s = size(obs);
+                obs = reshape(obs, s(2), s(4));
+            else
+                obs = obstacles(i, :, :, :);
+                s = size(obs);
+                obs = reshape(obs, s(2), s(4));
+            end
         end
         obs = [obs; obs(1, :)];
         plot(obs(:, 1), obs(:, 2), 'r')
