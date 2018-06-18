@@ -453,7 +453,12 @@ class MainWidget(QtGui.QWidget):
             #             [-21.6064, -0.76989, 3],
             #             [-17.5305, -13.5412, 3]]
             # col course
-            wp_list = [[-1.2691, -34.9511, 3]]
+            wp_list = [[-10.4082, 11.0137, 3],
+[-3.9653, 1.7359, 3],
+[3.2508, 1.9936, 3],
+[12.0131, 0.44728, 3],
+[14.3326, -12.954, 3],
+[24.3835, -24.2935, 3]]
             if self.last_pos_msg is None:
                 self.last_pos_msg = MoosPosMsg(wp_list[0][0],wp_list[0][1], np.pi)
                 self.collision_avoidance.update_pos(self.last_pos_msg)

@@ -287,6 +287,7 @@ class CollisionAvoidance:
             points.extend([(x_min, y2), (x2, y_max), (x_max, y2), (x2, y_min)])
 
             use_constraint_wp = False
+            # use_constraint_wp = True
 
             # Initializing voronoi and adding wps
             vp = MyVoronoi(points)
@@ -299,10 +300,10 @@ class CollisionAvoidance:
                 fixed_wp = vehicle2grid(CollisionSettings.first_wp_dist, 0, self.range)
                 lin = cv2.line(np.zeros(np.shape(self.bin_map), dtype=np.uint8), (801, 801), fixed_wp, (255, 255, 255),
                                np.round(CollisionSettings.vehicle_margin * 801 / self.range).astype(int))
-                if not np.any(np.logical_and(self.bin_map, lin)):
+                # if not np.any(np.logical_and(self.bin_map, lin)):
                     # Fixed wp can be used
-                    constraint_wp, _ = vp.add_wp(fixed_wp)
-                    use_constraint_wp = True
+                constraint_wp, _ = vp.add_wp(fixed_wp)
+                use_constraint_wp = True
 
             vp.gen_obs_free_connections(self.range, self.bin_map)
 

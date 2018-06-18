@@ -1,12 +1,23 @@
 clear, close all
-date = [2018, 6, 13];
-file_path = '06_13_sim\16_17_coll_almost_good';
+% date = [2018, 6, 13];
+% file_path = '06_13_sim\16_17_coll_almost_good';
+% listing = dir(file_path);
+% limits = [datetime(2018, 6, 13, 14, 17, 57), datetime(2018, 6, 13, 16, 20, 49)];
+% ne_lim = [-29.816457700555016 21.740505222351775 -12.3846 15.0926];
+% folder_char = "/"; % Linux
+% % folder_char = "\"; % windows
+% w = 1.5;
+
+date = [2018, 6, 16];
+file_path = '06_16_sim/sim_log';
 listing = dir(file_path);
-limits = [datetime(2018, 6, 13, 14, 17, 57), datetime(2018, 6, 13, 16, 20, 49)];
+limits = [datetime(2018, 6, 16, 11, 46, 32), datetime(2018, 6, 16, 11, 51, 03)];
+% {'16-Jun-2018 11:46:32'},{'16-Jun-2018 11:51:03'}
 ne_lim = [-29.816457700555016 21.740505222351775 -12.3846 15.0926];
 folder_char = "/"; % Linux
 % folder_char = "\"; % windows
 w = 1.5;
+
 
 n = 1;
 for i = 1:length(listing)
@@ -50,6 +61,8 @@ end
 
 yaw = pos(:, 4);
 surge = pos(:, 5);
+psi_ref = pos(:, 8);
+u_ref = pos(:, 9);
 
 start_ind = find(los_time > limits(1));
 start_ind = start_ind(1);
@@ -74,9 +87,9 @@ t = 0:0.0001:2*pi;
 x = cos(t);
 y = sin(t);
 % path_l = plot(path(:, 2), path(:, 1), '-*', 'LineWidth', w);
-for i = 1:length(data)
-    plot(data(i).path(:, 2), data(i).path(:, 1), '-*', 'LineWidth', w);
-end
+% for i = 1:length(data)
+%     plot(data(i).path(:, 2), data(i).path(:, 1), '-*', 'LineWidth', w);
+% end
 % try
 %     j = 1;
 % %     roa_l = plot(roa(j)*x+path(j, 2), roa(j)*y+path(j, 1), 'LineWidth', w);
@@ -160,8 +173,8 @@ grid on;
 u_plot = figure();
 hold on;
 plot(los_time, surge, 'LineWidth', w);
-stairs(los_time, surge_ref, 'LineWidth', w);
-% plot(f_time, fake_data.v);
+stairs(los_time, surge_ref, '--', 'LineWidth', w);
+plot(los_time, u_ref, '-.');
 % stairs(f_time, fake_data.vel_ref);
 xlim(limits);
 xlabel('Time');
