@@ -1,0 +1,24 @@
+clear, close all
+width = 40*pi/180;
+l = 5;
+ROV_size = [2.5, 1.5, 1.5];
+y_0 = 1;
+y = atan(width/2)*l;
+beam_x = [0 -l -l];
+beam_y = [y_0, y+y_0, -y+y_0];
+
+fig = figure();
+patch(beam_x, beam_y, [0, 102, 255]/255, 'FaceAlpha', 0.5, 'EdgeColor', 'none');
+xlim([-l ROV_size(1)]);
+pos = axxy2figxy([0, ROV_size(2), ROV_size(1), ROV_size(2)]);
+hold on
+grid on
+% pos(4) = pos(3)*1.6667;
+pos(3) = p
+% pos(3:4) = 1;
+% axes('pos',pos)
+im = imread('ROV.PNG');
+image([0, ROV_size(1)], [ROV_size(2) 0], im);
+% image('ROV.png')
+% hold on;
+% plot(0, 0, '*r');
