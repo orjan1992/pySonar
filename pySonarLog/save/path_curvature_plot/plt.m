@@ -1,14 +1,20 @@
 clear, close all
 load('data');
 fig = figure();
+yyaxis left
 plot(p, v);
 hold on;
+ylabel('[m/s]');
 cum_dist = [0 cum_dist];
 curvature = [0 curvature];
+yyaxis right
+ylabel('[rad/m]');
 plot(cum_dist, curvature, '*-');
 xlabel('Distance [m]')
-ylabel('Velocity [m/s] / Curvature [rad/m]');
+legend('Velocity', 'Curvature');
 save_fig(fig, 'curvature', true);
+
+
 fig2 = figure();
 plot(smooth(:, 1), smooth(:, 2));
 hold on;

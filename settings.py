@@ -11,7 +11,7 @@ class Settings:
     enable_autopilot = False
     auto_settings = True
     # 0 == udp, 1 == MOOS
-    input_source = 1
+    input_source = 0
     pos_msg_source = 1 # 0=NMEA, 1=Autopilot
     # 0 == raw_plot, 1 == prob_plot, 2 == obstacle_plot
     plot_type = 2

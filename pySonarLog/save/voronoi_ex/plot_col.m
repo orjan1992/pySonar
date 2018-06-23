@@ -1,7 +1,7 @@
 clear, close all
 save_figs = true;
 
-load('collision_info20180522-094055')
+load('collision_info20180623-121724')
 % load('data.mat')
 old_wps = old_wps(:, 1:2);
 voronoi_ridge_vertices = voronoi_ridge_vertices + 1;
@@ -14,6 +14,7 @@ pos = double(pos);
 range_scale = double(range_scale);
 startwp = [0, 0];
 endwp = [40, 0];
+orig_list = orig_list +1;
 
 %% Fig 0
 f0 = figure();
@@ -64,12 +65,12 @@ xlim([-30, 30]);
 ylim([-5, 60]);
 xlabel('East [m]');
 ylabel('North [m]');
-legend(lines, {'Obstacles', 'Voronoi ridges', 'Start waypoint', 'End waypoint'})
-if save_figs
-    set(gcf, 'PaperUnits', 'normalized')
-    set(gcf, 'PaperPosition', [0 0 1 1])
-    print -depsc col0
-end
+legend(lines, {'Obstacles', 'VD ridges', 'Start WP', 'End WP'})
+% if save_figs
+%     set(gcf, 'PaperUnits', 'normalized')
+%     set(gcf, 'PaperPosition', [0 0 1 1])
+%     print -depsc col0
+% end
 clear lines
 %% Fig 1
 f1 = figure();
@@ -127,12 +128,12 @@ xlim([-30, 30]);
 ylim([-5, 60]);
 xlabel('East [m]');
 ylabel('North [m]');
-legend(lines, {'Obstacles', 'Valid voronoi ridges', 'Not valid voronoi ridges', 'Start waypoint', 'End waypoint'})
-if save_figs
-    set(gcf, 'PaperUnits', 'normalized')
-    set(gcf, 'PaperPosition', [0 0 1 1])
-    print -depsc col1
-end
+legend(lines, {'Obstacles', sprintf('Valid VD\nridges'), sprintf('Invalid VD\nridges'), 'Start WP', 'End WP'})
+% if save_figs
+%     set(gcf, 'PaperUnits', 'normalized')
+%     set(gcf, 'PaperPosition', [0 0 1 1])
+%     print -depsc col1
+% end
 clear lines
 
 %% Fig 2
@@ -182,8 +183,10 @@ end
 lines(3) = plot(old_wps(:, 2), old_wps(:, 1), '-*r', 'LineWidth', 2);
 
 % new path
-[n, e] = grid2ned(orig_voronoi_wp(:, 1), orig_voronoi_wp(:, 2), 30, 0, 0, 0);
-lines(4) = plot(e, n, '-*', 'LineWidth', 2, 'Color', colorOrder(6, :));
+dijkstra = voronoi_vertices(orig_list, :);
+% [n, e] = grid2ned(orig_voronoi_wp(:, 1), orig_voronoi_wp(:, 2), 30, 0, 0, 0);
+[dijkstra_n, dijkstra_e] = grid2ned(dijkstra(:, 1), dijkstra(:, 2), 30, 0, 0, 0);
+lines(4) = plot(dijkstra_e, dijkstra_n, '-*', 'LineWidth', 2, 'Color', colorOrder(6, :));
 
 lines(5) = plot(startwp(1), startwp(2), '*', 'Color', colorOrder(10, :), 'MarkerSize', 10, 'LineWidth', 2);
 lines(6) = plot(endwp(2), endwp(1), 'd', 'Color', colorOrder(7, :), 'MarkerSize', 10, 'LineWidth', 2);
@@ -192,15 +195,15 @@ xlim([-30, 30]);
 ylim([-5, 60]);
 xlabel('East [m]');
 ylabel('North [m]');
-legend(lines, {'Obstacles', 'Valid voronoiridges', 'Old path', 'Djikstra path', 'Start waypoint', 'End waypoint'})
-if save_figs
-    set(gcf, 'PaperUnits', 'normalized')
-    set(gcf, 'PaperPosition', [0 0 1 1])
-    print -depsc col2
-end
+legend(lines, {'Obstacles', sprintf('Valid VD\nridges'), 'Old path', 'Djikstra path', 'Start WP', 'End WP'})
+% if save_figs
+%     set(gcf, 'PaperUnits', 'normalized')
+%     set(gcf, 'PaperPosition', [0 0 1 1])
+%     print -depsc col2
+% end
 clear lines
 %% Fig 3
-f2 = figure();
+f3 = figure();
 colorOrder = [get(gca, 'ColorOrder'); get(gca, 'ColorOrder')];
 hold on
 axis equal
@@ -219,16 +222,18 @@ end
 
 
 % new path
-[n, e] = grid2ned(orig_voronoi_wp(:, 1), orig_voronoi_wp(:, 2), 30, 0, 0, 0);
-lines(2) = plot(e, n, '-*', 'LineWidth', 2, 'Color', colorOrder(6, :));
+% [n, e] = grid2ned(orig_voronoi_wp(:, 1), orig_voronoi_wp(:, 2), 30, 0, 0, 0);
+% lines(2) = plot(e, n, '-*', 'LineWidth', 2, 'Color', colorOrder(6, :));
+lines(2) = plot(dijkstra_e, dijkstra_n, '-*', 'LineWidth', 2, 'Color', colorOrder(6, :));
 
-% obsolete removed
-[n, e] = grid2ned(voronoi_indices(:, 1), voronoi_indices(:, 2), 30, 0, 0, 0);
-lines(3) = plot(e, n, '-*', 'LineWidth', 2, 'Color', colorOrder(2, :));
 
 % smooth
-lines(4) = plot(new_wps(:, 2), new_wps(:, 1), '-*', 'LineWidth', 2, 'Color', colorOrder(3, :));
+lines(3) = plot(new_wps(:, 2), new_wps(:, 1), '-*', 'LineWidth', 2, 'Color', colorOrder(3, :));
 
+% obsolete removed
+% [n, e] = grid2ned(voronoi_indices(:, 1), voronoi_indices(:, 2), 30, 0, 0, 0);
+% lines(3) = plot(e, n, '-.*', 'LineWidth', 2, 'Color', colorOrder(2, :));
+lines(4) = plot(non_smooth_path(:, 2), non_smooth_path(:, 1), '--*', 'LineWidth', 2, 'Color', colorOrder(2, :));
 
 lines(5) = plot(startwp(1), startwp(2), '*', 'Color', colorOrder(10, :), 'MarkerSize', 10, 'LineWidth', 2);
 lines(6) = plot(endwp(2), endwp(1), 'd', 'Color', colorOrder(7, :), 'MarkerSize', 10, 'LineWidth', 2);
@@ -237,9 +242,15 @@ xlim([-30, 30]);
 ylim([-5, 60]);
 xlabel('East [m]');
 ylabel('North [m]');
-legend(lines, {'Obstacles', 'Djikstra path', 'Obsolete waypoints removed', 'Smoothed with Fermat''s spiral', 'Start waypoint', 'End waypoint'})
+legend(lines, {'Obstacles', 'Djikstra path', sprintf('Smoothed with\nFermat''s spiral'), sprintf('Obsolete WPs\n removed'), 'Start WP', 'End WP'})
+% if save_figs
+%     set(gcf, 'PaperUnits', 'normalized')
+%     set(gcf, 'PaperPosition', [0 0 1 1])
+%     print -depsc col3
+% end
 if save_figs
-    set(gcf, 'PaperUnits', 'normalized')
-    set(gcf, 'PaperPosition', [0 0 1 1])
-    print -depsc col3
+    save_fig(f0, 'col0', true, true);
+    save_fig(f1, 'col1', true);
+    save_fig(f2, 'col2', true);
+    save_fig(f3, 'col3', true);
 end

@@ -373,6 +373,7 @@ class CollisionAvoidance:
                         #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
                         # except IndexError:
                         #     pass
+                        non_smooth_path = self.new_wp_list.copy()
                         self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
                     else:
                         non_smooth_path = self.new_wp_list.copy()
@@ -404,6 +405,7 @@ class CollisionAvoidance:
                                 #     self.new_wp_list.extend(self.waypoint_list[constrained_wp_index+1:])
                                 # except IndexError:
                                 #     pass
+                                non_smooth_path = self.new_wp_list.copy()
                                 self.new_wp_list, wp_conversion = fermat(self.new_wp_list)
                                 if use_constraint_wp:
                                     wp = grid2NED(int(vp.vertices[start_wp][0]), int(vp.vertices[start_wp][1]), self.range, self.north, self.east, self.yaw)
@@ -477,7 +479,7 @@ class CollisionAvoidance:
             except IndexError:
                 pass
 
-            self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK, orig_list)
+            self.save_collision_info(vp, start_wp, start_region, end_wp, end_region, CollisionStatus.NEW_ROUTE_OK, orig_list, non_smooth_path)
 
             if CollisionSettings.send_new_wps:
                 if Settings.input_source == 1:
@@ -503,7 +505,7 @@ class CollisionAvoidance:
             return CollisionStatus.NEW_ROUTE_OK
             # return vp
 
-    def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status, orig_list):
+    def save_collision_info(self, vp, start_wp, start_region, end_wp, end_region, status, orig_list, non_smooth_path=None):
         if Settings.save_collision_info:
             savemat('{}collision_info{}'.format(Settings.log_folder, strftime("%Y%m%d-%H%M%S")), mdict={
                 'old_wps': self.waypoint_list, 'new_wps': self.new_wp_list, 'voronoi_indices': self.voronoi_wp_list,
@@ -513,7 +515,7 @@ class CollisionAvoidance:
                 'voronoi_regions': vp.regions, 'voronoi_point_region': vp.point_region,
                 'pos': np.array([self.north, self.east, self.yaw]), 'range_scale': self.range,
                 'obstacles': self.obstacles, 'status': status.value, 'connection': vp.connection_matrix,
-                'orig_list': orig_list})
+                'orig_list': orig_list, 'non_smooth_path': non_smooth_path})
 
     def calc_voronoi_img(self, vp, voronoi_wp_list, start_wp=None, end_wp=None, end_region=None, start_region=None):
         x_min = np.min(vp.points[:, 0])-1000
